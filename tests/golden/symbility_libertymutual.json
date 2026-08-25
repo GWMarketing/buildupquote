@@ -1,0 +1,938 @@
+{
+  "claim_flags": {
+    "code_related_item_count": 0,
+    "code_related_rcv_total": 0,
+    "cosmetic_exclusion_mentioned": false,
+    "deductible_pct": null,
+    "deductible_type": "unknown",
+    "document_code_citation_count": 0,
+    "dwelling_deductible": null,
+    "dwelling_policy_limit": null,
+    "is_appraisal_document": false,
+    "is_public_adjuster_document": false,
+    "is_supplement_document": false,
+    "mortgagee_mentioned": false,
+    "notes": [],
+    "ordinance_or_law_mentioned": false
+  },
+  "discarded_lines": [],
+  "line_items": [
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Remove - Window, Beading, Aluminum",
+      "life": null,
+      "needs_review": false,
+      "notes": [],
+      "number": "1",
+      "overhead_profit": null,
+      "quantity": 6.0,
+      "raw_tail_tokens": [
+        "$1.63",
+        "$0.00",
+        "$0.00",
+        "$9.78",
+        "$0.00",
+        "$9.78"
+      ],
+      "rcv": 9.78,
+      "review_reason": null,
+      "section": "Building perimeter",
+      "tax": null,
+      "unit": "LF",
+      "unit_price": 1.63
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Replace - Window, Beading, Aluminum",
+      "life": null,
+      "needs_review": false,
+      "notes": [
+        "Includes 5% waste on quantity."
+      ],
+      "number": "2",
+      "overhead_profit": null,
+      "quantity": 6.3,
+      "raw_tail_tokens": [
+        "$3.99",
+        "$0.00",
+        "$1.01",
+        "$26.15",
+        "$0.00",
+        "$26.15"
+      ],
+      "rcv": 26.15,
+      "review_reason": null,
+      "section": "Building perimeter",
+      "tax": null,
+      "unit": "LF",
+      "unit_price": 3.99
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Replace - Ridge Cap Shingles, 3-Tab",
+      "life": null,
+      "needs_review": false,
+      "notes": [
+        "Includes 10% waste on quantity."
+      ],
+      "number": "3",
+      "overhead_profit": null,
+      "quantity": 144.14,
+      "raw_tail_tokens": [
+        "$4.64",
+        "$0.00",
+        "$16.17",
+        "$684.98",
+        "$0.00",
+        "$684.98"
+      ],
+      "rcv": 684.98,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "LF",
+      "unit_price": 4.64
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Replace - Drip Edge, Eave/Rake,",
+      "life": null,
+      "needs_review": false,
+      "notes": [
+        "Aluminum, Pre-Finished Color",
+        "Includes 5% waste on quantity."
+      ],
+      "number": "4",
+      "overhead_profit": null,
+      "quantity": 338.26,
+      "raw_tail_tokens": [
+        "$3.15",
+        "$0.00",
+        "$38.51",
+        "$1,104.03",
+        "$0.00",
+        "$1,104.03"
+      ],
+      "rcv": 1104.03,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "LF",
+      "unit_price": 3.15
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Replace - Shingles, Starter Row, Eave, Continuous",
+      "life": null,
+      "needs_review": false,
+      "notes": [
+        "Includes 6% waste on quantity."
+      ],
+      "number": "5",
+      "overhead_profit": null,
+      "quantity": 201.51,
+      "raw_tail_tokens": [
+        "$2.04",
+        "$0.00",
+        "$11.81",
+        "$422.89",
+        "$0.00",
+        "$422.89"
+      ],
+      "rcv": 422.89,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "LF",
+      "unit_price": 2.04
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Replace - Shingles, Starter Row, Rake, Continuous",
+      "life": null,
+      "needs_review": false,
+      "notes": [
+        "Includes 6% waste on quantity."
+      ],
+      "number": "6",
+      "overhead_profit": null,
+      "quantity": 140.03,
+      "raw_tail_tokens": [
+        "$2.04",
+        "$0.00",
+        "$8.20",
+        "$293.86",
+        "$0.00",
+        "$293.86"
+      ],
+      "rcv": 293.86,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "LF",
+      "unit_price": 2.04
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Replace - Flashing, Pipe Jack, Aluminum",
+      "life": null,
+      "needs_review": false,
+      "notes": [],
+      "number": "7",
+      "overhead_profit": null,
+      "quantity": 2.0,
+      "raw_tail_tokens": [
+        "$43.36",
+        "$0.00",
+        "$3.25",
+        "$89.97",
+        "$0.00",
+        "$89.97"
+      ],
+      "rcv": 89.97,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "EA",
+      "unit_price": 43.36
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Replace - Flashing, Split Pipe Boot, EPDM, 3-3/8\" In progress",
+      "life": null,
+      "needs_review": false,
+      "notes": [
+        "Liberty Mutual Insurance",
+        "PO Box 5014",
+        "Scranton, PA 18505-5014",
+        "Fax: (888) 268-8840",
+        "Description Quantity Unit Price Per Total O&P Total Taxes RC Depreciation ACV",
+        "ESTIMATE: PRT Estimate 6/1/26 Claim #060929297, Tammy Cobb"
+      ],
+      "number": "8",
+      "overhead_profit": null,
+      "quantity": 1.0,
+      "raw_tail_tokens": [
+        "$60.51",
+        "$0.00",
+        "$3.03",
+        "$63.54",
+        "$0.00",
+        "$63.54"
+      ],
+      "rcv": 63.54,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "EA",
+      "unit_price": 60.51
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Replace - Vent Pipe Flashing, Furnace, Aluminum, 8\"",
+      "life": null,
+      "needs_review": false,
+      "notes": [],
+      "number": "9",
+      "overhead_profit": null,
+      "quantity": 1.0,
+      "raw_tail_tokens": [
+        "$161.36",
+        "$0.00",
+        "$11.70",
+        "$173.06",
+        "$0.00",
+        "$173.06"
+      ],
+      "rcv": 173.06,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "EA",
+      "unit_price": 161.36
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Replace - Vent Pipe Flashing, Furnace, Aluminum, 6\"",
+      "life": null,
+      "needs_review": false,
+      "notes": [],
+      "number": "10",
+      "overhead_profit": null,
+      "quantity": 1.0,
+      "raw_tail_tokens": [
+        "$108.14",
+        "$0.00",
+        "$7.30",
+        "$115.44",
+        "$0.00",
+        "$115.44"
+      ],
+      "rcv": 115.44,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "EA",
+      "unit_price": 108.14
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Replace - Ridge Vent, Composite/PVC, Shingle-Over PRT 6/1",
+      "life": null,
+      "needs_review": false,
+      "notes": [
+        "Includes 5% waste on quantity."
+      ],
+      "number": "11",
+      "overhead_profit": null,
+      "quantity": 49.35,
+      "raw_tail_tokens": [
+        "$8.06",
+        "$0.00",
+        "$14.41",
+        "$412.17",
+        "$0.00",
+        "$412.17"
+      ],
+      "rcv": 412.17,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "LF",
+      "unit_price": 8.06
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "ITEL, Shingles, 3-Tab, Tear Out",
+      "life": null,
+      "needs_review": false,
+      "notes": [],
+      "number": "12",
+      "overhead_profit": null,
+      "quantity": 20.19,
+      "raw_tail_tokens": [
+        "$61.70",
+        "$0.00",
+        "$0.00",
+        "$1,245.72",
+        "$0.00",
+        "$1,245.72"
+      ],
+      "rcv": 1245.72,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "SQ",
+      "unit_price": 61.7
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "ITEL, Shingles, 3-Tab, 20 Year, Supply",
+      "life": null,
+      "needs_review": false,
+      "notes": [
+        "Measured quantity 22.21; priced on the ordered quantity 22.33 (bundle rounding).",
+        "This line item includes a shingle material allowance per square, which reflects current market prices in your area. Market prices were verified by ITEL. The",
+        "ITEL Asphalt Shingle Program allows you or your contractor of choice to have materials delivered directly to you. For more information on ordering",
+        "shingles through ITEL, contact them at customerservice@itelinc.com or 800-890-4835.",
+        "Includes 10% waste on quantity.",
+        "Materials quantity bundle rounding applied."
+      ],
+      "number": "13",
+      "overhead_profit": null,
+      "quantity": 22.33,
+      "raw_tail_tokens": [
+        "$107.81",
+        "$0.00",
+        "$198.61",
+        "$2,606.01",
+        "$0.00",
+        "$2,606.01"
+      ],
+      "rcv": 2606.01,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "SQ",
+      "unit_price": 107.81
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "ITEL, Shingles, 3-Tab, 20 Year, Install",
+      "life": null,
+      "needs_review": false,
+      "notes": [
+        "Includes 10% waste on quantity."
+      ],
+      "number": "14",
+      "overhead_profit": null,
+      "quantity": 22.21,
+      "raw_tail_tokens": [
+        "$134.29",
+        "$0.00",
+        "$17.88",
+        "$3,000.46",
+        "$0.00",
+        "$3,000.46"
+      ],
+      "rcv": 3000.46,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "SQ",
+      "unit_price": 134.29
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Tear Off, Roof Covering, 1 Additional Layer",
+      "life": null,
+      "needs_review": false,
+      "notes": [],
+      "number": "15",
+      "overhead_profit": null,
+      "quantity": 20.19,
+      "raw_tail_tokens": [
+        "$48.51",
+        "$0.00",
+        "$0.00",
+        "$979.42",
+        "$0.00",
+        "$979.42"
+      ],
+      "rcv": 979.42,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "SQ",
+      "unit_price": 48.51
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Tear Out - Modified Bitumen Asphalt,",
+      "life": null,
+      "needs_review": false,
+      "notes": [
+        "APP, Heat Applied, Smooth Finish"
+      ],
+      "number": "16",
+      "overhead_profit": null,
+      "quantity": 7.81,
+      "raw_tail_tokens": [
+        "$113.83",
+        "$0.00",
+        "$0.00",
+        "$889.01",
+        "$0.00",
+        "$889.01"
+      ],
+      "rcv": 889.01,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "SQ",
+      "unit_price": 113.83
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Replace - Modified Bitumen Asphalt,",
+      "life": null,
+      "needs_review": false,
+      "notes": [
+        "APP, Heat Applied, Smooth Finish",
+        "Includes 10% waste on quantity."
+      ],
+      "number": "17",
+      "overhead_profit": null,
+      "quantity": 8.59,
+      "raw_tail_tokens": [
+        "$449.68",
+        "$0.00",
+        "$109.13",
+        "$3,971.88",
+        "$0.00",
+        "$3,971.88"
+      ],
+      "rcv": 3971.88,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "SQ",
+      "unit_price": 449.68
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Dumpster, 30 Yard PRT 6/15",
+      "life": null,
+      "needs_review": false,
+      "notes": [
+        "Tax override applied - State applied to materials, labor, equipment.",
+        "Tax override applied - City applied to materials, labor, equipment.",
+        "Tax override applied - Special applied to materials, labor, equipment."
+      ],
+      "number": "18",
+      "overhead_profit": null,
+      "quantity": 1.0,
+      "raw_tail_tokens": [
+        "$776.14",
+        "$0.00",
+        "$64.03",
+        "$840.17",
+        "$0.00",
+        "$840.17"
+      ],
+      "rcv": 840.17,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "EA",
+      "unit_price": 776.14
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Replace - Felt, Single Layer, 15 lb.",
+      "life": null,
+      "needs_review": false,
+      "notes": [
+        "Includes 5% waste on quantity."
+      ],
+      "number": "19",
+      "overhead_profit": null,
+      "quantity": 21.2,
+      "raw_tail_tokens": [
+        "$33.37",
+        "$0.00",
+        "$17.92",
+        "$725.37",
+        "$0.00",
+        "$725.37"
+      ],
+      "rcv": 725.37,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "SQ",
+      "unit_price": 33.37
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Tear Off, Roof Felt, Additional Layer",
+      "life": null,
+      "needs_review": false,
+      "notes": [],
+      "number": "20",
+      "overhead_profit": null,
+      "quantity": 40.38,
+      "raw_tail_tokens": [
+        "$4.78",
+        "$0.00",
+        "$0.00",
+        "$193.02",
+        "$0.00",
+        "$193.02"
+      ],
+      "rcv": 193.02,
+      "review_reason": null,
+      "section": "Eaves:",
+      "tax": null,
+      "unit": "SQ",
+      "unit_price": 4.78
+    },
+    {
+      "acv": null,
+      "age": null,
+      "code_related": false,
+      "condition": null,
+      "depreciation": null,
+      "depreciation_pct": null,
+      "depreciation_recoverable": null,
+      "description": "Minimum Charge, Glass/Glazing",
+      "life": null,
+      "needs_review": true,
+      "notes": [],
+      "number": "21",
+      "overhead_profit": null,
+      "quantity": 1.0,
+      "raw_tail_tokens": [
+        "$324.36",
+        "$0.00",
+        "$3.61",
+        "$293.05",
+        "$0.00",
+        "$293.05"
+      ],
+      "rcv": 293.05,
+      "review_reason": "this row's figures don't multiply out the way the rest of the section does",
+      "section": "Minimum Charge Adjustments",
+      "tax": null,
+      "unit": "LS",
+      "unit_price": 324.36
+    }
+  ],
+  "measurements": [
+    {
+      "label": "$1.63 LF $0.00 $0.00 $9.78 $0.00 $9.78",
+      "section": "Building perimeter (ground): 1.79 LF",
+      "unit": "",
+      "value": 6.0
+    },
+    {
+      "label": "$3.99 LF $0.00 $1.01 $26.15 $0.00 $26.15",
+      "section": "Aluminum",
+      "unit": "",
+      "value": 6.3
+    },
+    {
+      "label": "$4.64 LF $0.00 $16.17 $684.98 $0.00 $684.98",
+      "section": "Eaves: 171.21 LF Ridge: 119.74 LF",
+      "unit": "",
+      "value": 144.14
+    },
+    {
+      "label": "$3.15 LF $0.00 $38.51 $1,104.03 $0.00 $1,104.03",
+      "section": "Eaves: 171.21 LF Ridge: 119.74 LF",
+      "unit": "",
+      "value": 338.26
+    },
+    {
+      "label": "$2.04 LF $0.00 $11.81 $422.89 $0.00 $422.89",
+      "section": "Aluminum, Pre-Finished Color",
+      "unit": "",
+      "value": 201.51
+    },
+    {
+      "label": "$2.04 LF $0.00 $8.20 $293.86 $0.00 $293.86",
+      "section": "Continuous",
+      "unit": "",
+      "value": 140.03
+    },
+    {
+      "label": "$8.06 LF $0.00 $14.41 $412.17 $0.00 $412.17",
+      "section": "Aluminum, 6\"",
+      "unit": "",
+      "value": 49.35
+    },
+    {
+      "label": "$61.70 SQ $0.00 $0.00 $1,245.72 $0.00 $1,245.72",
+      "section": "PRT 6/1",
+      "unit": "",
+      "value": 20.19
+    },
+    {
+      "label": "(22.33) $107.81 SQ $0.00 $198.61 $2,606.01 $0.00 $2,606.01",
+      "section": "PRT 6/1",
+      "unit": "",
+      "value": 22.21
+    },
+    {
+      "label": "$134.29 SQ $0.00 $17.88 $3,000.46 $0.00 $3,000.46",
+      "section": "PRT 6/1",
+      "unit": "",
+      "value": 22.21
+    },
+    {
+      "label": "$48.51 SQ $0.00 $0.00 $979.42 $0.00 $979.42",
+      "section": "PRT 6/1",
+      "unit": "",
+      "value": 20.19
+    },
+    {
+      "label": "$113.83 SQ $0.00 $0.00 $889.01 $0.00 $889.01",
+      "section": "Layer",
+      "unit": "",
+      "value": 7.81
+    },
+    {
+      "label": "$449.68 SQ $0.00 $109.13 $3,971.88 $0.00 $3,971.88",
+      "section": "APP, Heat Applied, Smooth Finish",
+      "unit": "",
+      "value": 8.59
+    },
+    {
+      "label": "$33.37 SQ $0.00 $17.92 $725.37 $0.00 $725.37",
+      "section": "PRT 6/15",
+      "unit": "",
+      "value": 21.2
+    },
+    {
+      "label": "$4.78 SQ $0.00 $0.00 $193.02 $0.00 $193.02",
+      "section": "PRT 6/15",
+      "unit": "",
+      "value": 40.38
+    }
+  ],
+  "metadata": {
+    "fields": {
+      "assigned": "06/01/2026",
+      "claim_number": "060929297",
+      "claim_rep": "Christopher Cooke",
+      "contact_email": "tammycobb@att.net",
+      "contact_name": "Tammy Cobb",
+      "contact_phone": "(817) 235-3374",
+      "date_of_loss": "05/06/2025",
+      "deductible": "$3,073.00",
+      "effective_from": "12/20/2024 to: 12/20/2025",
+      "estimate_name": "PRT Estimate 6/1/26 Claim #060929297, Tammy Cobb",
+      "estimated": "06/01/2026",
+      "fax": "(888) 268-8840",
+      "insured_name": "Tammy Cobb",
+      "mailing_address": "5009 Andalusia Trl",
+      "mobile_phone": "(817) 235-3374",
+      "phone": "(317) 581-6864",
+      "policy_number": "OY8566165",
+      "policy_type": "Homeowner's",
+      "price_list": "C otality Data Driven USDC -",
+      "property_address": "2308 PALMER DR, DENTON TX 76209-2027",
+      "type_of_loss": "Hail",
+      "underwriting_co": "American Economy Insurance"
+    }
+  },
+  "section_totals": [
+    {
+      "closest_diff": 0.0,
+      "matched": true,
+      "parsed_rcv_sum": 35.93,
+      "printed_numbers": [
+        0.0,
+        1.01,
+        35.93,
+        0.0,
+        35.93
+      ],
+      "section": "Exterior Plan",
+      "skipped": false
+    },
+    {
+      "closest_diff": null,
+      "matched": true,
+      "parsed_rcv_sum": 0,
+      "printed_numbers": [
+        0.0,
+        1.01,
+        35.93,
+        0.0,
+        35.93
+      ],
+      "section": "Exterior Plan",
+      "skipped": true
+    },
+    {
+      "closest_diff": 0.0,
+      "matched": true,
+      "parsed_rcv_sum": 17811.0,
+      "printed_numbers": [
+        0.0,
+        521.95,
+        17811.0,
+        0.0,
+        17811.0
+      ],
+      "section": "Roof",
+      "skipped": false
+    },
+    {
+      "closest_diff": null,
+      "matched": true,
+      "parsed_rcv_sum": 0,
+      "printed_numbers": [
+        0.0,
+        521.95,
+        17811.0,
+        0.0,
+        17811.0
+      ],
+      "section": "Hover XML 1 - 19958222",
+      "skipped": true
+    },
+    {
+      "closest_diff": 0.0,
+      "matched": true,
+      "parsed_rcv_sum": 293.05,
+      "printed_numbers": [
+        0.0,
+        3.61,
+        293.05,
+        0.0,
+        293.05
+      ],
+      "section": "Minimum Charge Adjustments",
+      "skipped": false
+    },
+    {
+      "closest_diff": null,
+      "matched": true,
+      "parsed_rcv_sum": 0,
+      "printed_numbers": [
+        0.0,
+        526.57,
+        18139.98,
+        0.0,
+        18139.98
+      ],
+      "section": "Minimum Charge Adjustments",
+      "skipped": true
+    },
+    {
+      "closest_diff": null,
+      "matched": true,
+      "parsed_rcv_sum": 0,
+      "printed_numbers": [
+        6382.76
+      ],
+      "section": "Materials:",
+      "skipped": true
+    },
+    {
+      "closest_diff": null,
+      "matched": true,
+      "parsed_rcv_sum": 0,
+      "printed_numbers": [
+        11011.35
+      ],
+      "section": "Labor:",
+      "skipped": true
+    },
+    {
+      "closest_diff": null,
+      "matched": true,
+      "parsed_rcv_sum": 0,
+      "printed_numbers": [
+        219.3
+      ],
+      "section": "Equipment:",
+      "skipped": true
+    },
+    {
+      "closest_diff": null,
+      "matched": true,
+      "parsed_rcv_sum": 0,
+      "printed_numbers": [
+        17613.41
+      ],
+      "section": "Minimum Charge Adjustments",
+      "skipped": true
+    }
+  ],
+  "warnings": [
+    "1 line item(s) need manual review -- see needs_review_items"
+  ]
+}

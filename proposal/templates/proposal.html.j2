@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Proposal{% if data.proposal_number %} {{ data.proposal_number }}{% endif %}</title>
+<style>
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #1a1a1a; margin: 0; }
+  table { border-collapse: collapse; }
+  .header-table { width: 100%; margin-bottom: 18px; }
+  .header-table td { vertical-align: top; padding: 0; }
+  .logo { max-height: 64px; max-width: 220px; margin-bottom: 8px; display: block; }
+  .contractor-name { font-size: 18px; font-weight: bold; margin-bottom: 2px; }
+  .contractor-line { color: #333; margin-bottom: 1px; }
+  .claim-box { border: 1px solid #999; padding: 10px 12px; font-size: 10px; }
+  .claim-box h3 {
+    margin: 0 0 8px 0; font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.6px; color: #444; border-bottom: 1px solid #ccc; padding-bottom: 4px;
+  }
+  .claim-box table { width: 100%; }
+  .claim-box td { padding: 2px 0; vertical-align: top; }
+  .claim-box td.label { color: #666; width: 42%; }
+
+  h1.title {
+    text-align: center; font-size: 15px; text-transform: uppercase; letter-spacing: 1.2px;
+    border-bottom: 2px solid #1a1a1a; padding-bottom: 8px; margin: 6px 0 6px 0;
+  }
+  .proposal-meta { text-align: right; font-size: 10px; color: #555; margin-bottom: 14px; }
+
+  table.items { width: 100%; margin-bottom: 6px; }
+  table.items th {
+    text-align: left; background: #1a1a1a; color: #fff; padding: 6px 8px;
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  table.items td { padding: 5px 8px; border-bottom: 1px solid #e2e2e2; font-size: 10.5px; }
+  table.items tr.trade-header td {
+    background: #f2f2f2; font-weight: bold; border-top: 2px solid #1a1a1a;
+    border-bottom: 1px solid #ccc; padding-top: 6px; padding-bottom: 6px;
+  }
+  table.items tr.subtotal td { font-weight: bold; border-top: 1px solid #999; border-bottom: none; }
+  .num { text-align: right; white-space: nowrap; }
+
+  .grand-total {
+    text-align: right; font-size: 15px; font-weight: bold;
+    margin: 10px 0 22px 0; padding-top: 8px; border-top: 3px double #1a1a1a;
+  }
+
+  .totals-block { margin: 10px 0 22px 0; }
+  table.totals-table { width: 100%; }
+  table.totals-table td { padding: 3px 0; font-size: 11px; }
+  table.totals-table td.num { text-align: right; white-space: nowrap; }
+  table.totals-table tr.grand td { font-size: 15px; font-weight: bold; padding-top: 8px; border-top: 3px double #1a1a1a; }
+
+  .trade-summary { margin: 4px 0 14px 0; }
+  .trade-summary h3 {
+    margin: 0 0 6px 0; font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.6px; color: #444; border-bottom: 1px solid #ccc; padding-bottom: 4px;
+  }
+  table.trade-summary-table { width: 100%; }
+  table.trade-summary-table td { padding: 3px 8px 3px 0; font-size: 10.5px; border-bottom: 1px solid #eee; }
+  table.trade-summary-table td.num { text-align: right; white-space: nowrap; }
+
+  .terms { font-size: 9.5px; color: #333; line-height: 1.45; margin-top: 6px; }
+  .terms h3 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 6px 0; }
+
+  .payment-schedule { margin: 14px 0; }
+  .payment-schedule h3 {
+    margin: 0 0 4px 0; font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.6px; color: #444; border-bottom: 1px solid #ccc; padding-bottom: 4px;
+  }
+  .payment-schedule-intro { font-size: 9.5px; color: #555; margin: 4px 0 8px 0; }
+  table.payment-schedule-table { width: 100%; }
+  table.payment-schedule-table td {
+    padding: 5px 8px 5px 0; font-size: 10px; vertical-align: top; border-bottom: 1px solid #eee;
+  }
+  table.payment-schedule-table td.step {
+    font-weight: bold; width: 18px; padding-right: 6px; color: #555;
+  }
+  table.payment-schedule-table td.num {
+    text-align: right; white-space: nowrap; font-weight: bold; width: 14%;
+  }
+
+  /* Texas Business and Commerce Code Sec. 27.02 requires this exact
+     notice, on any contract of $1,000+, in at least 12-point boldfaced
+     type -- a formatting requirement of the statute itself, not a style
+     choice, so this box's font-size/weight must not be reduced below
+     12pt/bold even if the rest of the document's type scale changes. */
+  .tx-deductible-notice {
+    font-size: 12pt; font-weight: bold; line-height: 1.4; color: #1a1a1a;
+    border: 1.5px solid #1a1a1a; padding: 8px 10px; margin: 14px 0;
+  }
+
+  table.signatures { width: 100%; margin-top: 46px; }
+  table.signatures td { width: 50%; padding-right: 24px; font-size: 10px; }
+  .sig-line { border-top: 1px solid #1a1a1a; margin-top: 34px; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+  <table class="header-table"><tr>
+    <td style="width:56%;">
+      {% if logo_uri %}<img class="logo" src="{{ logo_uri }}">{% endif %}
+      <div class="contractor-name">{{ data.contractor.name }}</div>
+      {% if data.contractor.address %}<div class="contractor-line">{{ data.contractor.address }}</div>{% endif %}
+      <div class="contractor-line">
+        {%- if data.contractor.phone %}{{ data.contractor.phone }}{% endif -%}
+        {%- if data.contractor.phone and data.contractor.email %} &nbsp;|&nbsp; {% endif -%}
+        {%- if data.contractor.email %}{{ data.contractor.email }}{% endif -%}
+      </div>
+      {% if data.contractor.license_number %}<div class="contractor-line">License #{{ data.contractor.license_number }}</div>{% endif %}
+    </td>
+    <td style="width:44%;">
+      <div class="claim-box">
+        <h3>Insurance Claim Information</h3>
+        <table>
+          <tr><td class="label">Insured</td><td>{{ data.claim.insured_name }}</td></tr>
+          <tr><td class="label">Property</td><td>{{ data.claim.property_address }}</td></tr>
+          <tr><td class="label">Insurance Co.</td><td>{{ data.claim.insurance_company }}</td></tr>
+          <tr><td class="label">Claim #</td><td>{{ data.claim.claim_number }}</td></tr>
+          <tr><td class="label">Policy #</td><td>{{ data.claim.policy_number }}</td></tr>
+          <tr><td class="label">Type of Loss</td><td>{{ data.claim.type_of_loss }}</td></tr>
+          <tr><td class="label">Date of Loss</td><td>{{ data.claim.date_of_loss }}</td></tr>
+        </table>
+      </div>
+    </td>
+  </tr></table>
+
+  <h1 class="title">Scope of Work &amp; Proposal</h1>
+  <div class="proposal-meta">
+    {% if data.proposal_number %}Proposal #{{ data.proposal_number }} &nbsp;|&nbsp; {% endif %}Date: {{ data.proposal_date }}
+  </div>
+
+  <table class="items">
+    <tr>
+      <th style="width:46%;">Description</th>
+      <th class="num" style="width:10%;">Qty</th>
+      <th style="width:10%;">Unit</th>
+      <th class="num" style="width:16%;">Unit Price</th>
+      <th class="num" style="width:18%;">Total</th>
+    </tr>
+    {% for group in data.grouped_items %}
+    <tr class="trade-header"><td colspan="5">{{ group.trade }}</td></tr>
+    {% for item in group.items %}
+    <tr>
+      <td>{{ item.description }}</td>
+      <td class="num">{{ "%.2f"|format(item.quantity) }}</td>
+      <td>{{ item.unit }}</td>
+      <td class="num">${{ "%.2f"|format(item.unit_price) }}</td>
+      <td class="num">${{ "{:,.2f}".format(item.line_total) }}</td>
+    </tr>
+    {% endfor %}
+    {% endfor %}
+  </table>
+
+  {% if data.grouped_items|length > 1 %}
+  <div class="trade-summary">
+    <h3>Summary by Trade</h3>
+    <table class="trade-summary-table">
+      {% for group in data.grouped_items %}
+      <tr><td>{{ group.trade }}</td><td class="num">${{ "{:,.2f}".format(group.subtotal) }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endif %}
+
+  {% if data.tax_label %}
+  <div class="totals-block">
+    <table class="totals-table">
+      <tr><td>Subtotal</td><td class="num">${{ "{:,.2f}".format(data.subtotal) }}</td></tr>
+      <tr><td>Sales Tax &mdash; {{ data.tax_label }}</td><td class="num">${{ "{:,.2f}".format(data.tax_amount) }}</td></tr>
+      <tr class="grand"><td>Total Contract Price</td><td class="num">${{ "{:,.2f}".format(data.total_price) }}</td></tr>
+    </table>
+  </div>
+  {% else %}
+  <div class="grand-total">Total Contract Price: ${{ "{:,.2f}".format(data.total_price) }}</div>
+  {% endif %}
+
+  <div class="payment-schedule">
+    <h3>Payment Schedule</h3>
+    <p class="payment-schedule-intro">
+      The total above is not due all at once -- here is when each part of it is actually paid.
+    </p>
+    <table class="payment-schedule-table">
+      <tr>
+        <td class="step">1</td>
+        <td>Deductible &mdash; paid directly to {{ data.contractor.name }} by the homeowner, in
+          full. Required by Texas law ({{ deductible_law_citation }}); never paid by insurance
+          and never absorbed into this price.</td>
+        <td class="num">${{ "{:,.2f}".format(data.deductible_amount) }}</td>
+      </tr>
+      <tr>
+        <td class="step">2</td>
+        <td>Due upon the insurance company's first (initial) payment.</td>
+        <td class="num">${{ "{:,.2f}".format(data.first_check_amount) }}</td>
+      </tr>
+      {% if data.recoverable_depreciation_amount %}
+      <tr>
+        <td class="step">3</td>
+        <td>Recoverable depreciation &mdash; released by the insurance company once repairs
+          are complete and proof is submitted.</td>
+        <td class="num">${{ "{:,.2f}".format(data.recoverable_depreciation_amount) }}</td>
+      </tr>
+      {% endif %}
+      {% if data.supplements_amount %}
+      <tr>
+        <td class="step">4</td>
+        <td>Supplements &mdash; scope added beyond the insurance company's original estimate,
+          due upon completion.</td>
+        <td class="num">${{ "{:,.2f}".format(data.supplements_amount) }}</td>
+      </tr>
+      {% endif %}
+    </table>
+  </div>
+
+  {% if data.total_price >= 1000 %}
+  <div class="tx-deductible-notice">{{ data.deductible_notice }}</div>
+  {% endif %}
+
+  <div class="terms">
+    <h3>Terms &amp; Acceptance</h3>
+    <p>{{ data.terms }}</p>
+  </div>
+
+  <table class="signatures"><tr>
+    <td>
+      <div class="sig-line">&nbsp;</div>
+      Homeowner Signature &nbsp;&nbsp;&nbsp;&nbsp; Date: ______________
+    </td>
+    <td>
+      <div class="sig-line">&nbsp;</div>
+      Contractor Signature &nbsp;&nbsp;&nbsp;&nbsp; Date: ______________
+    </td>
+  </tr></table>
+
+</body>
+</html>

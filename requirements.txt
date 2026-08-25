@@ -1,0 +1,38 @@
+# Step 1 -- parsing engine
+#
+# pdfplumber does the actual PDF -> text extraction (see scope_parser/extract.py).
+# It's built on pdfminer.six and was already available in this environment;
+# PyMuPDF/fitz would work just as well if you ever prefer it, but there was
+# no reason to add a second dependency that does the same job.
+pdfplumber>=0.11
+
+# Step 2 -- the editing workspace (app.py)
+streamlit>=1.32
+pandas>=2.0
+
+# Step 3 -- branded proposal PDF export (proposal/)
+jinja2>=3.1
+pdfkit>=1.0
+
+# pdfkit is just a thin Python wrapper -- it calls a real program called
+# wkhtmltopdf to do the actual HTML -> PDF rendering. `pip install pdfkit`
+# does NOT install that program; it's a separate, system-level install:
+#   - Mac:     Homebrew's cask for this was removed (the upstream project is
+#              unmaintained), so `brew install --cask wkhtmltopdf` no longer
+#              works. Instead, download the .pkg installer directly from
+#              https://github.com/wkhtmltopdf/packaging/releases and run it
+#              like any other Mac installer. It's built for Intel; on Apple
+#              Silicon (M1/M2/M3/M4) macOS will prompt to install "Rosetta"
+#              the first time it runs -- let it, that's expected.
+#   - Windows/Linux:  download the installer from wkhtmltopdf.org
+# If "Download Proposal PDF" in the app errors out, this is almost
+# certainly why -- install wkhtmltopdf, then restart the app (stop it with
+# Ctrl+C in the terminal and run `streamlit run app.py` again).
+
+# Everything else here is Python standard library -- nothing else to
+# install.
+#
+# Tests use Python's built-in `unittest`, not pytest, because this
+# environment's package installer couldn't reach PyPI when this was built.
+# If you have pytest available in your own environment, it will happily
+# run these same tests too (pytest can run unittest-style test files).
