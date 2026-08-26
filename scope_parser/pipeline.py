@@ -119,6 +119,26 @@ def parse_text(text: str, pdf_info=None) -> ParsedEstimate:
                 f"line items we parsed sum to {parsed_sum:,.2f} -- something in the parse may be off"
             )
 
+    # The same deductible can be printed in two places: the Coverage table
+    # (claim_flags.dwelling_deductible) and the summary ladder's "Less
+    # Deductible" (summary.deductible). When BOTH printed numbers exist and
+    # genuinely disagree, that's worth surfacing rather than quietly letting
+    # the app pick one -- same anti-guessing spirit as the totals check.
+    # Skipped for multi-coverage documents (each coverage's ladder has its
+    # own deductible, so the two sources legitimately differ).
+    if (
+        summary is not None
+        and not summary.coverage_label
+        and summary.deductible is not None
+        and flags.dwelling_deductible is not None
+        and abs(summary.deductible - flags.dwelling_deductible) > 0.01
+    ):
+        warnings.append(
+            f"the summary ladder's \"Less Deductible\" is {summary.deductible:,.2f}, but the "
+            f"coverage table shows a {flags.dwelling_deductible:,.2f} deductible -- worth a "
+            "check before you use either one."
+        )
+
     return ParsedEstimate(
         metadata=meta,
         line_items=items,

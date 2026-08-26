@@ -176,20 +176,26 @@ def filter_rows(frame, query, columns=None):
 _ILLEGAL_FILENAME_CHARS = '<>:"/\\|?*'
 
 
-def sanitize_filename(name, extension, fallback):
+def sanitize_filename(name, extension, fallback, separator=" "):
     """Turn whatever someone typed into a safe file name.
 
     Strips the characters Windows and macOS refuse, collapses runs of
-    whitespace, removes a duplicate extension if they typed one, and
-    trims to a sane length. An empty or all-punctuation name falls back
-    rather than producing a file called ".pdf".
+    whitespace (to `separator` -- a space for a name the contractor typed
+    themselves, "_" for an auto-built name joining several pieces, see
+    app.py's _slugify), removes a duplicate extension if they typed one,
+    and trims to a sane length. An empty or all-punctuation name falls
+    back rather than producing a file called ".pdf". An empty `extension`
+    returns the cleaned name itself (no trailing dot) -- how the
+    auto-built default download name is produced without inventing one.
     """
     cleaned = "".join(ch for ch in str(name or "") if ch not in _ILLEGAL_FILENAME_CHARS)
-    cleaned = " ".join(cleaned.split()).strip(" .")
+    cleaned = separator.join(cleaned.split()).strip(" .")
     if cleaned.lower().endswith("." + extension.lower()):
         cleaned = cleaned[: -(len(extension) + 1)].strip(" .")
     if not cleaned:
         return fallback
+    if not extension:
+        return cleaned
     return f"{cleaned[:120]}.{extension}"
 
 

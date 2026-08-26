@@ -94,6 +94,36 @@ class FilenameTests(unittest.TestCase):
         self.assertTrue(result.endswith(".pdf"))
         self.assertLessEqual(len(result), 130)
 
+    def test_an_auto_built_name_joins_words_with_the_given_separator(self):
+        """app._slugify passes separator="_" (it joins several separate
+        pieces -- business, carrier, claim number -- into one name), while
+        a name the contractor typed themselves stays space-separated.
+        Ampersands and the like are handled by _slugify's stricter
+        pre-filter, not by this function -- this one only strips what the
+        OS refuses."""
+        result = ui.sanitize_filename("Acme Roofing   State Farm", "", "", separator="_")
+        self.assertEqual(result, "Acme_Roofing_State_Farm")
+        self.assertEqual(
+            ui.sanitize_filename("Doyle's kitchen", "pdf", "proposal.pdf"),
+            "Doyle's kitchen.pdf",
+        )
+
+    def test_an_empty_extension_returns_the_cleaned_name_itself(self):
+        """The default download name has no extension -- the contractor
+        types over it before either file is saved (see app._export_basename)."""
+        self.assertEqual(
+            ui.sanitize_filename("Acme Roofing   State Farm", "", "", separator="_"),
+            "Acme_Roofing_State_Farm",
+        )
+
+    def test_empty_extension_still_collapses_and_strips(self):
+        self.assertEqual(
+            ui.sanitize_filename("  Acme Roofing  ", "", "", separator="_"),
+            "Acme_Roofing",
+        )
+        # All-whitespace falls back even with no extension to append.
+        self.assertEqual(ui.sanitize_filename("   ", "", "buildupquote"), "buildupquote")
+
 
 class RowLabelTests(unittest.TestCase):
     def test_a_carrier_line_keeps_its_printed_number(self):

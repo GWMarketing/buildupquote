@@ -62,7 +62,6 @@ reference doc.
 import datetime
 import io
 import os
-import re
 import tempfile
 
 import pandas as pd
@@ -80,7 +79,7 @@ from code_checklist import (
     material_description,
 )
 from pricing import compute_line_total
-from proposal import ContractorInfo, build_proposal, render_proposal_pdf
+from proposal import ContractorInfo, build_proposal, payment_breakdown, render_proposal_pdf
 from scope_parser import parse_pdf
 from trades import TRADE_OPTIONS, guess_trade
 
@@ -255,6 +254,11 @@ def _payment_breakdown(included, deductible, total):
     deductible may be None (not found in the document) -- the caller is
     responsible for prompting for a manual figure; this function treats
     None as 0 rather than guessing.
+
+    The four-part split itself is ONE shared implementation --
+    proposal.build.payment_breakdown (this used to contain a second copy
+    of that math; only the DataFrame-specific aggregation below lives
+    here now). See proposal/build.py for the spec.
     """
     deductible = deductible or 0.0
     if included.empty:
@@ -264,13 +268,37 @@ def _payment_breakdown(included, deductible, total):
         recoverable_depreciation = included["Recoverable Depreciation"].fillna(0).sum()
         is_supplement = included["Insurance RCV"].isna()
         supplements = included.loc[is_supplement, "Your Price"].sum()
-    first_check = total - deductible - recoverable_depreciation - supplements
-    return {
-        "deductible": round(deductible, 2),
-        "first_check": round(first_check, 2),
-        "recoverable_depreciation": round(recoverable_depreciation, 2),
-        "supplements": round(supplements, 2),
-    }
+    return payment_breakdown(
+        total,
+        deductible=deductible,
+        recoverable_depreciation=recoverable_depreciation,
+        supplements=supplements,
+    )
+
+
+def _effective_deductible(estimate):
+    """The deductible to use on screen and on the proposal.
+
+    The same deductible can be printed in two places on a document: the
+    Coverage/Deductible/Policy-Limit table (claim_flags.dwelling_deductible)
+    and the summary ladder's "Less Deductible" line
+    (carrier_summary.deductible). claim_flags is the primary source (it's
+    the one the payment rules were built around); carrier_summary is the
+    fallback for a document that only prints it in the summary (e.g.
+    Symbility, which never prints the coverage table). None means neither
+    printed one -- the caller asks the contractor for it manually.
+
+    Uses getattr defensively so this is unit-testable against a plain
+    stub object.
+    """
+    flags = getattr(estimate, "claim_flags", None)
+    primary = getattr(flags, "dwelling_deductible", None) if flags is not None else None
+    if primary:
+        return primary
+    summary = getattr(estimate, "carrier_summary", None)
+    if summary is not None and getattr(summary, "deductible", None):
+        return summary.deductible
+    return None
 
 
 def _carrier_summary_panel(estimate):
@@ -579,10 +607,18 @@ def _slugify(value):
     with: strips anything that isn't a letter, digit, space, or hyphen,
     then collapses whitespace into underscores. Keeps a company name or
     claim number readable ("State_Farm", "0761262757") instead of
-    disappearing into percent-encoded junk over one stray "&" or "/"."""
-    value = re.sub(r"[^\w\s-]", "", str(value)).strip()
-    value = re.sub(r"\s+", "_", value)
-    return value
+    disappearing into percent-encoded junk over one stray "&" or "/".
+
+    Strictness on purpose, and it's the one deliberate difference from
+    ui.sanitize_filename: this builds a name out of several separate
+    pieces (business, carrier, claim number) joined into one, so
+    punctuation that's fine typed by hand ("Doyle's kitchen") would
+    turn into an ambiguous run here ("Doyle_s_kitchen") -- this strips
+    it. The cleaning MECHANICS themselves are the same single
+    implementation (ui.sanitize_filename), not a second copy.
+    """
+    cleaned = "".join(ch for ch in str(value or "") if ch.isalnum() or ch in " -")
+    return ui.sanitize_filename(cleaned, "", "", separator="_")
 
 
 def _export_filename(contractor_name, insurance_company, claim_number, extension, fallback):
@@ -779,7 +815,32 @@ def _column_config():
         ),
         "Needs Review": st.column_config.CheckboxColumn(disabled=True, width="small"),
         "Review Note": st.column_config.TextColumn(disabled=True, width="large"),
+        # Computed live by _priced() -- shown as money, never typed over.
+        # Also the one column the Pricing tab's editable table DISPLAYS
+        # but must NOT write back (see _writable_columns).
+        "Your Price": st.column_config.NumberColumn(
+            format="$%.2f", disabled=True, width="medium",
+            help="Qty x Unit Cost x (1 + margin) -- computed, not typed.",
+        ),
     }
+
+
+def _writable_columns(edited_columns, master_columns):
+    """Which columns from an edited table may be written back into the
+    master row set.
+
+    Every table on screen is a filtered view of the same master rows, and
+    one column -- "Your Price" -- is computed by _priced() and exists ONLY
+    in the view. Writing it back would add a stray column to
+    st.session_state["rows"] and break the _TABLE_COLUMNS contract. So the
+    write-back writes the intersection of what the editor returned and
+    what the master table actually owns, computed per-edit so a future
+    pure-computed column can't be forgotten either way.
+
+    Plain Python (no Streamlit, no pandas) so it's unit-testable, same as
+    every other decision in this file.
+    """
+    return [c for c in edited_columns if c in master_columns]
 
 
 def _toggle(container, label, **kwargs):
@@ -838,7 +899,8 @@ def _editable_table(frame, columns, key, caption=None, empty_message="Nothing he
     # which ignores blanks -- clearing a unit cost has to actually clear
     # it. Only the rows currently on screen are touched, so a search
     # filter or the Review tab can never wipe the rows it isn't showing.
-    st.session_state["rows"].loc[edited.index, edited.columns] = edited
+    writable = _writable_columns(edited.columns, st.session_state["rows"].columns)
+    st.session_state["rows"].loc[edited.index, writable] = edited[writable]
 
 
 def _search_box(label, key):
@@ -858,6 +920,52 @@ def _export_basename(contractor_name, fields):
         _best(fields, "claim_number", default=""),
         "", "buildupquote.",
     ).rstrip(".")
+
+
+def _add_line_item_form(form_key, expanded_caption="Add a line item the carrier missed"):
+    """Add-line form, usable from the Review tab AND the Pricing tab.
+
+    A line added here has NO carrier line behind it -- _manual_row() leaves
+    Insurance RCV blank -- which is exactly what _payment_breakdown() and
+    build_proposal() read to classify the line as a SUPPLEMENT: exported on
+    the proposal PDF's Payment Schedule at the contractor's own price.
+    """
+    with st.expander(f"+ {expanded_caption}", expanded=True):
+        with st.form(form_key, clear_on_submit=True):
+            desc_col, trade_col = st.columns([2, 1])
+            new_description = desc_col.text_input("Description")
+            new_trade = trade_col.selectbox("Trade", options=TRADE_OPTIONS)
+            qty_col, unit_col, cost_col = st.columns(3)
+            new_qty = qty_col.number_input("Qty", min_value=0.0, value=1.0, step=1.0)
+            new_unit = unit_col.text_input("Unit", value="EA")
+            new_unit_cost = cost_col.number_input("Unit cost ($)", min_value=0.0, value=0.0, step=1.0)
+            margin_col, material_col = st.columns(2)
+            new_margin = margin_col.number_input(
+                "Margin %", min_value=0, max_value=100,
+                value=int(st.session_state["default_margin"]),
+            )
+            new_material = material_col.checkbox("Counts as material (for sales tax)", value=True)
+            if st.form_submit_button("Add item"):
+                if not new_description.strip():
+                    st.warning("Give it a description before adding it.")
+                    return
+                new_row = _manual_row(
+                    new_description, new_trade, new_qty, new_unit,
+                    new_unit_cost, new_margin, new_material,
+                    position=_next_added_label(st.session_state["rows"]),
+                )
+                st.session_state["rows"] = pd.concat(
+                    [st.session_state["rows"],
+                     pd.DataFrame([new_row], columns=_TABLE_COLUMNS)],
+                    ignore_index=True,
+                )
+                st.success(
+                    f"Added {new_description.strip()} to your price. No carrier line "
+                    "behind it, so it exports as a supplement."
+                )
+                rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
+                if rerun:
+                    rerun()
 
 
 def main():
@@ -1047,6 +1155,24 @@ def main():
             ),
         )
 
+        # Roof/room measurements (surface area, squares, perimeters) are
+        # read off the plan pages but aren't priced lines -- a collapsed
+        # reference block keeps them available without cluttering the grid.
+        # See scope_parser/measurements.py and ParsedEstimate.measurements.
+        if estimate.measurements:
+            with st.expander(
+                f"📐 {len(estimate.measurements)} measurement block(s) from this document",
+                expanded=False,
+            ):
+                st.caption(
+                    "Roof/room figures read off the plan pages -- for reference when "
+                    "comparing against the PDF, not priced lines."
+                )
+                for m in estimate.measurements[:20]:
+                    st.write(f"- **{m.section or 'Document'}** — {m.label}: {m.value:,.2f} {m.unit}".rstrip())
+                if len(estimate.measurements) > 20:
+                    st.caption(f"…and {len(estimate.measurements) - 20} more")
+
     # ================= REVIEW =================
     with tab_review:
         ui.section(
@@ -1189,17 +1315,21 @@ def main():
 
         ui.section(
             st, "Your price, line by line", "good",
-            "Only the lines you've kept. Search it the same way as the scope.",
+            "Only the lines you've kept. Edit Qty, Unit Cost, or Margin here and the "
+            "total updates below. Search it the same way as the scope.",
         )
         display = included[["#", "Trade", "Description", "Qty", "Unit", "Unit Cost", "Margin %", "Your Price"]].copy()
         price_query = _search_box("Search your price list", "price_search")
         display = ui.filter_rows(display, price_query)
         if price_query:
             st.caption(f"Showing {len(display)} of {len(included)} lines.")
-        shown = display.copy()
-        shown["Unit Cost"] = shown["Unit Cost"].map(lambda v: f"${v:,.2f}" if pd.notna(v) else "")
-        shown["Your Price"] = shown["Your Price"].map(lambda v: f"${v:,.2f}")
-        st.dataframe(shown, use_container_width=True, hide_index=True)
+        _editable_table(
+            display,
+            ["#", "Trade", "Description", "Qty", "Unit", "Unit Cost", "Margin %", "Your Price"],
+            key="price_editor",
+            empty_message="No lines match this filter.",
+        )
+        _add_line_item_form("add_item_form_pricing", "Add a line item (exports as a supplement)")
 
         ui.section(
             st, "Totals by trade", "info",
@@ -1215,9 +1345,12 @@ def main():
             st, "When each part gets paid", "good",
             "Not all of this is due at once -- here's the order it typically arrives in.",
         )
-        deductible = estimate.claim_flags.dwelling_deductible
+        deductible = _effective_deductible(estimate)
         if deductible is None:
-            st.warning("No deductible amount was found anywhere in this document.")
+            st.warning(
+                "No deductible amount was found anywhere in this document -- not in the "
+                "coverage table, not in the summary ladder. Enter it manually."
+            )
             deductible = st.number_input(
                 "Enter the deductible manually ($)", min_value=0.0, value=0.0, step=100.0,
                 key="manual_deductible",
@@ -1292,7 +1425,7 @@ def main():
                 tax_rule=st.session_state["tax_rule"],
                 tax_rate_pct=st.session_state.get("tax_rate", 0.0)
                 if st.session_state["tax_rule"] in tax.ITEMIZES_TAX else 0.0,
-                deductible_amount=estimate.claim_flags.dwelling_deductible
+                deductible_amount=_effective_deductible(estimate)
                 or st.session_state.get("manual_deductible", 0.0),
             )
             try:
@@ -1311,7 +1444,9 @@ def main():
             except Exception as exc:  # noqa: BLE001 -- surfaced, not swallowed
                 dl_col2.error(
                     f"Couldn't build the proposal PDF: {exc}. This usually means "
-                    "wkhtmltopdf isn't installed on this machine -- see the README."
+                    "WeasyPrint isn't installed in the venv this app is running "
+                    "in -- run `pip install -r requirements.txt` and restart the "
+                    "app (Ctrl+C, then `streamlit run app.py`)."
                 )
 
         st.caption(

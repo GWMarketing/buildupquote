@@ -1,7 +1,7 @@
 """Builds a ProposalData from the rows produced by the editing workspace
 (app.py) plus the claim metadata the parsing engine extracted. Kept
 separate from render.py so this logic -- the part with any real risk of
-mistakes -- is testable without needing wkhtmltopdf/pdfkit installed.
+mistakes -- is testable without needing a PDF renderer installed.
 """
 from collections import OrderedDict
 
@@ -32,6 +32,38 @@ def _num_or_zero(value):
     if isinstance(value, float) and value != value:  # NaN
         return 0.0
     return float(value)
+
+
+def payment_breakdown(total, deductible=0.0, recoverable_depreciation=0.0, supplements=0.0) -> dict:
+    """Splits a total contract price into the real payment stages a
+    restoration job gets paid in. This is the ONE implementation of that
+    spec (added 2026-08-26, folding together what used to live in both
+    app.py's _payment_breakdown and this module's own build_proposal):
+
+      1. Deductible -- what the homeowner owes directly, in full.
+      2. Due on the first insurance check -- everything left over,
+         computed as a REMAINDER (total minus the other three parts), so
+         the four parts always sum exactly to total.
+      3. Recoverable depreciation -- the carrier's own fixed figure.
+      4. Supplements -- items with no carrier line behind them.
+
+    All four values are rounded to the cent, and first_check is rounded
+    AFTER the subtraction so round-tripping can't leave the four parts a
+    cent off total. Takes plain numbers -- the aggregation that turns
+    rows into these figures lives with the caller (app.py works on a
+    pandas DataFrame; build_proposal works on plain dicts, and stays
+    pandas-free on purpose).
+    """
+    deductible = round(_num_or_zero(deductible), 2)
+    recoverable = round(_num_or_zero(recoverable_depreciation), 2)
+    supplements = round(_num_or_zero(supplements), 2)
+    first_check = round(_num_or_zero(total) - deductible - recoverable - supplements, 2)
+    return {
+        "deductible": deductible,
+        "first_check": first_check,
+        "recoverable_depreciation": recoverable,
+        "supplements": supplements,
+    }
 
 
 def _is_blank(value):
@@ -80,13 +112,14 @@ def build_proposal(rows, contractor: ContractorInfo, claim_fields: dict,
     proposals unless a tax rule is explicitly chosen.
 
     deductible_amount: see ProposalData's payment-breakdown fields and
-    app.py's _payment_breakdown() -- the same spec, computed here again
-    from `rows` directly (rather than sharing one function) since this
-    operates on plain dicts, not a pandas DataFrame. first_check_amount is
-    always the REMAINDER of total minus the other three parts, so the
-    four payment-breakdown fields sum exactly to total_price no matter
-    what deductible_amount is passed -- confirmed with the user this beats
-    computing it independently, which could drift out of sync.
+    payment_breakdown() above -- the one shared implementation of that
+    spec (app.py's _payment_breakdown delegates to it too; only the
+    per-caller AGGREGATION differs, since this operates on plain dicts,
+    not a pandas DataFrame). first_check_amount is always the REMAINDER
+    of total minus the other three parts, so the four payment-breakdown
+    fields sum exactly to total_price no matter what deductible_amount
+    is passed -- confirmed with the user this beats computing it
+    independently, which could drift out of sync.
     """
     items = []
     recoverable_depreciation_total = 0.0
@@ -122,11 +155,15 @@ def build_proposal(rows, contractor: ContractorInfo, claim_fields: dict,
     )
     tax_label = TAX_RULE_LABELS[tax_rule] if tax_rule in ITEMIZES_TAX else ""
     total = round(subtotal + tax_amount, 2)
-    deductible_amount = round(_num_or_zero(deductible_amount), 2)
-    recoverable_depreciation_total = round(recoverable_depreciation_total, 2)
-    supplements_total = round(supplements_total, 2)
-    first_check_amount = round(
-        total - deductible_amount - recoverable_depreciation_total - supplements_total, 2
+    parts = payment_breakdown(
+        total,
+        deductible=deductible_amount,
+        recoverable_depreciation=recoverable_depreciation_total,
+        supplements=supplements_total,
+    )
+    deductible_amount, first_check_amount, recoverable_depreciation_total, supplements_total = (
+        parts["deductible"], parts["first_check"],
+        parts["recoverable_depreciation"], parts["supplements"],
     )
     return ProposalData(
         contractor=contractor,

@@ -10,8 +10,8 @@ screen-drawing function alone.
 That gap let a real bug reach Glenn's machine. A new function was inserted
 into the middle of `main()` at column zero, which silently ENDED `main()`
 there and swallowed the remaining 300 lines into the new function's body.
-The file still compiled. Every one of the 214 tests still passed. The app
-crashed on the first upload with `NameError: name 'contractor' is not
+The file still compiled. Every one of the then-214 tests still passed. The
+app crashed on the first upload with `NameError: name 'contractor' is not
 defined`, because a line that used to live in `main()` was now executing
 in a function where that variable never existed.
 
@@ -111,6 +111,8 @@ class ScreenStructureTests(unittest.TestCase):
             "_carrier_summary_panel",  # the carrier's own Overhead/Profit/Net Claim ladder
             "_code_additions_tab",     # the Texas code checklist + code-required additions
             "Totals by trade",
+            "price_editor",
+            "add_item_form_pricing",
             "When each part gets paid",
             "Scope as CSV",
             "Branded proposal PDF",

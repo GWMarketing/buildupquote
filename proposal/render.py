@@ -1,22 +1,29 @@
 """Renders a ProposalData into HTML, and HTML into a PDF file.
 
-Uses wkhtmltopdf (via pdfkit) rather than WeasyPrint -- WeasyPrint wasn't
-installable in the environment this was built in (no PyPI access), and
-wkhtmltopdf was already present on the system. Either works fine for this
-job (a print-style HTML/CSS document); if you'd rather standardize on
-WeasyPrint later, only this file needs to change -- build.py and the
-template don't know or care which one renders them.
+Uses WeasyPrint -- a pure-pip renderer with no system-level installer
+(unlike wkhtmltopdf, whose Homebrew cask was removed). Only this file
+knows about the renderer; build.py and the template are agnostic.
 """
 import base64
 import os
 
 from jinja2 import Environment, FileSystemLoader
+from weasyprint import CSS, HTML
 
 from .models import TX_DEDUCTIBLE_LAW_CITATION, ProposalData
 
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
 
 _MIME_BY_EXT = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "gif": "gif", "svg": "svg+xml"}
+# Page-number footer as a @page rule -- WeasyPrint's replacement for
+# wkhtmltopdf's --footer-center/-topage command-line options.
+_PAGE_FOOTER_CSS = CSS(string="""
+@page {
+  size: Letter;
+  margin: 0.5in 0.5in 0.6in 0.5in;
+  @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; }
+}
+""")
 
 
 def _logo_data_uri(logo_path):
@@ -45,20 +52,8 @@ def render_proposal_html(data: ProposalData) -> str:
 
 
 def render_proposal_pdf(data: ProposalData, output_path: str) -> str:
-    import pdfkit
-
     html = render_proposal_html(data)
-    options = {
-        "page-size": "Letter",
-        "margin-top": "0.5in",
-        "margin-bottom": "0.6in",
-        "margin-left": "0.5in",
-        "margin-right": "0.5in",
-        "encoding": "UTF-8",
-        "quiet": "",
-        "footer-center": "Page [page] of [topage]",
-        "footer-font-size": "8",
-        "footer-spacing": "5",
-    }
-    pdfkit.from_string(html, output_path, options=options)
+    HTML(string=html, base_url=TEMPLATE_DIR).write_pdf(
+        output_path, stylesheets=[_PAGE_FOOTER_CSS]
+    )
     return output_path

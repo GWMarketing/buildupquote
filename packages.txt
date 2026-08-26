@@ -1,0 +1,16 @@
+# Streamlit Community Cloud runs `apt-get install` on this list before it
+# runs `pip install -r requirements.txt`. WeasyPrint (proposal/render.py)
+# loads these shared C libraries at render time -- libpango/libpangoft2 for
+# text layout, libharfbuzz for shaping, libfontconfig + libglib for font
+# discovery. None of them exist on the cloud's base image by default, and
+# without them the PDF button fails with "cannot load library libpango-1.0".
+#
+# fonts-dejavu-core guarantees there is at least one font on the box so
+# proposal text renders even if a system font package was never installed.
+libglib2.0-0
+libpango-1.0-0
+libpangoft2-1.0-0
+libharfbuzz0b
+libharfbuzz-subset0
+libfontconfig1
+fonts-dejavu-core

@@ -56,6 +56,27 @@ wants you to check, and an editable table of line items. As you edit,
 two download buttons appear: a plain CSV, and (once you've named your
 business) "Download Proposal PDF".
 
+### Deploying it for a business partner (Streamlit Community Cloud)
+
+Push this folder to a GitHub repo, then in [Streamlit Community
+Cloud](https://share.streamlit.io) choose **Create app -> Deploy a public
+app from GitHub** and point it at that repo (main branch, `app.py`). The
+cloud reads three files in this repo at deploy time:
+
+- `requirements.txt` -- Python packages, including WeasyPrint for the
+  proposal PDF. Nothing here needs a system installer.
+- `packages.txt` -- the Linux libraries WeasyPrint loads at render time
+  (Pango, Harfbuzz, Fontconfig). The cloud runs `apt-get install` on
+  this list before installing the Python packages. Without it the PDF
+  button fails with "cannot load library libpango-1.0"; with it, the
+  same render path the tests exercise works on the cloud.
+- `.streamlit/config.toml` -- colours and the upload limit, shipped with
+  the app so your partner sees the same look you do.
+
+No wkhtmltopdf, no system downloads, no Rosetta -- that whole class of
+install problem doesn't exist on the cloud. Each push to GitHub
+redeploys the app, so your partner always checks the latest version.
+
 **Adding a line item the carrier missed** is already built in: scroll to
 the bottom of the editable table and there's a blank "+" row waiting --
 Streamlit's data editor supports adding rows natively (`num_rows=
@@ -73,19 +94,11 @@ same way the exported proposal PDF already groups its own line items
 live preview of that document's section breakdown, not a separate
 number that could drift out of sync with it.
 
-**The proposal PDF needs one more thing installed on your machine**:
-wkhtmltopdf, which does the actual PDF rendering. `pip install -r
-requirements.txt` does not install it -- see the note in
-`requirements.txt` for how to get it for your OS. If it's missing, the
-app will tell you plainly instead of failing silently.
-
-On Mac, Homebrew's cask for wkhtmltopdf has been removed (the upstream
-project is unmaintained), so `brew install --cask wkhtmltopdf` won't
-work anymore. Instead, download the installer directly from
-[wkhtmltopdf's GitHub releases](https://github.com/wkhtmltopdf/packaging/releases)
-and double-click it to install, same as any other Mac app. It's built
-for Intel Macs; on Apple Silicon (M1/M2/M3/M4), macOS will prompt to
-install "Rosetta" the first time it's needed -- that's expected, let it.
+**The proposal PDF renderer is WeasyPrint** -- pure pip, installed by
+`pip install -r requirements.txt`, no separate system installer. If a
+render ever fails, the app says so plainly instead of failing silently
+-- the message will point at WeasyPrint and the venv, not at any
+system-level program.
 
 To run the automated tests instead of the app:
 
@@ -93,7 +106,7 @@ To run the automated tests instead of the app:
 python3 -m unittest discover -s tests -v
 ```
 
-You should see `Ran 302 tests ... OK`. If that number goes down, or `OK`
+You should see `Ran 305 tests ... OK`. If that number goes down, or `OK`
 turns into failures, something regressed.
 
 **A note on how this was tested.** The environment this was built in
@@ -105,8 +118,9 @@ and `tests/test_proposal.py`, but the actual widgets and layout haven't
 been seen running in a browser yet. Please run `streamlit run app.py`
 yourself and tell me if anything looks or behaves wrong -- that's the one
 part of this I couldn't verify directly. The proposal PDF *rendering*
-itself (HTML -> wkhtmltopdf -> PDF) has been verified end-to-end, since
-wkhtmltopdf happens to already be installed in this environment.
+itself (HTML -> WeasyPrint -> PDF) has been verified end-to-end by the
+test suite, which renders a real proposal PDF and reads it back with
+pdfplumber.
 
 ## What's in here
 
@@ -154,8 +168,7 @@ proposal/             the branded, homeowner-facing PDF export
                          filter someone could forget to apply
   build.py               turns the app's edited table + claim metadata into
                           a ProposalData (grouped by trade, with subtotals)
-  render.py               ProposalData -> HTML (Jinja2) -> PDF (wkhtmltopdf,
-                           via pdfkit)
+  render.py               ProposalData -> HTML (Jinja2) -> PDF (WeasyPrint)
   templates/proposal.html.j2   the actual look of the document -- logo and
                                 business info left, claim info box right,
                                 itemized table by trade, a "Summary by
@@ -167,18 +180,18 @@ tests/
   test_pipeline.py            parsing engine regression suite (35 tests)
   test_pricing_and_trades.py   pricing math + trade-guessing (12 tests)
   test_app_logic.py            app.py's data-shaping helpers, incl. the
-                                per-trade totals breakdown, the manual
-                                "add a line item" row builder, the
-                                payment-breakdown math, and the
-                                export-filename builder (41 tests)
+                                 per-trade totals breakdown, the manual
+                                 "add a line item" row builder, the
+                                 payment-breakdown math, and the
+                                 export-filename builder (57 tests)
   test_proposal.py             proposal build + tax breakdown + real
-                                end-to-end PDF render, text round-trip,
-                                the Summary-by-Trade placement, the
-                                Texas deductible-waiver notice, and the
-                                Payment Schedule section (42 tests)
+                                 end-to-end PDF render, text round-trip,
+                                 the Summary-by-Trade placement, the
+                                 Texas deductible-waiver notice, and the
+                                 Payment Schedule section (42 tests)
   test_tax.py                  sales-tax rule math (8 tests)
   test_claim_flags.py          claim-context recognition, incl. real-fixture
-                                regression (25 tests)
+                                 regression (25 tests)
   test_metadata.py              PDF file-level "who made this" metadata,
                                  incl. real Xactimate Creator strings (16 tests)
   fixtures/                     three real sample estimates (as extracted

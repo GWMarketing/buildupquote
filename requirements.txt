@@ -12,27 +12,24 @@ pandas>=2.0
 
 # Step 3 -- branded proposal PDF export (proposal/)
 jinja2>=3.1
-pdfkit>=1.0
+weasyprint>=60
 
-# pdfkit is just a thin Python wrapper -- it calls a real program called
-# wkhtmltopdf to do the actual HTML -> PDF rendering. `pip install pdfkit`
-# does NOT install that program; it's a separate, system-level install:
-#   - Mac:     Homebrew's cask for this was removed (the upstream project is
-#              unmaintained), so `brew install --cask wkhtmltopdf` no longer
-#              works. Instead, download the .pkg installer directly from
-#              https://github.com/wkhtmltopdf/packaging/releases and run it
-#              like any other Mac installer. It's built for Intel; on Apple
-#              Silicon (M1/M2/M3/M4) macOS will prompt to install "Rosetta"
-#              the first time it runs -- let it, that's expected.
-#   - Windows/Linux:  download the installer from wkhtmltopdf.org
-# If "Download Proposal PDF" in the app errors out, this is almost
-# certainly why -- install wkhtmltopdf, then restart the app (stop it with
-# Ctrl+C in the terminal and run `streamlit run app.py` again).
+# WeasyPrint is the PDF renderer -- pure pip, no system-level installer
+# (unlike wkhtmltopdf, whose Homebrew cask was removed). See
+# proposal/render.py.
+
+# Step 4 -- tests only (not used by the app itself)
+#
+# reportlab generates the synthetic PDF that tests/test_metadata.py's
+# ParsePdfSurfacesContainerMetadataTest parses end-to-end, to prove the
+# file's own Creator/CreationDate/Title survive the round trip. It is
+# NOT a runtime dependency -- the app never imports it. Keep it listed
+# here so a fresh `pip install -r requirements.txt` gets a green test
+# suite instead of a missing-module error at setUpClass.
+reportlab>=4.0
 
 # Everything else here is Python standard library -- nothing else to
 # install.
 #
-# Tests use Python's built-in `unittest`, not pytest, because this
-# environment's package installer couldn't reach PyPI when this was built.
-# If you have pytest available in your own environment, it will happily
-# run these same tests too (pytest can run unittest-style test files).
+# Tests use Python's built-in `unittest`, not pytest (pytest can run
+# unittest-style test files too).

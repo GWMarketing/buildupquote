@@ -9,7 +9,7 @@
 `rows` is the same list-of-dicts shape app.py's editing table produces
 (Trade, Description, Qty, Unit, Unit Cost, Margin %, Include).
 """
-from .build import build_proposal, claim_info_from_metadata, group_line_items
+from .build import build_proposal, claim_info_from_metadata, group_line_items, payment_breakdown
 from .models import ClaimInfo, ContractorInfo, ProposalData, ProposalLineItem, TradeGroup
 from .render import render_proposal_html, render_proposal_pdf
 
@@ -17,6 +17,7 @@ __all__ = [
     "build_proposal",
     "claim_info_from_metadata",
     "group_line_items",
+    "payment_breakdown",
     "ClaimInfo",
     "ContractorInfo",
     "ProposalData",

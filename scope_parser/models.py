@@ -5,7 +5,23 @@ export code can all depend on this one shared shape without depending on
 each other.
 """
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+# Type-only imports: carrier_summary lives in this package and is imported
+# directly (it only needs `parse_number`, no cycle); the other three are
+# imported under TYPE_CHECKING so the annotations below are real classes
+# rather than bare `object`, without creating a circular import at runtime
+# (fingerprint.py, doc_type.py and confidence.py each import .models).
+if TYPE_CHECKING:
+    from .carrier_summary import CarrierSummary as _CarrierSummary
+    from .confidence import ParseConfidence as _ParseConfidence
+    from .doc_type import DocumentType as _DocumentType
+    from .fingerprint import FormatFingerprint as _FormatFingerprint
+else:
+    _CarrierSummary = object
+    _ParseConfidence = object
+    _DocumentType = object
+    _FormatFingerprint = object
 
 
 @dataclass
@@ -242,10 +258,10 @@ class ParsedEstimate:
     # All three are set by pipeline.parse_text(). They describe the parse
     # rather than the estimate, which is why the golden-snapshot lock in
     # tests/ deliberately does not cover them -- see tests/golden_support.py.
-    fingerprint: object = None      # fingerprint.FormatFingerprint
-    document_type: object = None    # doc_type.DocumentType
-    confidence: object = None       # confidence.ParseConfidence
-    carrier_summary: object = None  # carrier_summary.CarrierSummary, or None if not found
+    fingerprint: Optional[_FormatFingerprint] = None
+    document_type: Optional[_DocumentType] = None
+    confidence: Optional[_ParseConfidence] = None
+    carrier_summary: Optional[_CarrierSummary] = None
 
     @property
     def needs_review_items(self):

@@ -21,7 +21,11 @@ purposes (word-level text extraction); either would work fine here.
 # this marker are dropped before any line-item parsing sees them; there's
 # nothing salvageable on them, so excluding the page is safer than trying
 # to parse scrambled text and hoping the safety-valve catches it.
-_BOILERPLATE_PAGE_MARKERS = ("GUIDE_EXAMPLE",)
+#
+# The marker itself lives in the rule sheets (Xactimate's
+# boilerplate_page_markers), not here -- rule-as-data, so the single
+# source is profiles.py, and a future format's markers drop in with its
+# sheet instead of a second copy of the value.
 
 
 def _markers_for(pdf_info):
@@ -35,7 +39,7 @@ def _markers_for(pdf_info):
     """
     from .profiles import IDENTIFY_ONLY, REGISTRY
 
-    markers = set(_BOILERPLATE_PAGE_MARKERS)
+    markers = set()
     for sheet in list(REGISTRY.values()) + list(IDENTIFY_ONLY.values()):
         markers.update(sheet.boilerplate_page_markers)
     return tuple(markers)

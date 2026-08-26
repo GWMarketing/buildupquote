@@ -4,12 +4,13 @@ Separate question from "which program wrote it", and the more dangerous of
 the two. The program decides how to READ the numbers; the document type
 decides what the app is ALLOWED TO DO with them.
 
-Five types show up in this business (see the research summarised in
+Six types show up in this business (see the research summarised in
 `claude/multi-format-architecture.md`):
 
   carrier scope          the normal path -- everything else was built for this
   appraisal report       normal path, but multi-tier tax/O&P shift the schema
   supplement package     TWO scopes side by side plus a delta column
+  supplement reinspection  a later-pass estimate that says so in its own text
   contractor proposal    already marked up -- this app's own output shape
   settlement statement   no line items at all, by design
 
@@ -36,6 +37,7 @@ from typing import Optional
 CARRIER_SCOPE = "carrier_scope"
 APPRAISAL_REPORT = "appraisal_report"
 SUPPLEMENT_PACKAGE = "supplement_package"
+SUPPLEMENT_REINSPECTION = "supplement_reinspection"
 CONTRACTOR_PROPOSAL = "contractor_proposal"
 SETTLEMENT_STATEMENT = "settlement_statement"
 
@@ -110,6 +112,18 @@ def detect(lines, item_count=0, claim_flags=None, has_anchors=True) -> DocumentT
                 "which scope you want priced before relying on these numbers."
             ),
             signals=["found side-by-side carrier/requested scope columns"],
+        )
+
+    if claim_flags is not None and getattr(claim_flags, "is_supplement_document", False):
+        return DocumentType(
+            kind=SUPPLEMENT_REINSPECTION,
+            label="Supplement / reinspection claim",
+            advice=(
+                "This document describes itself as a supplement or reinspection rather "
+                "than an original estimate -- treat these totals as an addition to a "
+                "prior claim, not the whole claim."
+            ),
+            signals=["document describes itself as a supplement or reinspection"],
         )
 
     if _SETTLEMENT_RE.search(text) and (item_count == 0 or not has_anchors):

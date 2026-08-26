@@ -60,13 +60,9 @@ probably don't have installable builds for it yet — install 3.11
 alongside it with `brew install python@3.11` and use `python3.11` in the
 `venv` command above.
 
-**One extra install for the proposal PDF:** wkhtmltopdf. `pip install`
-won't get it. Homebrew's cask for it is gone, so download the installer
-from [wkhtmltopdf's GitHub releases](https://github.com/wkhtmltopdf/packaging/releases)
-and double-click it. On Apple Silicon, macOS will offer to install
-Rosetta the first time — let it. Without wkhtmltopdf everything works
-except the "Download Proposal PDF" button, and the app says so plainly
-rather than failing quietly.
+**No extra install for the proposal PDF.** The renderer is WeasyPrint,
+which comes with `pip install -r requirements.txt` — nothing to
+download, no system installer, no Rosetta.
 
 ---
 
@@ -77,7 +73,7 @@ cd ~/Desktop/buildupquote
 python3 -m unittest discover -s tests
 ```
 
-Expect `Ran 214 tests ... OK`.
+Expect `Ran 305 tests ... OK`.
 
 If that number drops or `OK` turns into failures, something regressed —
 worth knowing before you send a proposal out. To see which test:
@@ -102,7 +98,8 @@ what needs fixing.
 | `Port 8501 is already in use` | It's already running in another Terminal window | Use that window, or `Ctrl + C` there first |
 | `ModuleNotFoundError: No module named 'pandas'` | Dependencies not installed in this venv | `pip install -r requirements.txt` |
 | Browser shows nothing / connection refused | Server isn't up yet, or stopped | Check Terminal for an error; re-run `streamlit run app.py` |
-| `wkhtmltopdf` error on PDF download | Not installed | See the first-time section above |
+| "Couldn't build the proposal PDF" | WeasyPrint not installed in the venv this app runs in | `pip install -r requirements.txt`, restart the app |
+| "cannot load library libpango-1.0" on a deployed Streamlit app | WeasyPrint's Linux system libraries missing on the cloud | Add `packages.txt` at the repo root (see README's deploy section) and push again |
 | App loads but the page looks stale | Streamlit cached an old run | Press `R` in the browser, or `Ctrl + C` and start again |
 
 ---
@@ -143,7 +140,7 @@ what needs fixing.
 ├── app.py                 the screen you interact with
 ├── scope_parser/          reads carrier PDFs (no UI code in here)
 ├── proposal/              builds the branded proposal PDF
-├── tests/                 214 tests
+├── tests/                 305 tests
 │   ├── fixtures/          the three real sample claims
 │   └── golden/            frozen parser output — the regression tripwire
 ├── tools/                 refresh_golden.py, run on purpose only

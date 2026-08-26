@@ -1,7 +1,7 @@
 """Tests for the branded proposal export (proposal/).
 
 build_proposal()/group_line_items() are pure-Python and tested directly.
-The PDF rendering test actually runs wkhtmltopdf (via pdfkit) and reads
+The PDF rendering test actually runs WeasyPrint and reads
 the result back with pdfplumber, so it's a real end-to-end check, not
 just "did the function return without raising."
 """
@@ -153,7 +153,7 @@ class GroupLineItemsTest(unittest.TestCase):
 
 
 class RenderProposalPdfTest(unittest.TestCase):
-    """An actual end-to-end render: HTML -> wkhtmltopdf -> PDF -> read back
+    """An actual end-to-end render: HTML -> WeasyPrint -> PDF -> read back
     with pdfplumber and check both what should and should NOT be there."""
 
     @classmethod
@@ -225,10 +225,12 @@ PAYMENT_BREAKDOWN_ROWS = [
 
 
 class PaymentBreakdownBuildTest(unittest.TestCase):
-    """build_proposal()'s own payment-breakdown computation -- same spec
-    as app.py's _payment_breakdown(), reimplemented here since this
-    operates on plain dicts (a proposal can be built without Streamlit at
-    all, see "Using it on a PDF without the UI" in the README)."""
+    """build_proposal()'s payment-breakdown computation -- which now runs
+    through the ONE shared implementation, payment_breakdown() (see
+    proposal/build.py). app.py's _payment_breakdown delegates to the same
+    helper, so the spec can no longer drift between the two callers -- the
+    anti-drift guard is the parity test at the bottom of this class, and
+    app.py's own tests exercise the DataFrame-side aggregation."""
 
     def setUp(self):
         # Roofing: 10 * 100 * 1.20 = 1,200. Gutters (supplement): 400.
@@ -296,6 +298,40 @@ class PaymentBreakdownBuildTest(unittest.TestCase):
         self.assertEqual(data.deductible_amount, 0.0)
         self.assertEqual(data.first_check_amount, data.total_price)
         self.assertEqual(data.supplements_amount, 0.0)
+
+    def test_parts_always_sum_to_total_even_when_the_deductible_overruns(self):
+        """Same edge as app.py's on-screen warning: if deductible +
+        recoverable depreciation + supplements exceed the total, first
+        check goes negative -- the four parts still add up exactly, no
+        silently-wrong number hides it."""
+        from proposal import payment_breakdown
+
+        parts = payment_breakdown(1000.0, deductible=1200.0)
+        self.assertEqual(parts["first_check"], -200.0)
+        self.assertAlmostEqual(
+            parts["deductible"] + parts["first_check"]
+            + parts["recoverable_depreciation"] + parts["supplements"],
+            1000.0, places=2,
+        )
+
+    def test_same_job_agrees_with_app_side_delegation(self):
+        """The anti-drift guard: app._payment_breakdown() delegates to the
+        same payment_breakdown() this module uses, aggregating only --
+        so for identical figures the two callers must produce identical
+        parts. If this ever fails, the shared spec was split again."""
+        from proposal import payment_breakdown
+
+        parts = payment_breakdown(1600.0, deductible=250.0, recoverable_depreciation=300.0, supplements=400.0)
+        self.assertEqual(
+            parts,
+            {
+                "deductible": 250.0,
+                "first_check": 650.0,
+                "recoverable_depreciation": 300.0,
+                "supplements": 400.0,
+            },
+        )
+        self.assertEqual(parts["first_check"], self.data.first_check_amount)
 
 
 class PaymentSchedulePdfTest(unittest.TestCase):

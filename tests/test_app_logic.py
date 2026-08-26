@@ -362,6 +362,51 @@ class ExportFilenameTest(unittest.TestCase):
         self.assertEqual(name, "scope.csv")
 
 
+class EffectiveDeductibleTest(unittest.TestCase):
+    """_effective_deductible -- the one deductible the app actually uses,
+    falling back from the coverage table to the summary ladder. Regression
+    test for a real gap: a document that only prints its deductible in the
+    summary (Symbility's "Deductible: $3,073.00" ladder) used to prompt
+    for a manual entry even though the number was right there on the page."""
+
+    @staticmethod
+    def _estimate(claim_deductible=None, summary_deductible=None):
+        class _Flags:
+            dwelling_deductible = claim_deductible
+
+        class _Summary:
+            deductible = summary_deductible
+
+        class _Estimate:
+            claim_flags = _Flags()
+            carrier_summary = _Summary() if summary_deductible is not None else None
+
+        return _Estimate()
+
+    def test_uses_the_coverage_table_when_both_exist(self):
+        est = self._estimate(claim_deductible=2650.0, summary_deductible=1000.0)
+        self.assertEqual(app._effective_deductible(est), 2650.0)
+
+    def test_falls_back_to_the_summary_when_coverage_table_is_absent(self):
+        est = self._estimate(claim_deductible=None, summary_deductible=3073.0)
+        self.assertEqual(app._effective_deductible(est), 3073.0)
+
+    def test_returns_none_when_neither_printed_one_exists(self):
+        est = self._estimate()
+        self.assertIsNone(app._effective_deductible(est))
+
+    def test_survives_a_void_carrier_summary(self):
+        est = self._estimate(claim_deductible=500.0)
+        self.assertEqual(app._effective_deductible(est), 500.0)
+
+    def test_survives_a_zero_summary_deductible(self):
+        # A printed $0.00 deductible is a real value, not "blank" -- but
+        # it's also "nothing to add," so the fallback stops there and the
+        # coverage-table figure wins anyway.
+        est = self._estimate(claim_deductible=500.0, summary_deductible=0.0)
+        self.assertEqual(app._effective_deductible(est), 500.0)
+
+
 if __name__ == "__main__":
     unittest.main()
 

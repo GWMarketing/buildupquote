@@ -102,6 +102,37 @@ class DocumentTypeTests(unittest.TestCase):
         lines = ["Carrier Scoped Requested Scope IRC Code Justification Supplement Delta ($)"]
         self.assertEqual(doc_type.detect(lines, item_count=2).kind, doc_type.SUPPLEMENT_PACKAGE)
 
+    def test_a_self_described_supplement_is_recognised_by_its_own_text(self):
+        """A document that SAYS it's a supplement/reinspection -- unlike
+        the side-by-side supplement PACKAGE layout above -- is its own
+        kind, because the totals need to be read as an addition to an
+        earlier claim, not the whole claim."""
+        class _Flags:
+            is_supplement_document = True
+            is_appraisal_document = False
+            is_public_adjuster_document = False
+
+        kind = doc_type.detect(
+            ["Item 1. Remove shingles 20.00 SQ 200.00 4000.00", "Total: 4,000.00"],
+            item_count=1,
+            claim_flags=_Flags(),
+        )
+        self.assertEqual(kind.kind, doc_type.SUPPLEMENT_REINSPECTION)
+        self.assertIn("addition to a prior claim", kind.advice)
+
+    def test_the_structural_supplement_package_wins_over_the_text_signal(self):
+        """A document with side-by-side carrier/requested columns IS a
+        supplement package regardless of what its prose says -- the more
+        specific, structural label wins."""
+        class _Flags:
+            is_supplement_document = True  # the prose signal
+            is_appraisal_document = False
+            is_public_adjuster_document = False
+
+        lines = ["Carrier Scoped Requested Scope Supplement Delta ($)"]
+        kind = doc_type.detect(lines, item_count=2, claim_flags=_Flags())
+        self.assertEqual(kind.kind, doc_type.SUPPLEMENT_PACKAGE)
+
     def test_a_settlement_statement_is_not_a_failed_parse(self):
         lines = ["Gross RCV 48,000.00", "Net Claim Payable 39,900.00", "Deductible 2,500.00"]
         kind = doc_type.detect(lines, item_count=0, has_anchors=False)
@@ -359,14 +390,18 @@ class SymbilityTests(unittest.TestCase):
         self.assertNotIn("(2 items)", names)
 
     def test_the_program_is_named_even_though_it_cannot_be_trusted_to_parse(self):
-        self.assertIn("Symbility", self.est.fingerprint.identified_as)
-        self.assertEqual(self.est.fingerprint.profile_key, "generic")
-        self.assertTrue(self.est.fingerprint.is_identified)
-        self.assertFalse(self.est.fingerprint.is_recognised)
+        fp = self.est.fingerprint
+        self.assertIsNotNone(fp)
+        self.assertIn("Symbility", fp.identified_as)
+        self.assertEqual(fp.profile_key, "generic")
+        self.assertTrue(fp.is_identified)
+        self.assertFalse(fp.is_recognised)
 
     def test_the_banner_names_the_program_rather_than_saying_unrecognised(self):
-        self.assertIn("Symbility", self.est.confidence.headline)
-        self.assertIn("general reader", self.est.confidence.detail)
+        conf = self.est.confidence
+        self.assertIsNotNone(conf)
+        self.assertIn("Symbility", conf.headline)
+        self.assertIn("general reader", conf.detail)
 
     def test_claim_details_survive_the_different_label_wording(self):
         fields = self.est.metadata.fields
@@ -421,6 +456,7 @@ class CarrierSummaryTests(unittest.TestCase):
         15.41%/15.41% instead of the document's actual clean 15%/15%."""
         est = parse_text(fixture("appraiser_williams1"))
         cs = est.carrier_summary
+        self.assertIsNotNone(cs)
         self.assertEqual(cs.line_item_total, 26235.67)
         self.assertEqual(cs.material_sales_tax, 720.79)
         self.assertEqual(cs.overhead, 4043.46)
@@ -436,6 +472,7 @@ class CarrierSummaryTests(unittest.TestCase):
         expected, not a parse failure -- no warning should fire."""
         est = parse_text(fixture("allstate_5410"))
         cs = est.carrier_summary
+        self.assertIsNotNone(cs)
         self.assertEqual(cs.coverage_label, "AA-Dwelling")
         self.assertEqual(cs.line_item_total, 14410.37)
         self.assertIsNone(cs.reconciles_with_parsed_items)
@@ -444,6 +481,7 @@ class CarrierSummaryTests(unittest.TestCase):
     def test_the_deductible_ladder_reads_net_claim_after_deductible(self):
         est = parse_text(fixture("allstate_5410"))
         cs = est.carrier_summary
+        self.assertIsNotNone(cs)
         self.assertEqual(cs.replacement_cost_value, 14652.30)
         self.assertEqual(cs.deductible, 6754.00)
         self.assertEqual(cs.net_claim, 7805.52)
@@ -482,30 +520,36 @@ class CarrierSummaryTests(unittest.TestCase):
 class ConfidenceTests(unittest.TestCase):
     def test_a_clean_recognised_document_says_so(self):
         est = parse_text(fixture("allstate_5410"))
-        self.assertEqual(est.confidence.state, confidence.RECOGNISED)
-        self.assertIn("Xactimate", est.confidence.headline)
-        self.assertEqual(est.confidence.items_flagged, 0)
-        self.assertTrue(est.confidence.all_reconciled)
+        conf = est.confidence
+        self.assertIsNotNone(conf)
+        self.assertEqual(conf.state, confidence.RECOGNISED)
+        self.assertIn("Xactimate", conf.headline)
+        self.assertEqual(conf.items_flagged, 0)
+        self.assertTrue(conf.all_reconciled)
 
     def test_every_parse_gets_a_state_and_a_sentence(self):
         """There is no silent parse: three real documents, three verdicts,
         each with something a contractor can actually read."""
         for name in ("allstate_5410", "travelers_erin", "appraiser_williams1"):
             est = parse_text(fixture(name))
+            conf = est.confidence
+            self.assertIsNotNone(conf)
             self.assertIn(
-                est.confidence.state,
+                conf.state,
                 (confidence.RECOGNISED, confidence.GENERIC_OK, confidence.LOW),
                 name,
             )
-            self.assertTrue(est.confidence.headline, name)
-            self.assertTrue(est.confidence.detail, name)
+            self.assertTrue(conf.headline, name)
+            self.assertTrue(conf.detail, name)
 
     def test_a_document_with_no_scope_is_not_called_a_failure(self):
         est = parse_text(
             "Statement of Loss\nGross RCV 48,000.00\nNet Claim Payable 39,900.00\n"
         )
-        self.assertEqual(est.confidence.state, confidence.NOT_A_SCOPE)
-        self.assertIn("settlement statement", est.confidence.headline.lower())
+        conf = est.confidence
+        self.assertIsNotNone(conf)
+        self.assertEqual(conf.state, confidence.NOT_A_SCOPE)
+        self.assertIn("settlement statement", conf.headline.lower())
 
     def test_an_unrecognised_format_is_told_apart_from_a_bad_parse(self):
         est = parse_text(
@@ -515,10 +559,14 @@ class ConfidenceTests(unittest.TestCase):
             "Install underlayment 20.00 SQ 45.00 900.00\n"
             "Total: 1,778.76\n"
         )
-        self.assertFalse(est.fingerprint.is_recognised)
+        fp = est.fingerprint
+        conf = est.confidence
+        self.assertIsNotNone(fp)
+        self.assertIsNotNone(conf)
+        self.assertFalse(fp.is_recognised)
         self.assertEqual(len(est.line_items), 3)
-        self.assertEqual(est.confidence.state, confidence.GENERIC_OK)
-        self.assertIn("don't recognise", est.confidence.headline)
+        self.assertEqual(conf.state, confidence.GENERIC_OK)
+        self.assertIn("don't recognise", conf.headline)
 
 
 if __name__ == "__main__":
