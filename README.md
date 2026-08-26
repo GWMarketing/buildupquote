@@ -66,10 +66,13 @@ cloud reads three files in this repo at deploy time:
 - `requirements.txt` -- Python packages, including WeasyPrint for the
   proposal PDF. Nothing here needs a system installer.
 - `packages.txt` -- the Linux libraries WeasyPrint loads at render time
-  (Pango, Harfbuzz, Fontconfig). The cloud runs `apt-get install` on
-  this list before installing the Python packages. Without it the PDF
-  button fails with "cannot load library libpango-1.0"; with it, the
-  same render path the tests exercise works on the cloud.
+  (Pango + Harfbuzz; glib, fontconfig and the rest come in as their
+  dependencies). The cloud runs `apt-get install` on this list before
+  installing the Python packages. Keep it to these package names only:
+  the cloud image mixes bullseye and trixie apt repos, and explicitly
+  naming `libglib2.0-0` there forces the bullseye glib, which conflicts
+  with the trixie glib that pango now needs. Without this file the PDF
+  button fails with "cannot load library libpango-1.0".
 - `.streamlit/config.toml` -- colours and the upload limit, shipped with
   the app so your partner sees the same look you do.
 
