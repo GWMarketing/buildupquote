@@ -4,79 +4,115 @@
 <meta charset="utf-8">
 <title>Proposal{% if data.proposal_number %} {{ data.proposal_number }}{% endif %}</title>
 <style>
-  body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #1a1a1a; margin: 0; }
-  table { border-collapse: collapse; }
-  .header-table { width: 100%; margin-bottom: 18px; }
+  /* ============================================================
+     Buildup Quote - branded proposal PDF stylesheet.
+     Print-first CSS rendered by WeasyPrint (proposal/render.py).
+     Palette mirrors the app (ui.py): ink #1F2A37, brand blue
+     #0F6CBD, deep navy #0F2A43, cool neutrals.
+     ============================================================ */
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, "DejaVu Sans", sans-serif;
+    font-size: 10.5pt; line-height: 1.5; color: #1F2A37; margin: 0;
+  }
+  p { orphans: 3; widows: 3; }
+  h1, h2, h3 { page-break-after: avoid; }
+
+  /* ---- letterhead: contractor info left, claim info right ---- */
+  .header-table { width: 100%; margin-bottom: 16px; }
   .header-table td { vertical-align: top; padding: 0; }
-  .logo { max-height: 64px; max-width: 220px; margin-bottom: 8px; display: block; }
-  .contractor-name { font-size: 18px; font-weight: bold; margin-bottom: 2px; }
-  .contractor-line { color: #333; margin-bottom: 1px; }
-  .claim-box { border: 1px solid #999; padding: 10px 12px; font-size: 10px; }
+  .logo { max-height: 60px; max-width: 220px; margin-bottom: 8px; display: block; }
+  .contractor-name { font-size: 20pt; font-weight: 700; color: #0F2A43; margin-bottom: 3px; }
+  .contractor-line { font-size: 10pt; color: #5B6B7C; margin-bottom: 1px; }
+
+  .claim-box {
+    background: #F4F7FA; border: 1px solid #D9E0E8; border-radius: 6px;
+    padding: 10px 12px; font-size: 9.5pt; page-break-inside: avoid;
+  }
   .claim-box h3 {
-    margin: 0 0 8px 0; font-size: 10.5px; text-transform: uppercase;
-    letter-spacing: 0.6px; color: #444; border-bottom: 1px solid #ccc; padding-bottom: 4px;
+    margin: 0 0 7px 0; font-size: 9pt; text-transform: uppercase; letter-spacing: .7px;
+    color: #0F2A43; border-bottom: 1.5px solid #C9D6E3; padding-bottom: 4px;
   }
   .claim-box table { width: 100%; }
-  .claim-box td { padding: 2px 0; vertical-align: top; }
-  .claim-box td.label { color: #666; width: 42%; }
+  .claim-box td { padding: 1.5px 0; vertical-align: top; }
+  .claim-box td.label {
+    width: 40%; font-size: 8.5pt; color: #7A8896;
+    text-transform: uppercase; letter-spacing: .3px;
+  }
 
+  /* ---- document title ---- */
   h1.title {
-    text-align: center; font-size: 15px; text-transform: uppercase; letter-spacing: 1.2px;
-    border-bottom: 2px solid #1a1a1a; padding-bottom: 8px; margin: 6px 0 6px 0;
+    text-align: center; font-size: 13.5pt; text-transform: uppercase; letter-spacing: 2px;
+    color: #0F2A43; border-top: 2.5px solid #0F2A43; border-bottom: 2.5px solid #0F2A43;
+    padding: 8px 0; margin: 4px 0 10px 0;
   }
-  .proposal-meta { text-align: right; font-size: 10px; color: #555; margin-bottom: 14px; }
+  .proposal-meta { text-align: right; font-size: 9.5pt; color: #5B6B7C; margin-bottom: 14px; }
 
-  table.items { width: 100%; margin-bottom: 6px; }
+  /* ---- itemized scope of work ---- */
+  table.items { width: 100%; table-layout: fixed; margin-bottom: 8px; }
+  table.items thead { display: table-header-group; }
   table.items th {
-    text-align: left; background: #1a1a1a; color: #fff; padding: 6px 8px;
-    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.3px;
+    text-align: left; background: #0F2A43; color: #fff; padding: 6px 8px;
+    font-size: 9pt; text-transform: uppercase; letter-spacing: .5px; font-weight: 700;
   }
-  table.items td { padding: 5px 8px; border-bottom: 1px solid #e2e2e2; font-size: 10.5px; }
+  table.items th.num { text-align: right; }
+  table.items td {
+    padding: 5px 8px; border-bottom: 1px solid #E2E7ED;
+    font-size: 10pt; vertical-align: top; overflow-wrap: break-word;
+  }
+  table.items tr { page-break-inside: avoid; }
   table.items tr.trade-header td {
-    background: #f2f2f2; font-weight: bold; border-top: 2px solid #1a1a1a;
-    border-bottom: 1px solid #ccc; padding-top: 6px; padding-bottom: 6px;
+    background: #F4F7FA; color: #0F6CBD; font-weight: 700;
+    border-top: 1.5px solid #C9D6E3; border-bottom: 1px solid #D9E0E8;
   }
-  table.items tr.subtotal td { font-weight: bold; border-top: 1px solid #999; border-bottom: none; }
+  table.items tr.trade-header { page-break-after: avoid; }
+  table.items tr.subtotal td { font-weight: 700; border-top: 1px solid #AEBBC9; border-bottom: none; }
   .num { text-align: right; white-space: nowrap; }
 
-  .grand-total {
-    text-align: right; font-size: 15px; font-weight: bold;
-    margin: 10px 0 22px 0; padding-top: 8px; border-top: 3px double #1a1a1a;
-  }
-
-  .totals-block { margin: 10px 0 22px 0; }
-  table.totals-table { width: 100%; }
-  table.totals-table td { padding: 3px 0; font-size: 11px; }
-  table.totals-table td.num { text-align: right; white-space: nowrap; }
-  table.totals-table tr.grand td { font-size: 15px; font-weight: bold; padding-top: 8px; border-top: 3px double #1a1a1a; }
-
-  .trade-summary { margin: 4px 0 14px 0; }
+  /* ---- summary by trade ---- */
+  .trade-summary { margin: 4px 0 14px 0; page-break-inside: avoid; }
   .trade-summary h3 {
-    margin: 0 0 6px 0; font-size: 10.5px; text-transform: uppercase;
-    letter-spacing: 0.6px; color: #444; border-bottom: 1px solid #ccc; padding-bottom: 4px;
+    margin: 0 0 6px 0; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .6px;
+    color: #0F2A43; border-bottom: 1.5px solid #C9D6E3; padding-bottom: 4px;
   }
   table.trade-summary-table { width: 100%; }
-  table.trade-summary-table td { padding: 3px 8px 3px 0; font-size: 10.5px; border-bottom: 1px solid #eee; }
+  table.trade-summary-table td { padding: 3px 8px 3px 0; font-size: 10pt; border-bottom: 1px solid #EDF1F5; }
   table.trade-summary-table td.num { text-align: right; white-space: nowrap; }
 
-  .terms { font-size: 9.5px; color: #333; line-height: 1.45; margin-top: 6px; }
-  .terms h3 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 6px 0; }
+  /* ---- totals ---- */
+  .grand-total {
+    text-align: right; font-size: 14pt; font-weight: 700; color: #0F2A43;
+    margin: 10px 0 20px 0; padding-top: 8px; border-top: 3px double #0F2A43;
+  }
 
-  .payment-schedule { margin: 14px 0; }
+  .totals-block { margin: 10px 0 20px 0; page-break-inside: avoid; }
+  table.totals-table { width: 100%; }
+  table.totals-table td { padding: 3px 0; font-size: 10.5pt; }
+  table.totals-table td.num { text-align: right; white-space: nowrap; }
+  table.totals-table tr.grand td {
+    font-size: 14pt; font-weight: 700; color: #0F2A43;
+    padding-top: 8px; border-top: 3px double #0F2A43;
+  }
+
+  /* ---- payment schedule ---- */
+  .payment-schedule { margin: 14px 0; page-break-inside: avoid; }
   .payment-schedule h3 {
-    margin: 0 0 4px 0; font-size: 10.5px; text-transform: uppercase;
-    letter-spacing: 0.6px; color: #444; border-bottom: 1px solid #ccc; padding-bottom: 4px;
+    margin: 0 0 4px 0; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .6px;
+    color: #0F2A43; border-bottom: 1.5px solid #C9D6E3; padding-bottom: 4px;
   }
-  .payment-schedule-intro { font-size: 9.5px; color: #555; margin: 4px 0 8px 0; }
+  .payment-schedule-intro { font-size: 9pt; color: #5B6B7C; margin: 4px 0 8px 0; }
   table.payment-schedule-table { width: 100%; }
+  table.payment-schedule-table tr { page-break-inside: avoid; }
   table.payment-schedule-table td {
-    padding: 5px 8px 5px 0; font-size: 10px; vertical-align: top; border-bottom: 1px solid #eee;
+    padding: 5px 8px 5px 0; font-size: 9.5pt; vertical-align: top; border-bottom: 1px solid #EDF1F5;
   }
-  table.payment-schedule-table td.step {
-    font-weight: bold; width: 18px; padding-right: 6px; color: #555;
+  table.payment-schedule-table td.step { width: 22px; padding-right: 7px; }
+  table.payment-schedule-table td.step .badge {
+    display: inline-block; width: 15px; height: 15px; line-height: 15px;
+    border-radius: 50%; background: #0F6CBD; color: #fff;
+    font-size: 8.5pt; font-weight: 700; text-align: center;
   }
   table.payment-schedule-table td.num {
-    text-align: right; white-space: nowrap; font-weight: bold; width: 14%;
+    text-align: right; white-space: nowrap; font-weight: 700; width: 16%;
   }
 
   /* Texas Business and Commerce Code Sec. 27.02 requires this exact
@@ -85,13 +121,25 @@
      choice, so this box's font-size/weight must not be reduced below
      12pt/bold even if the rest of the document's type scale changes. */
   .tx-deductible-notice {
-    font-size: 12pt; font-weight: bold; line-height: 1.4; color: #1a1a1a;
-    border: 1.5px solid #1a1a1a; padding: 8px 10px; margin: 14px 0;
+    font-size: 12pt; font-weight: bold; line-height: 1.45; color: #1F2A37;
+    border: 1.5px solid #1F2A37; background: #FFF8EC; padding: 9px 11px;
+    margin: 14px 0; page-break-inside: avoid;
   }
 
-  table.signatures { width: 100%; margin-top: 46px; }
-  table.signatures td { width: 50%; padding-right: 24px; font-size: 10px; }
-  .sig-line { border-top: 1px solid #1a1a1a; margin-top: 34px; margin-bottom: 4px; }
+  /* ---- terms ---- */
+  .terms {
+    font-size: 9.5pt; color: #43505C; line-height: 1.5;
+    margin-top: 8px; page-break-inside: avoid;
+  }
+  .terms h3 {
+    font-size: 9.5pt; text-transform: uppercase; letter-spacing: .6px; color: #0F2A43;
+    margin: 0 0 6px 0; border-bottom: 1.5px solid #C9D6E3; padding-bottom: 4px;
+  }
+
+  /* ---- signatures ---- */
+  table.signatures { width: 100%; margin-top: 42px; page-break-inside: avoid; }
+  table.signatures td { width: 50%; padding-right: 24px; font-size: 10pt; }
+  .sig-line { border-top: 1px solid #AEBBC9; margin-top: 32px; margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -130,13 +178,16 @@
   </div>
 
   <table class="items">
-    <tr>
-      <th style="width:46%;">Description</th>
-      <th class="num" style="width:10%;">Qty</th>
-      <th style="width:10%;">Unit</th>
-      <th class="num" style="width:16%;">Unit Price</th>
-      <th class="num" style="width:18%;">Total</th>
-    </tr>
+    <thead>
+      <tr>
+        <th style="width:46%;">Description</th>
+        <th class="num" style="width:10%;">Qty</th>
+        <th style="width:10%;">Unit</th>
+        <th class="num" style="width:16%;">Unit Price</th>
+        <th class="num" style="width:18%;">Total</th>
+      </tr>
+    </thead>
+    <tbody>
     {% for group in data.grouped_items %}
     <tr class="trade-header"><td colspan="5">{{ group.trade }}</td></tr>
     {% for item in group.items %}
@@ -149,6 +200,7 @@
     </tr>
     {% endfor %}
     {% endfor %}
+    </tbody>
   </table>
 
   {% if data.grouped_items|length > 1 %}
@@ -181,20 +233,20 @@
     </p>
     <table class="payment-schedule-table">
       <tr>
-        <td class="step">1</td>
+        <td class="step"><span class="badge">1</span></td>
         <td>Deductible &mdash; paid directly to {{ data.contractor.name }} by the homeowner, in
           full. Required by Texas law ({{ deductible_law_citation }}); never paid by insurance
           and never absorbed into this price.</td>
         <td class="num">${{ "{:,.2f}".format(data.deductible_amount) }}</td>
       </tr>
       <tr>
-        <td class="step">2</td>
+        <td class="step"><span class="badge">2</span></td>
         <td>Due upon the insurance company's first (initial) payment.</td>
         <td class="num">${{ "{:,.2f}".format(data.first_check_amount) }}</td>
       </tr>
       {% if data.recoverable_depreciation_amount %}
       <tr>
-        <td class="step">3</td>
+        <td class="step"><span class="badge">3</span></td>
         <td>Recoverable depreciation &mdash; released by the insurance company once repairs
           are complete and proof is submitted.</td>
         <td class="num">${{ "{:,.2f}".format(data.recoverable_depreciation_amount) }}</td>
@@ -202,7 +254,7 @@
       {% endif %}
       {% if data.supplements_amount %}
       <tr>
-        <td class="step">4</td>
+        <td class="step"><span class="badge">4</span></td>
         <td>Supplements &mdash; scope added beyond the insurance company's original estimate,
           due upon completion.</td>
         <td class="num">${{ "{:,.2f}".format(data.supplements_amount) }}</td>
