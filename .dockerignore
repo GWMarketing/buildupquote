@@ -1,0 +1,11 @@
+# Keep the Mac/local checkout out of the Linux image -- most importantly
+# the local venv (a macOS Python would break the container) and .git.
+venv/
+.git/
+__pycache__/
+*.pyc
+tests/
+tools/
+deploy/
+*.log
+.env

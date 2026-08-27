@@ -4,6 +4,27 @@ Everything here assumes an Ubuntu/Debian VPS (the standard Hostinger image).
 The app is the FastAPI deployment (`fastapi_app.py`) -- **no Streamlit is
 installed or needed on the server**.
 
+## Docker option (fastest, if the VPS has Docker)
+
+The repo ships a `Dockerfile` + `docker-compose.yml`. From the checkout:
+
+```bash
+cd /opt/buildupquote
+sudo docker compose up -d --build
+```
+
+That builds the image (WeasyPrint's system libs are baked in), runs gunicorn
+with 4 workers on port 8000 (bound to localhost -- safe behind a proxy), and
+restarts on boot. It works, `curl http://127.0.0.1:8000/api/meta` inside the
+server confirms it. To update after a `git pull`: `sudo docker compose up -d --build`
+again (or `restart` if only the code changed).
+
+*Requires Docker: `curl -fsSL https://get.docker.com | sh` and add your user
+to the `docker` group (`sudo usermod -aG docker $USER`, re-login).*
+
+The rest of this file is the non-Docker path (venv + systemd + proxy).
+
+
 ## 0. See it working on your laptop first (optional but smart)
 
 ```bash
