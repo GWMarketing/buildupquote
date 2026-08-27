@@ -41,3 +41,59 @@ class UserOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+
+# ---------------------------------------------------------------------------
+# Parametric assemblies (Phase 5 -- advanced quoting engine)
+# ---------------------------------------------------------------------------
+
+class AssemblyComponentOut(BaseModel):
+    description: str
+    item_type: str
+    unit: str
+    formula: str
+    default_unit_cost: float
+    default_markup_percent: float
+
+    model_config = {"from_attributes": True}
+
+
+class AssemblyOut(BaseModel):
+    id: int
+    code: str
+    name: str
+    category: str
+    description: Optional[str] = None
+    required_inputs: list[str] = []
+    created_at: datetime
+    components: list[AssemblyComponentOut] = []
+
+    model_config = {"from_attributes": True}
+
+
+class AssemblyCalculateRequest(BaseModel):
+    dimensions: dict[str, float]
+
+
+class ApplyAssemblyRequest(BaseModel):
+    code: str
+    dimensions: dict[str, float]
+
+
+class AssemblyLineOut(BaseModel):
+    description: str
+    item_type: str
+    quantity: float
+    unit: str
+    unit_cost: float
+    markup_percent: float
+    subtotal: float
+
+    model_config = {"from_attributes": True}
+
+
+class AssemblyCalculateResponse(BaseModel):
+    assembly_code: str
+    assembly_name: str
+    lines: list[AssemblyLineOut]
+    total: float
+

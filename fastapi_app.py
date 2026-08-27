@@ -28,9 +28,11 @@ from sqlalchemy.orm import Session
 import tax
 import workspace  # noqa: E402 -- pure logic, no framework
 import app.models  # noqa: E402 -- registers the User table with Base.metadata
-from app.database import Base, engine, ensure_legacy_columns, get_db
+from app.database import Base, SessionLocal, engine, ensure_legacy_columns, get_db
+from app.routers import assemblies as assemblies_router
 from app.routers import auth as auth_router
 from app.routers import organization as organization_router
+from app.seeds.assemblies_seed import seed_assemblies_and_lexicon
 from proposal import ContractorInfo, build_proposal, render_proposal_pdf
 from scope_parser import parse_pdf
 from trades import TRADE_OPTIONS
@@ -46,6 +48,11 @@ async def lifespan(_: FastAPI):
     try:
         Base.metadata.create_all(bind=engine)
         ensure_legacy_columns(engine)
+        seed_db = SessionLocal()
+        try:
+            seed_assemblies_and_lexicon(seed_db)
+        finally:
+            seed_db.close()
     except Exception as exc:  # noqa: BLE001 -- surfaced via /api/db-check
         print(f"[startup] database not reachable, skipping table creation: {exc}")
     yield
@@ -54,6 +61,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="BUILDUPQUOTE", version="1.0.0", lifespan=lifespan)
 app.include_router(auth_router.router)
 app.include_router(organization_router.router)
+app.include_router(assemblies_router.router)
 
 _WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 
