@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BuildUpQuote</title>
+<style>
+  :root {
+    --navy: #0F2A43;
+    --blue: #0F6CBD;
+    --ink: #13212C;
+    --muted: #5A6B7A;
+    --line: #DCE4EC;
+    --bg: #F5F8FC;
+    --panel: #FFFFFF;
+    --good: #17795E;
+    --good-bg: #E6F4EF;
+    --warn: #A15C07;
+    --warn-bg: #FDF1E0;
+    --bad: #B3261E;
+    --bad-bg: #FBEAE8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, "DejaVu Sans", sans-serif;
+    background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.45;
+  }
+  .mast {
+    background: linear-gradient(100deg, #0F6CBD 0%, #1B8AB0 55%, #17795E 100%);
+    color: #fff; padding: 18px 26px;
+  }
+  .mast h1 { margin: 0; font-size: 1.7rem; letter-spacing: -.01em; }
+  .mast p { margin: 4px 0 0; opacity: .93; font-size: .95rem; }
+
+  .layout { display: flex; align-items: flex-start; gap: 20px; padding: 20px 26px 96px; }
+  .side { flex: 0 0 320px; display: flex; flex-direction: column; gap: 14px; }
+  .main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+  @media (max-width: 900px) { .layout { flex-direction: column; } .side { flex-basis: auto; width: 100%; } }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .panel h2 { margin: 0 0 10px; font-size: 1rem; letter-spacing: -.01em; }
+  .panel .sub { margin: -6px 0 10px; color: var(--muted); font-size: .8rem; }
+
+  label { display: block; font-size: .78rem; font-weight: 700; color: var(--muted); margin: 8px 0 2px; letter-spacing: .03em; }
+  input[type=text], input[type=number], input[type=file], select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+    font: inherit; color: var(--ink); background: #fff;
+  }
+  input[type=file] { padding: 6px; }
+  .row2 { display: flex; gap: 10px; }
+  .row2 > div { flex: 1; }
+
+  button {
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    border-radius: 8px; padding: 9px 14px; font: inherit; font-weight: 700; cursor: pointer;
+  }
+  button:hover { border-color: var(--blue); color: var(--blue); }
+  button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  button.primary:hover { background: #0b5aa4; color: #fff; }
+  button.wide { width: 100%; margin-top: 6px; }
+
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  .badge.good { color: var(--good); background: var(--good-bg); }
+  .badge.warn { color: var(--warn); background: var(--warn-bg); }
+  .badge.bad { color: var(--bad); background: var(--bad-bg); }
+
+  .claim-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 18px; }
+  .claim-grid .c-label { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .claim-grid .c-val { font-weight: 600; word-break: break-word; }
+
+  .warn-list { margin: 6px 0 0; padding-left: 18px; color: var(--warn); font-size: .9rem; }
+  .warn-list li { margin: 3px 0; }
+
+  .table-wrap { overflow-x: auto; }
+  table.editor { width: 100%; border-collapse: collapse; background: #fff; }
+  table.editor th {
+    position: sticky; top: 0; background: var(--navy); color: #fff;
+    text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+    padding: 8px 8px; white-space: nowrap;
+  }
+  table.editor td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top; }
+  table.editor input { border: 1px solid transparent; background: transparent; padding: 5px 6px; }
+  table.editor input:hover, table.editor input:focus { border-color: var(--blue); background: #fff; }
+  table.editor input[type=checkbox] { width: 18px; height: 18px; }
+  table.editor input.num { text-align: right; }
+  table.editor .price { font-weight: 700; white-space: nowrap; text-align: right; padding-top: 6px; }
+  table.editor .del { color: var(--bad); border: none; background: none; font-weight: 800; cursor: pointer; }
+
+  .totals-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: flex-end; gap: 30px;
+    background: var(--navy); color: #fff; padding: 12px 26px;
+    border-top: 3px solid var(--blue);
+  }
+  .totals-bar .t { color: #B9CEE4; font-size: .85rem; white-space: nowrap; }
+  .totals-bar .t b { color: #fff; font-size: 1.05rem; margin-left: 4px; }
+  .totals-bar .t.grand b { font-size: 1.3rem; }
+
+  .trades { display: flex; flex-wrap: wrap; gap: 6px; }
+  .trades .chip { border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; font-size: .8rem; color: var(--muted); background: #fff; }
+  .empty { color: var(--muted); font-size: .9rem; }
+  #status { min-height: 1.2em; font-size: .85rem; color: var(--muted); }
+</style>
+<body>
+<div class="mast">
+  <h1>BuildUpQuote</h1>
+  <p>Upload a carrier estimate, adjust the scope, and export a proposal in your own name.</p>
+</div>
+
+<div class="layout">
+  <!-- ============ left: business info + controls ============ -->
+  <div class="side">
+    <div class="panel">
+      <h2>Your business info</h2>
+      <p class="sub">Appears on every proposal you export.</p>
+      <label>Business name</label>
+      <input type="text" id="biz_name" placeholder="Required for the PDF">
+      <label>Address</label>
+      <input type="text" id="biz_address">
+      <div class="row2">
+        <div><label>Phone</label><input type="text" id="biz_phone"></div>
+        <div><label>Email</label><input type="text" id="biz_email"></div>
+      </div>
+      <label>License # (optional)</label>
+      <input type="text" id="biz_license">
+      <label>Logo (optional)</label>
+      <input type="file" id="biz_logo" accept="image/png,image/jpeg">
+    </div>
+
+    <div class="panel">
+      <h2>How this job is taxed</h2>
+      <label>Contract type</label>
+      <select id="tax_rule"></select>
+      <label>Tax rate (%)</label>
+      <input type="number" id="tax_rate" min="0" max="15" step="0.05">
+    </div>
+
+    <div class="panel">
+      <h2>Carrier estimate</h2>
+      <input type="file" id="pdf_file" accept="application/pdf">
+      <button class="primary wide" onclick="uploadPdf()">⬆ Upload &amp; read PDF</button>
+      <div id="status"></div>
+    </div>
+
+    <div class="panel" id="export_panel" style="display:none">
+      <h2>Export</h2>
+      <label>Deductible ($)</label>
+      <input type="number" id="deductible" min="0" step="100">
+      <button class="primary wide" onclick="exportProposal()">⬇ Branded proposal PDF</button>
+      <button class="wide" onclick="exportCsv()">⬇ Scope as CSV</button>
+    </div>
+  </div>
+
+  <!-- ============ main: claim info + editable table ============ -->
+  <div class="main">
+    <div class="panel" id="claim_panel" style="display:none">
+      <h2 id="claim_title">Claim</h2>
+      <div class="claim-grid" id="claim_grid"></div>
+      <ul class="warn-list" id="warn_list" style="display:none"></ul>
+    </div>
+
+    <div class="panel" id="table_panel" style="display:none">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+        <h2 style="margin:0">Scope of work</h2>
+        <span id="review_badge"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="editor" id="editor_table">
+          <thead>
+            <tr>
+              <th>On</th><th>#</th><th>Trade</th><th>Description</th>
+              <th>Qty</th><th>Unit</th><th>Unit Cost</th><th>Margin %</th>
+              <th>Your Price</th><th>Needs Review</th><th>Note</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="rows_body"></tbody>
+        </table>
+      </div>
+      <button style="margin-top:10px" onclick="addRow()">＋ Add a line item</button>
+      <div class="trades" id="trades" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="totals-bar" id="totals_bar">
+  <span class="t" id="t_lines">Lines <b>0</b></span>
+  <span class="t" id="t_sub">Subtotal <b>$0.00</b></span>
+  <span class="t" id="t_tax">Tax <b>$0.00</b></span>
+  <span class="t grand" id="t_total">Total <b>$0.00</b></span>
+</div>
+
+<datalist id="trade_opts"></datalist>
+
+<script>
+"use strict";
+const state = {
+  rows: [], claimFields: {}, deductible: null,
+  business: { name:"", address:"", phone:"", email:"", license_number:"", logo_data_url:"" },
+  taxRule: "", taxRate: 0, meta: null,
+};
+const $ = (id) => document.getElementById(id);
+const money = (v) => (Number(v)||0).toLocaleString("en-US",{style:"currency",currency:"USD"});
+const lineTotal = (r) => (Number(r["Qty"])||0) * (Number(r["Unit Cost"])||0) * (1 + (Number(r["Margin %"])||0)/100);
+const esc = (s) => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+/* ---------------- setup ---------------- */
+async function loadMeta(){
+  const res = await fetch("/api/meta");
+  state.meta = await res.json();
+  const sel = $("tax_rule");
+  sel.innerHTML = state.meta.tax_rule_options.map(k => `<option value="${esc(k)}">${esc(state.meta.tax_rules[k])}</option>`).join("");
+  state.taxRule = state.meta.tax_rule_options[0] || "";
+  state.taxRate = state.meta.default_tax_rate_pct;
+  sel.value = state.taxRule;
+  $("tax_rate").value = state.taxRate;
+  $("trade_opts").innerHTML = state.meta.trade_options.map(t => `<option value="${esc(t)}">`).join("");
+}
+
+function bindBusiness(){
+  const map = { biz_name:"name", biz_address:"address", biz_phone:"phone", biz_email:"email", biz_license:"license_number" };
+  for (const [id, key] of Object.entries(map)) {
+    $(id).addEventListener("input", e => { state.business[key] = e.target.value; });
+  }
+  $("biz_logo").addEventListener("change", e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { state.business.logo_data_url = rd.result; };
+    rd.readAsDataURL(f);
+  });
+  $("deductible").addEventListener("input", e => { state.deductible = e.target.value === "" ? null : Number(e.target.value) || 0; });
+}
+
+function bindTax(){
+  $("tax_rule").addEventListener("change", e => { state.taxRule = e.target.value; scheduleTotals(); });
+  $("tax_rate").addEventListener("input", e => { state.taxRate = e.target.value; scheduleTotals(); });
+}
+
+/* ---------------- upload + parse ---------------- */
+async function uploadPdf(){
+  const file = $("pdf_file").files[0];
+  if (!file) { $("status").textContent = "Choose a PDF first."; return; }
+  const fd = new FormData();
+  fd.append("file", file);
+  $("status").textContent = "Reading your PDF... (a long claim can take a minute)";
+  try {
+    const res = await fetch("/api/parse", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "parse failed");
+    state.rows = data.rows || [];
+    state.claimFields = data.claim_fields || {};
+    if (data.deductible != null) { state.deductible = data.deductible; $("deductible").value = data.deductible; }
+    renderClaim(data);
+    renderTable();
+    refreshTotals();
+    $("export_panel").style.display = "";
+    $("status").textContent = (data.warnings && data.warnings.length) ? "Read with warnings -- see the amber list above." : "Read cleanly.";
+  } catch (err) {
+    $("status").textContent = "Error: " + err.message;
+  }
+}
+
+function renderClaim(data){
+  $("claim_panel").style.display = "";
+  $("table_panel").style.display = "";
+  const f = state.claimFields;
+  const items = [
+    ["Insured", f.insured_name], ["Property", f.property_address],
+    ["Insurance Co.", f.insurance_company], ["Claim #", f.claim_number],
+    ["Policy #", f.policy_number], ["Type of loss", f.type_of_loss],
+    ["Date of loss", f.date_of_loss],
+  ].filter(([,v]) => v && String(v).trim() && String(v).trim() !== "--");
+  $("claim_grid").innerHTML = items.map(([k,v]) =>
+    `<div><div class="c-label">${esc(k)}</div><div class="c-val">${esc(v)}</div></div>`).join("");
+  const ws = data.warnings || [];
+  $("warn_list").style.display = ws.length ? "" : "none";
+  $("warn_list").innerHTML = ws.map(w => `<li>${esc(w)}</li>`).join("");
+  $("review_badge").innerHTML = data.needs_review_count
+    ? `<span class="badge warn">${data.needs_review_count} need review</span>`
+    : `<span class="badge good">nothing needs review</span>`;
+  $("claim_title").textContent = f.claim_number ? `Claim ${f.claim_number}` : "Claim";
+}
+
+/* ---------------- editable table ---------------- */
+function renderTable(){
+  $("rows_body").innerHTML = state.rows.map((r, i) => {
+    const on = `<input type="checkbox" ${r.Include ? "checked" : ""} onchange="rowToggle(${i}, this.checked)">`;
+    const label = `<input type="text" class="num" value="${esc(r["#"] || "")}" oninput="rowSet(${i},'#', this.value)">`;
+    const trade = `<input type="text" list="trade_opts" value="${esc(r.Trade || "")}" oninput="rowSet(${i},'Trade', this.value)">`;
+    const desc = `<input type="text" value="${esc(r.Description || "")}" oninput="rowSet(${i},'Description', this.value)">`;
+    const qty = `<input type="number" class="num" step="any" value="${r.Qty == null ? "" : r.Qty}" oninput="rowSet(${i},'Qty', this.value)">`;
+    const unit = `<input type="text" value="${esc(r.Unit || "")}" oninput="rowSet(${i},'Unit', this.value)">`;
+    const cost = `<input type="number" class="num" step="any" value="${r["Unit Cost"] == null ? "" : r["Unit Cost"]}" oninput="rowSet(${i},'Unit Cost', this.value)">`;
+    const margin = `<input type="number" class="num" step="any" value="${r["Margin %"] == null ? "" : r["Margin %"]}" oninput="rowSet(${i},'Margin %', this.value)">`;
+    const price = `<div class="price">${money(lineTotal(r))}</div>`;
+    const review = `<input type="checkbox" ${r["Needs Review"] ? "checked" : ""} onchange="rowSet(${i},'Needs Review', this.checked)">`;
+    const note = `<input type="text" value="${esc(r["Review Note"] || "")}" oninput="rowSet(${i},'Review Note', this.value)">`;
+    const del = `<button class="del" onclick="deleteRow(${i})">✕</button>`;
+    return `<tr>${[on, label, trade, desc, qty, unit, cost, margin, price, review, note, del].map(t => `<td>${t}</td>`).join("")}</tr>`;
+  }).join("");
+}
+
+function rowSet(i, field, val){
+  const r = state.rows[i];
+  if (!r) return;
+  if (field === "Qty" || field === "Unit Cost" || field === "Margin %") {
+    const n = parseFloat(val);
+    r[field] = isNaN(n) ? 0 : n;
+  } else {
+    r[field] = val;
+  }
+  const tr = $("rows_body").children[i];
+  if (tr) tr.children[8].innerHTML = money(lineTotal(r));
+  scheduleTotals();
+}
+
+function rowToggle(i, checked){
+  const r = state.rows[i];
+  if (r) { r.Include = checked; scheduleTotals(); }
+}
+
+function addRow(){
+  const used = state.rows
+    .map(r => r["#"])
+    .filter(x => /^A\d+$/i.test(String(x || "")))
+    .map(x => parseInt(String(x).slice(1), 10));
+  const next = (used.length ? Math.max(...used) : 0) + 1;
+  state.rows.push({
+    "#": "A" + next, "Include": true, "Trade": "", "Section": "Added by you",
+    "Description": "", "Qty": 1, "Unit": "EA", "Unit Cost": 0, "Margin %": 20,
+    "Material": true, "Insurance RCV": null, "Insurance O&P": null,
+    "Code Cite": false, "Needs Review": false, "Review Note": "",
+    "Recoverable Depreciation": 0,
+  });
+  renderTable();
+  refreshTotals();
+}
+
+function deleteRow(i){
+  state.rows.splice(i, 1);
+  renderTable();
+  refreshTotals();
+}
+
+/* ---------------- live totals ---------------- */
+let totalsTimer = null;
+function scheduleTotals(){ clearTimeout(totalsTimer); totalsTimer = setTimeout(refreshTotals, 250); }
+
+async function refreshTotals(){
+  if (!state.rows.length) { setTotals(0, 0, 0, 0, []); return; }
+  try {
+    const res = await fetch("/api/totals", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows: state.rows, tax_rule: state.taxRule, tax_rate_pct: Number(state.taxRate) || 0 }),
+    });
+    const d = await res.json();
+    setTotals(d.count, d.subtotal, d.tax, d.total, d.trades || []);
+  } catch (err) { /* keep the last totals */ }
+}
+
+function setTotals(count, sub, tax, total, trades){
+  $("t_lines").innerHTML = `Lines <b>${count}</b>`;
+  $("t_sub").innerHTML = `Subtotal <b>${money(sub)}</b>`;
+  $("t_tax").innerHTML = `Tax <b>${money(tax)}</b>`;
+  $("t_total").innerHTML = `Total <b>${money(total)}</b>`;
+  $("trades").innerHTML = trades.map(t => `<span class="chip">${esc(t.Trade)}: ${money(t.Subtotal)}</span>`).join("");
+}
+
+/* ---------------- exports ---------------- */
+function proposalPayload(){
+  return {
+    rows: state.rows,
+    business: state.business,
+    claim_fields: state.claimFields,
+    tax_rule: state.taxRule,
+    tax_rate_pct: Number(state.taxRate) || 0,
+    deductible: state.deductible == null ? null : Number(state.deductible) || 0,
+  };
+}
+
+async function exportProposal(){
+  if (!state.rows.length) return;
+  $("status").textContent = "Building your proposal PDF...";
+  try {
+    const res = await fetch("/api/proposal", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(proposalPayload()),
+    });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || "export failed"); }
+    downloadBlob(await res.blob(), filenameFrom(res, "proposal.pdf"));
+    $("status").textContent = "Proposal PDF downloaded.";
+  } catch (err) { $("status").textContent = "Error: " + err.message; }
+}
+
+async function exportCsv(){
+  if (!state.rows.length) return;
+  try {
+    const res = await fetch("/api/csv", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(proposalPayload()),
+    });
+    if (!res.ok) throw new Error("CSV export failed");
+    downloadBlob(await res.blob(), filenameFrom(res, "scope.csv"));
+  } catch (err) { $("status").textContent = "Error: " + err.message; }
+}
+
+function filenameFrom(res, fallback){
+  const cd = res.headers.get("Content-Disposition") || "";
+  const m = cd.match(/filename="?([^";]+)"?/);
+  return m ? m[1] : fallback;
+}
+
+function downloadBlob(blob, name){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+loadMeta();
+bindBusiness();
+bindTax();
+</script>
+</body>
+</html>
+
+
+
+

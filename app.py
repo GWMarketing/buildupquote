@@ -65,7 +65,11 @@ import os
 import tempfile
 
 import pandas as pd
-import streamlit as st
+try:  # the FastAPI deployment (fastapi_app.py) imports this module on a
+    # streamlit-free VPS -- the pure logic below must stay importable.
+    import streamlit as st
+except ImportError:  # pragma: no cover -- Hostinger VPS has no streamlit
+    st = None
 
 import tax
 import ui
@@ -83,7 +87,8 @@ from proposal import ContractorInfo, build_proposal, payment_breakdown, render_p
 from scope_parser import parse_pdf
 from trades import TRADE_OPTIONS, guess_trade
 
-st.set_page_config(page_title="BuildUpQuote", page_icon="\U0001F4CB", layout="wide")
+if st is not None:
+    st.set_page_config(page_title="BuildUpQuote", page_icon="\U0001F4CB", layout="wide")
 
 # Where an uploaded logo gets saved so it can be embedded in the PDF.
 # Session-scoped, not tied to any one claim, since the same contractor

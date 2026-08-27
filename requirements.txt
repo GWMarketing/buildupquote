@@ -6,9 +6,19 @@
 # no reason to add a second dependency that does the same job.
 pdfplumber>=0.11
 
-# Step 2 -- the editing workspace (app.py)
-streamlit>=1.32
+# Step 2 -- the editing workspace
+# Streamlit dashboard (app.py) -- LEGACY. The app is moving to the FastAPI
+# deployment (fastapi_app.py) on the Hostinger VPS; app.py's streamlit
+# import is guarded, so the server does NOT need streamlit installed.
+# Uncomment only if you still run `streamlit run app.py`.
+# streamlit>=1.32
 pandas>=2.0
+
+# Step 2b -- FastAPI deployment (fastapi_app.py, the Hostinger VPS)
+# python-multipart is required for the PDF upload endpoint (UploadFile).
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
 
 # Step 3 -- branded proposal PDF export (proposal/)
 jinja2>=3.1

@@ -56,6 +56,46 @@ wants you to check, and an editable table of line items. As you edit,
 two download buttons appear: a plain CSV, and (once you've named your
 business) "Download Proposal PDF".
 
+### Deploying it on your own server (FastAPI -- the Hostinger VPS)
+
+The FastAPI deployment (`fastapi_app.py`) serves the same parser, pricing,
+and proposal engine as the dashboard, as a REST API + a self-contained web
+page (`web/index.html`). It does NOT need Streamlit on the server.
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+# On a Linux server, WeasyPrint also needs its system libraries:
+#   sudo apt install libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b fonts-dejavu-core
+uvicorn fastapi_app:app --host 0.0.0.0 --port 8000
+```
+
+Then open `http://<your-server>:8000/`. Upload a carrier PDF, edit the
+scope, and download the branded proposal PDF or CSV -- the same workflow
+as the dashboard.
+
+**Keep it running on a VPS** -- a minimal systemd unit:
+
+```ini
+[Unit]
+Description=BuildUpQuote
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/buildupquote
+ExecStart=/opt/buildupquote/venv/bin/uvicorn fastapi_app:app --host 127.0.0.1 --port 8000
+Restart=always
+User=buildupquote
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Put it behind a reverse proxy (Caddy or nginx) with TLS for the public
+URL. The API endpoints are `GET /api/meta`, `POST /api/parse` (multipart
+PDF upload), `POST /api/totals`, `POST /api/csv`, and `POST /api/proposal`.
+
 ### Deploying it for a business partner (Streamlit Community Cloud)
 
 Push this folder to a GitHub repo, then in [Streamlit Community
