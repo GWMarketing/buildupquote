@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<div x-data="clientsPage()" x-init="init()" class="space-y-4">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-bold text-slate-900">Clients</h1>
+    <button class="bq-btn" @click="openModal()">＋ Add New Client</button>
+  </div>
+
+  <div class="bq-card overflow-x-auto">
+    <table class="w-full grid-table">
+      <thead>
+        <tr><th>Name</th><th>Site address</th><th>Phone</th><th>Email</th></tr>
+      </thead>
+      <tbody>
+        <template x-for="c in clients" :key="c.id">
+          <tr>
+            <td class="text-sm font-medium text-slate-900" x-text="c.name"></td>
+            <td class="text-sm text-slate-600" x-text="c.site_address || '—'"></td>
+            <td class="text-sm text-slate-600" x-text="c.phone || '—'"></td>
+            <td class="text-sm text-slate-600" x-text="c.email || '—'"></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+    <p class="p-5 text-sm text-slate-500" x-show="!loading && clients.length === 0" x-cloak>No clients yet.</p>
+  </div>
+
+  <!-- Add-client modal -->
+  <div x-show="modalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+       @keydown.escape.window="modalOpen = false">
+    <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+      <h2 class="mb-4 text-base font-semibold text-slate-900">Add new client</h2>
+      <div class="space-y-3">
+        <div><label class="mb-1 block text-xs font-medium text-slate-500">Name *</label>
+          <input class="bq-input" x-model="form.name"></div>
+        <div><label class="mb-1 block text-xs font-medium text-slate-500">Site address</label>
+          <input class="bq-input" x-model="form.site_address"></div>
+        <div><label class="mb-1 block text-xs font-medium text-slate-500">Phone</label>
+          <input class="bq-input" x-model="form.phone"></div>
+        <div><label class="mb-1 block text-xs font-medium text-slate-500">Email</label>
+          <input class="bq-input" type="email" x-model="form.email"></div>
+      </div>
+      <div class="mt-5 flex justify-end gap-2">
+        <button class="bq-btn-secondary" @click="modalOpen = false">Cancel</button>
+        <button class="bq-btn" :disabled="saving" @click="addClient()" x-text="saving ? 'Adding…' : 'Add client'"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function clientsPage() {
+  return {
+    clients: [], loading: true, modalOpen: false, saving: false,
+    form: { name: '', site_address: '', phone: '', email: '' },
+    async init() {
+      try { this.clients = await BQ.api('/api/clients'); } catch (e) { console.error(e); }
+      this.loading = false;
+    },
+    openModal() { this.form = { name: '', site_address: '', phone: '', email: '' }; this.modalOpen = true; },
+    async addClient() {
+      if (!this.form.name.trim()) { alert('Name is required'); return; }
+      this.saving = true;
+      try {
+        await BQ.api('/api/clients', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.form),
+        });
+        this.modalOpen = false;
+        this.clients = await BQ.api('/api/clients');
+      } catch (e) { alert('Failed: ' + e.message); }
+      this.saving = false;
+    },
+  };
+}
+</script>
+{% endblock %}

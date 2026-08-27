@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<div x-data="catalogPage()" x-init="init()" class="space-y-4">
+  <h1 class="text-xl font-bold text-slate-900">Rate Catalog</h1>
+  <p class="text-sm text-slate-500">Master rate sheet from the global parametric assemblies — labor rates, materials, plant, and subcontractor markups.</p>
+
+  <div class="grid gap-4 lg:grid-cols-4">
+    <template x-for="group in groups" :key="group.type">
+      <div class="bq-card overflow-hidden">
+        <div class="border-b border-slate-100 px-4 py-3">
+          <h2 class="text-sm font-semibold capitalize text-slate-900" x-text="group.type"></h2>
+          <p class="text-xs text-slate-400" x-text="group.rows.length + ' items'"></p>
+        </div>
+        <ul class="divide-y divide-slate-50 text-sm">
+          <template x-for="r in group.rows" :key="r.description">
+            <li class="flex items-center justify-between px-4 py-2">
+              <div class="min-w-0">
+                <p class="truncate text-slate-700" x-text="r.description"></p>
+                <p class="text-xs text-slate-400" x-text="r.unit + ' · ' + r.markup + '% markup'"></p>
+              </div>
+              <span class="font-semibold text-slate-900" x-text="BQ.money(r.cost)"></span>
+            </li>
+          </template>
+        </ul>
+      </div>
+    </template>
+  </div>
+</div>
+
+<script>
+function catalogPage() {
+  return { groups: [],
+    async init() {
+      try {
+        const assemblies = await BQ.api('/api/assemblies');
+        const byType = {};
+        for (const a of assemblies) {
+          for (const c of a.components) {
+            (byType[c.item_type] = byType[c.item_type] || []).push({
+              description: c.description,
+              unit: c.unit,
+              cost: c.default_unit_cost,
+              markup: c.default_markup_percent,
+            });
+          }
+        }
+        this.groups = Object.entries(byType).map(([type, rows]) => ({ type, rows }));
+      } catch (e) { console.error(e); }
+    },
+  };
+}
+</script>
+{% endblock %}

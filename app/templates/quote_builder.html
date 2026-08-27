@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block content %}
+<div x-data="quoteBuilder({{ quote_id or 'null' }})" x-init="init()" class="space-y-5">
+  <!-- Header: client, name, site, status -->
+  <div class="bq-card p-5">
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Quote name</label>
+        <input class="bq-input" x-model="quote.title" @change="patch({ title: quote.title })">
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Client</label>
+        <select class="bq-input" x-model.number="quote.client_id" @change="patch({ client_id: quote.client_id })">
+          <option :value="null">No client</option>
+          <template x-for="c in clients" :key="c.id">
+            <option :value="c.id" x-text="c.name"></option>
+          </template>
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Site address</label>
+        <input class="bq-input" x-model="quote.site_address" @change="patch({ site_address: quote.site_address })">
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Status</label>
+        <select class="bq-input" x-model="quote.status" @change="patch({ status: quote.status })">
+          <option value="draft">Draft</option>
+          <option value="sent">Sent</option>
+          <option value="accepted">Accepted</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Parametric assembly drawer -->
+  <div class="bq-card p-5">
+    <h2 class="mb-3 text-sm font-semibold text-slate-900">Add from assembly template</h2>
+    <div class="flex flex-wrap items-end gap-3">
+      <div class="min-w-56 flex-1">
+        <label class="mb-1 block text-xs font-medium text-slate-500">Assembly</label>
+        <select class="bq-input" x-model="selectedCode" @change="resetDims()">
+          <option value="">Choose a template…</option>
+          <template x-for="a in assemblies" :key="a.code">
+            <option :value="a.code" x-text="a.name + ' (' + a.category + ')'"></option>
+          </template>
+        </select>
+      </div>
+      <template x-for="k in selectedInputs" :key="k">
+        <div class="w-28">
+          <label class="mb-1 block text-xs font-medium text-slate-500" x-text="k.charAt(0).toUpperCase() + k.slice(1)"></label>
+          <input class="bq-input" type="number" min="0" step="0.1" x-model.number="dims[k]" :placeholder="k">
+        </div>
+      </template>
+      <button class="bq-btn" :disabled="!selectedCode || !inputsReady()" @click="addAssembly()">＋ Add lines</button>
+    </div>
+    <p class="mt-2 text-xs text-slate-400" x-show="selectedInputs.length" x-cloak
+       x-text="'Requires: ' + selectedInputs.join(', ')"></p>
+  </div>
+
+  <!-- Interactive line items grid -->
+  <div class="bq-card overflow-x-auto">
+    <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+      <h2 class="text-sm font-semibold text-slate-900">Line items</h2>
+      <button class="bq-btn-secondary" @click="addRow()">＋ Row</button>
+    </div>
+    <table class="w-full min-w-150 grid-table">
+      <thead>
+        <tr>
+          <th>Description</th><th>Type</th><th class="text-right">Qty</th><th>Unit</th>
+          <th class="text-right">Unit Cost</th><th class="text-right">Markup %</th>
+          <th class="text-right">Total</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="(row, i) in lines" :key="i">
+          <tr>
+            <td><input class="bq-input" x-model="row.description" placeholder="Description"></td>
+            <td>
+              <select class="bq-input" x-model="row.item_type">
+                <option value="material">Material</option>
+                <option value="labor">Labor</option>
+                <option value="plant">Plant</option>
+                <option value="subcontractor">Subcontractor</option>
+              </select>
+            </td>
+            <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" step="0.001" x-model.number="row.quantity"></td>
+
+  <!-- Financial cockpit + actions -->
+  <div class="grid gap-5 lg:grid-cols-3">
+    <div class="bq-card p-5 lg:col-span-2">
+      <h2 class="mb-3 text-sm font-semibold text-slate-900">Gross margin</h2>
+      <div class="flex items-center gap-4">
+        <input type="range" min="0" max="50" step="1" class="flex-1" x-model.number="margin">
+        <span class="w-16 text-right font-semibold text-slate-900" x-text="margin + '%'"></span>
+        <button class="bq-btn-secondary" @click="applyMargin()">Apply to all lines</button>
+      </div>
+      <p class="mt-2 text-xs text-slate-400">
+        Preview at this margin: <span class="font-semibold text-slate-700" x-text="BQ.money(previewAtMargin())"></span>
+      </p>
+    </div>
+
+    <div class="bq-card p-5">
+      <h2 class="mb-3 text-sm font-semibold text-slate-900">Totals</h2>
+      <dl class="space-y-1.5 text-sm">
+        <div class="flex justify-between"><dt class="text-slate-500">Subtotal</dt><dd class="font-medium" x-text="BQ.money(subtotal())"></dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Materials</dt><dd class="font-medium" x-text="BQ.money(byType('material'))"></dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Labor</dt><dd class="font-medium" x-text="BQ.money(byType('labor'))"></dd></div>
+        <div class="flex justify-between items-center">
+          <dt class="text-slate-500">Tax / VAT</dt>
+          <dd class="flex items-center gap-1">
+            <input class="bq-input w-16 text-right" type="number" min="0" step="0.25" x-model.number="taxRate">
+            <span>%</span>
+          </dd>
+        </div>
+        <div class="flex justify-between"><dt class="text-slate-500">Tax amount</dt><dd class="font-medium" x-text="BQ.money(taxAmount())"></dd></div>
+        <div class="flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900">
+          <dt>Final total</dt><dd x-text="BQ.money(grandTotal())"></dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- Actions toolbar -->
+  <div class="bq-card flex flex-wrap items-center gap-3 p-5">
+    <button class="bq-btn" :disabled="saving" @click="save()" x-text="saving ? 'Saving…' : 'Save'"></button>
+    <button class="bq-btn" :disabled="!lines.length || exporting" @click="exportPdf()" x-text="exporting ? 'Building PDF…' : 'Export Branded PDF'"></button>
+    <div class="ml-auto flex items-center gap-2">
+      <span class="text-xs text-slate-400" x-show="savedAt" x-cloak x-text="'Saved ' + savedAt"></span>
+      <a :href="pdfUrl" x-show="pdfUrl" x-cloak target="_blank" class="text-sm font-medium text-blue-600 hover:underline">Open PDF</a>
+    </div>
+  </div>
+
+  <!-- PDF download history -->
+  <div class="bq-card p-5" x-show="downloads.length">
+    <h2 class="mb-2 text-sm font-semibold text-slate-900">PDF downloads</h2>
+    <ul class="space-y-1 text-sm">
+      <template x-for="d in downloads" :key="d.url">
+        <li><a :href="d.url" target="_blank" class="text-blue-600 hover:underline" x-text="d.url"></a></li>
+      </template>
+    </ul>
+  </div>
+</div>
+
+            <td><input class="bq-input w-16" x-model="row.unit"></td>
+            <td class="text-right"><input class="bq-input w-24 text-right" type="number" min="0" step="0.01" x-model.number="row.unit_cost"></td>
+            <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" max="100" step="0.5" x-model.number="row.markup_percent"></td>
+            <td class="text-right font-semibold text-slate-900" x-text="BQ.money(BQ.lineTotal(row))"></td>
+            <td><button class="text-slate-400 hover:text-red-600" @click="lines.splice(i, 1)">✕</button></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+    <p class="p-5 text-sm text-slate-500" x-show="lines.length === 0" x-cloak>
+      No lines yet — add an assembly above or click "＋ Row".
+    </p>
+  </div>
+
+
+<script>
+function quoteBuilder(quoteId) {
+  return {
+    quoteId: quoteId,
+    quote: { title: 'Untitled quote', status: 'draft', client_id: null, site_address: '' },
+    clients: [], assemblies: [], selectedCode: '', dims: {}, lines: [],
+    margin: 20, taxRate: 0, saving: false, exporting: false, savedAt: '',
+    pdfUrl: '', downloads: JSON.parse(localStorage.getItem('bq_downloads') || '[]'),
+
+    get selectedInputs() {
+      const a = this.assemblies.find(a => a.code === this.selectedCode);
+      return a ? a.required_inputs : [];
+    },
+
+    async init() {
+      try {
+        const [clients, assemblies] = await Promise.all([BQ.api('/api/clients'), BQ.api('/api/assemblies')]);
+        this.clients = clients; this.assemblies = assemblies;
+      } catch (e) { console.error(e); }
+      if (this.quoteId) {
+        await this.loadQuote();
+      } else {
+        const q = await BQ.api('/api/quotes', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'Untitled quote' }),
+        });
+        this.quoteId = q.id;
+        history.replaceState(null, '', '/quotes/' + q.id);
+        this.quote = Object.assign(this.quote, q);
+      }
+    },
+
+    async loadQuote() {
+      const detail = await BQ.api('/api/quotes/' + this.quoteId);
+      this.quote = detail;
+      this.lines = detail.lines.map(l => ({
+        description: l.description, item_type: l.item_type, quantity: l.quantity,
+        unit: l.unit, unit_cost: l.unit_cost, markup_percent: l.markup_percent,
+      }));
+    },
+
+    resetDims() { this.dims = {}; },
+    inputsReady() { return this.selectedInputs.every(k => Number(this.dims[k]) > 0); },
+
+    async patch(fields) {
+      try {
+        await BQ.api('/api/quotes/' + this.quoteId, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields),
+        });
+      } catch (e) { console.error(e); }
+    },
+
+    async addAssembly() {
+      await BQ.api('/api/quotes/' + this.quoteId + '/apply-assembly', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: this.selectedCode, dimensions: this.dims }),
+      });
+      await this.loadQuote();
+    },
+
+    addRow() {
+      this.lines.push({ description: '', item_type: 'material', quantity: 1, unit: 'each', unit_cost: 0, markup_percent: this.margin });
+    },
+
+    applyMargin() { this.lines.forEach(r => r.markup_percent = this.margin); },
+
+    previewAtMargin() {
+      return this.lines.reduce((s, r) => s + Number(r.quantity || 0) * Number(r.unit_cost || 0) * (1 + this.margin / 100), 0);
+    },
+    subtotal() { return this.lines.reduce((s, r) => s + BQ.lineTotal(r), 0); },
+    byType(t) { return this.lines.filter(r => r.item_type === t).reduce((s, r) => s + BQ.lineTotal(r), 0); },
+    taxAmount() { return this.subtotal() * this.taxRate / 100; },
+    grandTotal() { return this.subtotal() + this.taxAmount(); },
+
+    async save() {
+      this.saving = true;
+      try {
+        await BQ.api('/api/quotes/' + this.quoteId + '/lines', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.lines),
+        });
+        await this.loadQuote();
+        this.savedAt = new Date().toLocaleTimeString();
+      } catch (e) { alert('Save failed: ' + e.message); }
+      this.saving = false;
+    },
+
+    async exportPdf() {
+      this.exporting = true;
+      try {
+        const res = await BQ.api('/api/quotes/' + this.quoteId + '/pdf');
+        this.pdfUrl = res.url;
+        this.downloads = [res, ...this.downloads].slice(0, 10);
+        localStorage.setItem('bq_downloads', JSON.stringify(this.downloads));
+        window.open(res.url, '_blank');
+      } catch (e) { alert('Export failed: ' + e.message); }
+      this.exporting = false;
+    },
+  };
+}
+</script>
+{% endblock %}

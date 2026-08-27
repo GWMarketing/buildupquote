@@ -97,3 +97,79 @@ class AssemblyCalculateResponse(BaseModel):
     lines: list[AssemblyLineOut]
     total: float
 
+
+# ---------------------------------------------------------------------------
+# Clients & quotes (CRM frontend)
+# ---------------------------------------------------------------------------
+
+class ClientCreate(BaseModel):
+    name: str
+    site_address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+
+
+class ClientOut(BaseModel):
+    id: int
+    organization_id: int
+    name: str
+    site_address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class QuoteCreate(BaseModel):
+    title: str = "Untitled quote"
+    client_id: Optional[int] = None
+
+
+class QuoteUpdate(BaseModel):
+    title: Optional[str] = None
+    site_address: Optional[str] = None
+    status: Optional[str] = None  # draft / sent / accepted
+    client_id: Optional[int] = None
+
+
+class QuoteLineWrite(BaseModel):
+    description: str
+    item_type: str = "material"  # material / labor / plant / subcontractor
+    quantity: float = 0
+    unit: str = "item"
+    unit_cost: float = 0
+    markup_percent: float = 20.0
+
+
+class QuoteLineOut(BaseModel):
+    id: int
+    description: str
+    item_type: str
+    quantity: float
+    unit: str
+    unit_cost: float
+    markup_percent: float
+    line_total: float
+    position: int
+
+    model_config = {"from_attributes": True}
+
+
+class QuoteOut(BaseModel):
+    id: int
+    organization_id: Optional[int]
+    client_id: Optional[int] = None
+    client_name: Optional[str] = None
+    title: str
+    site_address: Optional[str] = None
+    status: str
+    subtotal: float
+    total: float
+    created_at: datetime
+    line_count: int = 0
+
+
+class QuoteDetailOut(QuoteOut):
+    lines: list[QuoteLineOut] = []
+

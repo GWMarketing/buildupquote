@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BuildUpQuote</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: { extend: {
+      fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+    }},
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<link rel="stylesheet" href="/static/css/app.css">
+<script src="/static/js/app.js" defer></script>
+<script>
+  // Auth guard: every page except /login requires a token.
+  if (!localStorage.getItem('bq_token') && location.pathname !== '/login') {
+    location.href = '/login';
+  }
+</script>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased" x-data="{ dark: localStorage.getItem('bq_theme') === 'dark' }" x-init="$watch('dark', v => { document.documentElement.classList.toggle('dark', v); localStorage.setItem('bq_theme', v ? 'dark' : 'light'); })" :class="{ 'dark': dark }">
+<nav class="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-700 dark:bg-slate-900">
+  <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+    <a href="/dashboard" class="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">BUILDUPQUOTE</a>
+    <div class="flex items-center gap-1">
+      {% set nav = [
+        ('dashboard', '/dashboard', 'Dashboard'),
+        ('quotes', '/quotes', 'Quotes'),
+        ('clients', '/clients', 'Clients'),
+        ('catalog', '/catalog', 'Rate Catalog'),
+        ('settings', '/settings', 'Settings'),
+      ] %}
+      {% for key, href, label in nav %}
+      <a href="{{ href }}"
+         class="rounded-md px-3 py-2 text-sm font-medium transition-colors
+                {{ 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' if active == key else 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800' }}">
+        {{ label }}</a>
+      {% endfor %}
+      <button @click="dark = !dark" class="ml-2 rounded-md px-2 py-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" title="Toggle theme">
+        <span x-show="!dark">🌙</span><span x-show="dark" x-cloak>☀️</span>
+      </button>
+      <button onclick="logout()" class="ml-1 rounded-md px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">Log out</button>
+    </div>
+  </div>
+</nav>
+
+<main class="mx-auto max-w-7xl px-4 py-6">
+  {% block content %}{% endblock %}
+</main>
+
+<style>[x-cloak]{display:none!important}</style>
+</body>
+</html>

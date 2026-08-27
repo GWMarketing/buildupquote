@@ -122,12 +122,16 @@ class Quote(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=True, index=True)
     title = Column(String, nullable=False, default="Untitled quote")
+    site_address = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="draft")  # draft / sent / accepted
     subtotal = Column(Numeric(12, 2), default=0)
     tax_amount = Column(Numeric(12, 2), default=0)
     total = Column(Numeric(12, 2), default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    client = relationship("Client", back_populates="quotes")
     items = relationship(
         "QuoteLineItem",
         back_populates="quote",
@@ -155,4 +159,20 @@ class QuoteLineItem(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     quote = relationship("Quote", back_populates="items")
+
+
+class Client(Base):
+    """A client of the organization (the "who is this quote for" record)."""
+
+    __tablename__ = "clients"
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    site_address = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    quotes = relationship("Quote", back_populates="client")
 

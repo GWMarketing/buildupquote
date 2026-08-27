@@ -45,7 +45,8 @@ def ensure_legacy_columns(bind):
     same code runs against both.
     """
     inspector = inspect(bind)
-    if "users" not in inspector.get_table_names():
+    existing_tables = inspector.get_table_names()
+    if "users" not in existing_tables:
         return  # brand-new database: create_all already has the full schema
     existing = {c["name"] for c in inspector.get_columns("users")}
     statements = []
@@ -53,6 +54,16 @@ def ensure_legacy_columns(bind):
         statements.append("ALTER TABLE users ADD COLUMN organization_id INTEGER")
     if "role" not in existing:
         statements.append("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'owner'")
+    # The quotes table predates client_id/site_address/status (added when
+    # the CRM UI landed) -- same in-place upgrade, still zero data.
+    if "quotes" in existing_tables:
+        quote_cols = {c["name"] for c in inspector.get_columns("quotes")}
+        if "client_id" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN client_id INTEGER")
+        if "site_address" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN site_address VARCHAR")
+        if "status" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN status VARCHAR DEFAULT 'draft'")
     if statements:
         with bind.begin() as conn:
             for statement in statements:

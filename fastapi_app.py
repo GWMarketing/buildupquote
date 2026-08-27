@@ -21,6 +21,7 @@ import pandas as pd
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -31,7 +32,10 @@ import app.models  # noqa: E402 -- registers the User table with Base.metadata
 from app.database import Base, SessionLocal, engine, ensure_legacy_columns, get_db
 from app.routers import assemblies as assemblies_router
 from app.routers import auth as auth_router
+from app.routers import clients as clients_router
 from app.routers import organization as organization_router
+from app.routers import pages as pages_router
+from app.routers import quotes as quotes_router
 from app.seeds.assemblies_seed import seed_assemblies_and_lexicon
 from proposal import ContractorInfo, build_proposal, render_proposal_pdf
 from scope_parser import parse_pdf
@@ -59,9 +63,16 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="BUILDUPQUOTE", version="1.0.0", lifespan=lifespan)
+
+_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app", "static")
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+
+app.include_router(pages_router.router)
 app.include_router(auth_router.router)
 app.include_router(organization_router.router)
+app.include_router(clients_router.router)
 app.include_router(assemblies_router.router)
+app.include_router(quotes_router.router)
 
 _WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 

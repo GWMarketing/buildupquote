@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<div x-data="dashboard()" x-init="init()" class="space-y-6">
+  <!-- Metric cards -->
+  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div class="bq-card p-5">
+      <p class="text-sm font-medium text-slate-500">Open Estimates</p>
+      <p class="mt-1 text-3xl font-bold text-slate-900" x-text="metrics.open"></p>
+    </div>
+    <div class="bq-card p-5">
+      <p class="text-sm font-medium text-slate-500">Accepted Work</p>
+      <p class="mt-1 text-3xl font-bold text-emerald-600" x-text="metrics.accepted"></p>
+    </div>
+    <div class="bq-card p-5">
+      <p class="text-sm font-medium text-slate-500">Total Quoted Pipeline</p>
+      <p class="mt-1 text-3xl font-bold text-slate-900" x-text="BQ.money(metrics.pipeline)"></p>
+    </div>
+    <div class="bq-card p-5">
+      <p class="text-sm font-medium text-slate-500">Active Clients</p>
+      <p class="mt-1 text-3xl font-bold text-slate-900" x-text="metrics.clients"></p>
+    </div>
+  </div>
+
+  <!-- Recent quotes -->
+  <div class="bq-card">
+    <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+      <h2 class="text-base font-semibold text-slate-900">Recent Quotes</h2>
+      <button class="bq-btn" @click="createQuote()">＋ Create Quote</button>
+    </div>
+    <div class="p-5" x-show="loading" x-cloak>Loading…</div>
+    <div class="p-5" x-show="!loading && quotes.length === 0" x-cloak>
+      <p class="text-sm text-slate-500">No quotes yet — create your first one.</p>
+    </div>
+    <ul class="divide-y divide-slate-100">
+      <template x-for="q in quotes.slice(0, 6)" :key="q.id">
+        <li class="flex items-center justify-between px-5 py-3 hover:bg-slate-50">
+          <a :href="'/quotes/' + q.id" class="min-w-0">
+            <p class="truncate text-sm font-medium text-slate-900" x-text="q.title"></p>
+            <p class="text-xs text-slate-500" x-text="q.client_name || 'No client'"></p>
+          </a>
+          <div class="flex items-center gap-3">
+            <span class="badge" :class="BQ.statusClass(q.status)" x-text="q.status.charAt(0).toUpperCase() + q.status.slice(1)"></span>
+            <span class="text-sm font-semibold text-slate-900" x-text="BQ.money(q.total)"></span>
+          </div>
+        </li>
+      </template>
+    </ul>
+  </div>
+</div>
+
+<script>
+function dashboard() {
+  return {
+    quotes: [], loading: true,
+    metrics: { open: 0, accepted: 0, pipeline: 0, clients: 0 },
+    async init() {
+      try {
+        const [quotes, clients] = await Promise.all([BQ.api('/api/quotes'), BQ.api('/api/clients')]);
+        this.quotes = quotes;
+        this.metrics = {
+          open: quotes.filter(q => q.status === 'draft').length,
+          accepted: quotes.filter(q => q.status === 'accepted').length,
+          pipeline: quotes.reduce((s, q) => s + (q.total || 0), 0),
+          clients: clients.length,
+        };
+      } catch (e) { console.error(e); }
+      this.loading = false;
+    },
+    async createQuote() {
+      const q = await BQ.api('/api/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Untitled quote' }),
+      });
+      location.href = '/quotes/' + q.id;
+    },
+  };
+}
+</script>
+{% endblock %}

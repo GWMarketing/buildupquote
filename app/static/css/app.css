@@ -1,0 +1,83 @@
+/* BuildUpQuote shared UI helpers -- plain CSS (Tailwind CDN doesn't run @apply) */
+
+.bq-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: .75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+}
+.dark .bq-card { background: #1e293b; border-color: #334155; }
+
+.bq-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: .5rem;
+  padding: .5rem .75rem;
+  font-size: .875rem;
+  color: #1e293b;
+  background: #fff;
+}
+.bq-input:focus { outline: none; border-color: #64748b; box-shadow: 0 0 0 2px #e2e8f0; }
+.dark .bq-input { border-color: #475569; background: #0f172a; color: #f1f5f9; }
+
+.bq-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  border-radius: .5rem;
+  background: #0f172a;
+  color: #fff;
+  padding: .5rem .75rem;
+  font-size: .875rem;
+  font-weight: 500;
+}
+.bq-btn:hover { background: #334155; }
+.bq-btn:disabled { opacity: .5; cursor: not-allowed; }
+.dark .bq-btn { background: #fff; color: #0f172a; }
+.dark .bq-btn:hover { background: #e2e8f0; }
+
+.bq-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  border-radius: .5rem;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  padding: .5rem .75rem;
+  font-size: .875rem;
+  font-weight: 500;
+}
+.bq-btn-secondary:hover { background: #f8fafc; }
+.dark .bq-btn-secondary { border-color: #475569; background: #1e293b; color: #e2e8f0; }
+.dark .bq-btn-secondary:hover { background: #334155; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: .125rem .625rem;
+  font-size: .75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-draft { background: #e2e8f0; color: #334155; }
+.dark .badge-draft { background: #334155; color: #e2e8f0; }
+.badge-sent { background: #dbeafe; color: #1d4ed8; }
+.dark .badge-sent { background: #1e3a8a; color: #bfdbfe; }
+.badge-accepted { background: #d1fae5; color: #047857; }
+.dark .badge-accepted { background: #064e3b; color: #a7f3d0; }
+
+table.grid-table th {
+  text-align: left;
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #64748b;
+  padding: .5rem .5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+table.grid-table td { padding: .35rem .5rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.dark table.grid-table th { color: #94a3b8; border-color: #334155; }
+.dark table.grid-table td { border-color: #1e293b; }
+
