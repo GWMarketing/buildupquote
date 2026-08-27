@@ -1240,23 +1240,10 @@ def main():
             ),
         )
 
-        # Roof/room measurements (surface area, squares, perimeters) are
-        # read off the plan pages but aren't priced lines -- a collapsed
-        # reference block keeps them available without cluttering the grid.
-        # See scope_parser/measurements.py and ParsedEstimate.measurements.
-        if estimate.measurements:
-            with st.expander(
-                f"📐 {len(estimate.measurements)} measurement block(s) from this document",
-                expanded=False,
-            ):
-                st.caption(
-                    "Roof/room figures read off the plan pages -- for reference when "
-                    "comparing against the PDF, not priced lines."
-                )
-                for m in estimate.measurements[:20]:
-                    st.write(f"- **{m.section or 'Document'}** — {m.label}: {m.value:,.2f} {m.unit}".rstrip())
-                if len(estimate.measurements) > 20:
-                    st.caption(f"…and {len(estimate.measurements) - 20} more")
+    # Roof/room square-footage reference parsing is disabled (2026-08-27,
+    # per the user -- the feature wasn't working), so there is nothing to
+    # show here. Line items that happen to use those units (SQ, LF, SF) are
+    # regular priced lines and are untouched.
 
     # ================= REVIEW =================
     with tab_review:

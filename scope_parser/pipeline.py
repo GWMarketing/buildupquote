@@ -16,7 +16,6 @@ from . import (
     fingerprint as fingerprint_mod,
     generic_reader,
     line_items,
-    measurements,
     metadata,
     noise_filter,
     profiles,
@@ -47,7 +46,12 @@ def parse_text(text: str, pdf_info=None) -> ParsedEstimate:
         items, section_totals_raw, li_warnings = line_items.parse_items_and_sections(
             kept_lines, profile
         )
-    measurement_tuples = measurements.extract_measurements(kept_lines)
+    # Square-footage/measurement reference parsing is DISABLED (2026-08-27,
+    # per the user: the feature was not working and is hidden). The
+    # protective filters that keep plan-measurement text from being read as
+    # line items live in line_items.py / generic_reader.py
+    # (is_measurement_line, has_labelled_measurement) and are NOT touched --
+    # real SQ/LF/SF line items keep parsing exactly as before.
     section_totals = totals.check_section_totals(section_totals_raw)
 
     warnings = list(li_warnings)
@@ -60,12 +64,6 @@ def parse_text(text: str, pdf_info=None) -> ParsedEstimate:
             f"section '{st.section}': parsed line items sum to {st.parsed_rcv_sum}, "
             f"which doesn't match any printed total {st.printed_numbers}"
         )
-
-    from .models import MeasurementBlock
-    measurement_blocks = [
-        MeasurementBlock(section=s, label=label, value=value, unit=unit)
-        for s, label, value, unit in measurement_tuples
-    ]
 
     # Computed from the same noise-filtered, boilerplate-excluded lines
     # (kept_lines) the rest of the pipeline already worked from -- not raw
@@ -142,7 +140,9 @@ def parse_text(text: str, pdf_info=None) -> ParsedEstimate:
     return ParsedEstimate(
         metadata=meta,
         line_items=items,
-        measurements=measurement_blocks,
+        # Measurement reference blocks are intentionally always empty now
+        # (see the disabled extract_measurements call above).
+        measurements=[],
         section_totals=section_totals,
         discarded_lines=discarded_lines,
         warnings=warnings,

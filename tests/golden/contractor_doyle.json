@@ -3682,68 +3682,7 @@
       "unit_price": 132.13
     }
   ],
-  "measurements": [
-    {
-      "label": "Floor Area",
-      "section": "Trinity, TX 75862",
-      "unit": "",
-      "value": 3219.4
-    },
-    {
-      "label": "Total Area",
-      "section": "Trinity, TX 75862",
-      "unit": "",
-      "value": 3403.68
-    },
-    {
-      "label": "Interior Wall Area",
-      "section": "Trinity, TX 75862",
-      "unit": "",
-      "value": 5293.37
-    },
-    {
-      "label": "Exterior Wall Area",
-      "section": "Trinity, TX 75862",
-      "unit": "",
-      "value": 3739.5
-    },
-    {
-      "label": "Exterior Perimeter of Walls",
-      "section": "Trinity, TX 75862",
-      "unit": "",
-      "value": 416.5
-    },
-    {
-      "label": "Surface Area",
-      "section": "Trinity, TX 75862",
-      "unit": "",
-      "value": 0.0
-    },
-    {
-      "label": "Number of Squares",
-      "section": "Trinity, TX 75862",
-      "unit": "",
-      "value": 0.0
-    },
-    {
-      "label": "Total Perimeter Length",
-      "section": "Trinity, TX 75862",
-      "unit": "",
-      "value": 0.0
-    },
-    {
-      "label": "Total Ridge Length",
-      "section": "Trinity, TX 75862",
-      "unit": "",
-      "value": 0.0
-    },
-    {
-      "label": "Total Hip Length",
-      "section": "Trinity, TX 75862",
-      "unit": "",
-      "value": 0.0
-    }
-  ],
+  "measurements": [],
   "metadata": {
     "fields": {
       "date_entered": "10/10/2024 1:03 PM",

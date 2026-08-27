@@ -136,8 +136,11 @@ scope_parser/        the parsing engine -- no UI code at all
   line_items.py         the main parser: turns text lines into LineItem
                          records, handling multi-line descriptions and
                          section titles along the way
-  measurements.py        pulls out roof/room measurements (surface area,
-                          squares, perimeter, etc.)
+  measurements.py        reference parsing disabled (2026-08-27) -- kept only
+                          for the is_measurement_line/has_labelled_measurement
+                          filters that keep plan-measurement text out of the
+                          line items (see "Plan measurements that look like
+                          priced rows" below)
   metadata.py            claim number, policy number, insured name,
                           property address, etc. -- plus, separately, the
                           PDF file's own hidden "who made this" info (see

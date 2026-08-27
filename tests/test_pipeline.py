@@ -94,13 +94,13 @@ class AllstateFullDocumentTest(unittest.TestCase):
         self.assertNotIn("F2(B)", joined_descriptions)
         self.assertTrue(any("R10F8(A)" in d or "F2(B)" in d for d in self.est.discarded_lines))
 
-    def test_measurement_blocks_survive_noise_stripping(self):
-        # Problem #1: don't lose the real measurements while stripping the
-        # sketch clutter they're printed next to.
-        labels = {(m.label, m.unit): m.value for m in self.est.measurements}
-        self.assertEqual(labels[("Surface Area", "")], 3397.66)
-        self.assertEqual(labels[("Number of Squares", "")], 33.98)
-        self.assertEqual(labels[("Total Ridge Length", "")], 108.26)
+    def test_measurement_blocks_are_not_surfaced_anymore(self):
+        # The roof/room square-footage reference feature was disabled
+        # (2026-08-27, per the user -- it wasn't working). The protective
+        # filters that keep plan-measurement text out of the line items are
+        # separate (line_items.py / generic_reader.py) and still active, so
+        # real SQ/LF/SF line items are untouched.
+        self.assertEqual(self.est.measurements, [])
 
     def test_claim_metadata(self):
         f = self.est.metadata.fields
