@@ -13,7 +13,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app import models
 from app.database import get_db
@@ -72,7 +72,15 @@ def get_current_user(
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    user = db.query(models.User).filter(models.User.email == email).first()
+    # selectinload populates current_user.organization eagerly, so tenant
+    # endpoints (e.g. /api/organization/me) work without a lazy-load round
+    # trip and can't blow up after the session's scope.
+    user = (
+        db.query(models.User)
+        .options(selectinload(models.User.organization))
+        .filter(models.User.email == email)
+        .first()
+    )
     if user is None:
         raise credentials_exception
     return user

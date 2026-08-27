@@ -21,9 +21,26 @@ def _normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
+def _unique_slug(db, base: str) -> str:
+    """'acme-roofing', 'acme-roofing-2', 'acme-roofing-3' ... -- the first
+    candidate that isn't already taken."""
+    candidate, n = base, 2
+    exists = db.query(models.Organization).filter(models.Organization.slug == candidate).first()
+    while exists:
+        candidate = f"{base}-{n}"
+        n += 1
+        exists = db.query(models.Organization).filter(models.Organization.slug == candidate).first()
+    return candidate
+
+
 @router.post("/register", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    """Create an account. 400 if the email is already registered."""
+    """Create an account. 400 if the email is already registered.
+
+    When `organization_name` is provided the first sign-up also creates
+    the Organization and this user becomes its "owner" (RBAC). Without it
+    the user registers org-less and can be attached to an organization
+    later."""
     email = _normalize_email(user.email)
     existing = db.query(models.User).filter(models.User.email == email).first()
     if existing:
@@ -31,10 +48,23 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered",
         )
+
+    organization = None
+    org_name = (user.organization_name or "").strip()
+    if org_name:
+        organization = models.Organization(
+            name=org_name,
+            slug=_unique_slug(db, models.slugify(org_name)),
+        )
+        db.add(organization)
+        db.flush()  # assign organization.id before the user row references it
+
     db_user = models.User(
         email=email,
         hashed_password=get_password_hash(user.password),
         full_name=user.full_name,
+        organization_id=organization.id if organization else None,
+        role="owner",
     )
     db.add(db_user)
     db.commit()

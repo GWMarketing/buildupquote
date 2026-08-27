@@ -7,7 +7,7 @@ development against a local postgres works out of the box.
 """
 import os
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 DATABASE_URL = os.getenv(
@@ -31,3 +31,29 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def ensure_legacy_columns(bind):
+    """Idempotently add the multi-tenancy columns the pre-organization
+    deploy's `users` table is missing.
+
+    `create_all` never alters an existing table, and the VPS `users` table
+    was created before `organization_id`/`role` existed. With zero
+    production data this is a plain ADD COLUMN -- safe, and a no-op forever
+    after. Column existence is checked first (rather than relying on
+    `IF NOT EXISTS`, which PostgreSQL supports but SQLite doesn't) so the
+    same code runs against both.
+    """
+    inspector = inspect(bind)
+    if "users" not in inspector.get_table_names():
+        return  # brand-new database: create_all already has the full schema
+    existing = {c["name"] for c in inspector.get_columns("users")}
+    statements = []
+    if "organization_id" not in existing:
+        statements.append("ALTER TABLE users ADD COLUMN organization_id INTEGER")
+    if "role" not in existing:
+        statements.append("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'owner'")
+    if statements:
+        with bind.begin() as conn:
+            for statement in statements:
+                conn.execute(text(statement))
