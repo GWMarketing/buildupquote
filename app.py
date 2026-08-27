@@ -88,7 +88,7 @@ from scope_parser import parse_pdf
 from trades import TRADE_OPTIONS, guess_trade
 
 if st is not None:
-    st.set_page_config(page_title="BuildUpQuote", page_icon="\U0001F4CB", layout="wide")
+    st.set_page_config(page_title="BUILDUPQUOTE", page_icon="\U0001F4CB", layout="wide")
 
 # Where an uploaded logo gets saved so it can be embedded in the PDF.
 # Session-scoped, not tied to any one claim, since the same contractor
@@ -1061,7 +1061,7 @@ def _export_basename(contractor_name, fields):
 def main():
     ui.inject_css(st)
     ui.masthead(
-        st, "BuildUpQuote",
+        st, "BUILDUPQUOTE",
         "Upload a carrier estimate, adjust the scope, and export a proposal in your own name.",
     )
 

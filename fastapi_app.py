@@ -28,7 +28,7 @@ from proposal import ContractorInfo, build_proposal, render_proposal_pdf
 from scope_parser import parse_pdf
 from trades import TRADE_OPTIONS
 
-app = FastAPI(title="BuildUpQuote", version="1.0.0")
+app = FastAPI(title="BUILDUPQUOTE", version="1.0.0")
 
 _WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 
