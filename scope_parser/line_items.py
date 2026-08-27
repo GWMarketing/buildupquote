@@ -103,17 +103,29 @@ def _split_leading_label(text):
 def _consume_data_row(text, item, profile=XACTIMATE):
     """If `text` contains a quantity/unit pair, split it into a description
     prefix (appended to item) and the trailing data tokens. Returns True if
-    a data row was found."""
+    a data row was found.
+
+    The pair only counts as a real data-row anchor when something actually
+    follows it: a description that merely MENTIONS a measurement ("Saddle or
+    cricket - up to 25 SF", "R&R Window screen, 10 - 16 SF") has no data
+    after the unit, while a genuine row always does -- its price/tax/RCV/
+    ... columns begin with a number. Without this guard the unit inside such
+    a description was read as the row's quantity and the real data row on
+    the next line was swallowed as a note (real PDF, 2026-08-27).
+    """
     tokens = split_fused_tokens(text.split(), profile.unit_tokens)
     idx = find_qty_and_unit(tokens, profile.unit_tokens)
     if idx is None:
+        return False
+    tail = tokens[idx + 2:]
+    if not tail or parse_number(tail[0]) is None:
         return False
     prefix = " ".join(tokens[:idx])
     if prefix:
         item["desc_parts"].append(prefix)
     item["quantity"] = parse_number(tokens[idx])
     item["unit"] = tokens[idx + 1]
-    item["tail_tokens"] = tokens[idx + 2:]
+    item["tail_tokens"] = tail
     return True
 
 
@@ -210,11 +222,17 @@ def _parse_tail(tokens, field_schema):
             values["depreciation_recoverable"] = recoverable
             idx += 1
         elif field == "age_life":
-            m = re.match(r"^(\d+)/(\d+|NA)$", tok)
+            # A bare "NA" is a real, valid value: the carrier printed no
+            # age/life for this line (removal-only rows, dumpster loads,
+            # etc.). It parses as unknown rather than flagging the row.
+            m = re.match(r"^(?:NA|(\d+)/(\d+|NA))$", tok)
             if not m:
                 problems.append(f"expected an age/life value, got '{tok}'")
                 break
-            values["age"], values["life"] = m.group(1), m.group(2)
+            if tok.upper() == "NA":
+                values["age"], values["life"] = None, None
+            else:
+                values["age"], values["life"] = m.group(1), m.group(2)
             idx += 1
             if idx < n and re.match(r"^yrs\.?$", tokens[idx], re.IGNORECASE):
                 idx += 1

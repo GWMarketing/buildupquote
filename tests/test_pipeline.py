@@ -35,6 +35,56 @@ def load(name):
         return parse_text(f.read())
 
 
+class DescriptionWithUnitAndBareNaTest(unittest.TestCase):
+    """Two real-carrier parse bugs (2026-08-27, from a genuine PDF): a
+    description that merely MENTIONS a number+unit ('Saddle or cricket - up
+    to 25 SF', 'R&R Window screen, 10 - 16 SF') was being misread as a data
+    row, and rows with a bare 'NA' age/life (no depreciation info printed)
+    were wrongly flagged for review. Both must parse cleanly and the section
+    must reconcile."""
+
+    TEXT = """\
+Main Roof
+QUANTITY UNIT TAX RCV AGE/LIFE COND. DEP % DEPREC. ACV
+DWELLING
+1. Saddle or cricket - up to 25 SF
+1.00EA 207.24 8.49 215.73 0/150 yrs Avg. 0% (0.00) 215.73
+2. R&R Window screen, 10 - 16 SF
+2.00EA 48.90 6.77 104.57 5/30 yrs Avg. 16.67% (16.26) 88.31
+3. Remove Gable cornice strip - laminated
+19.00LF 1.99 0.00 37.81 NA NA NA (0.00) 37.81
+Totals: Main Roof 0.00 358.11 0.00 358.11
+"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.est = parse_text(cls.TEXT)
+
+    def test_descriptions_that_mention_a_unit_are_not_data_rows(self):
+        items = {li.number: li for li in self.est.line_items}
+        saddle = items["1"]
+        self.assertEqual(saddle.description, "Saddle or cricket - up to 25 SF")
+        self.assertEqual(saddle.quantity, 1.0)
+        self.assertEqual(saddle.unit, "EA")
+        self.assertEqual(saddle.unit_price, 207.24)
+        self.assertEqual(saddle.rcv, 215.73)
+        screen = items["2"]
+        self.assertEqual(screen.description, "R&R Window screen, 10 - 16 SF")
+        self.assertEqual(screen.quantity, 2.0)
+        self.assertEqual(screen.unit_price, 48.90)
+        self.assertEqual(screen.rcv, 104.57)
+
+    def test_bare_na_age_life_does_not_flag_the_row(self):
+        items = {li.number: li for li in self.est.line_items}
+        cornice = items["3"]
+        self.assertEqual(cornice.rcv, 37.81)
+        self.assertFalse(cornice.needs_review)
+        self.assertEqual(self.est.needs_review_items, [])
+
+    def test_section_reconciles_with_zero_warnings(self):
+        self.assertEqual(self.est.warnings, [])
+
+
 class AllstateFullDocumentTest(unittest.TestCase):
     """The complete Allstate/National Catastrophe Team estimate. Every
     dollar in this document should reconcile -- this is the strictest
