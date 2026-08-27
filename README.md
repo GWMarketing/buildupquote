@@ -75,6 +75,10 @@ Then open `http://<your-server>:8000/`. Upload a carrier PDF, edit the
 scope, and download the branded proposal PDF or CSV -- the same workflow
 as the dashboard.
 
+**Ready-made deployment files live in `deploy/`** (one-shot setup script,
+systemd unit, Caddy + nginx proxy configs, and the ordered instructions) --
+see `deploy/README.md`.
+
 **Keep it running on a VPS** -- a minimal systemd unit:
 
 ```ini

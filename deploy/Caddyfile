@@ -1,0 +1,12 @@
+# BuildUpQuote -- Caddy reverse proxy with automatic HTTPS.
+#
+# 1) Replace yourdomain.com with your real domain (or a Hostinger subdomain
+#    pointed at this VPS).
+# 2) Copy to /etc/caddy/Caddyfile, then:
+#      sudo apt install -y caddy
+#      sudo systemctl enable --now caddy
+# Caddy auto-provisions TLS and has no upload size limit (large carrier
+# PDFs stream straight through).
+yourdomain.com {
+	reverse_proxy 127.0.0.1:8000
+}

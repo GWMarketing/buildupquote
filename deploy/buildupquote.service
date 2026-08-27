@@ -1,0 +1,13 @@
+[Unit]
+Description=BuildUpQuote (FastAPI)
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/buildupquote
+ExecStart=/opt/buildupquote/venv/bin/uvicorn fastapi_app:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
