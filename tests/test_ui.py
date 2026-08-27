@@ -1,9 +1,9 @@
 """Tests for the parts of the workspace that make decisions.
 
-ui.py is mostly drawing code, which needs a real browser to judge. These
-cover the two things in it that are logic rather than looks -- what a
-search box matches, and what a download ends up being called -- plus the
-row numbering that lets a contractor check a line against the PDF.
+Rendering lives in web/index.html and is judged visually; these cover the
+logic that runs underneath it -- what a search box matches, what a
+download ends up being called, and the row numbering that lets a
+contractor check a line against the PDF.
 """
 import os
 import sys
@@ -13,7 +13,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-import ui  # noqa: E402
+import workspace as ui  # noqa: E402
 
 
 def frame():
@@ -142,22 +142,6 @@ class RowLabelTests(unittest.TestCase):
         """A code-required addition uses "L" so it reads apart from a
         line the contractor chose to add on their own."""
         self.assertEqual(ui.row_label(None, 4, added=True, prefix="L"), "L4")
-
-
-class PaletteTests(unittest.TestCase):
-    def test_every_tone_has_a_matching_background(self):
-        """pill() looks up "<tone>" and "<tone>_bg"; a missing pair would
-        be a KeyError on screen rather than a wrong colour."""
-        for tone in ("good", "warn", "bad", "info", "added"):
-            self.assertIn(tone, ui.PALETTE)
-            self.assertIn(tone + "_bg", ui.PALETTE)
-
-    def test_an_unknown_tone_falls_back_instead_of_crashing(self):
-        self.assertIn("bq-pill", ui.pill("hello", "chartreuse"))
-
-    def test_the_stylesheet_is_one_self_contained_block(self):
-        self.assertTrue(ui.CSS.strip().startswith("<style>"))
-        self.assertTrue(ui.CSS.strip().endswith("</style>"))
 
 
 if __name__ == "__main__":

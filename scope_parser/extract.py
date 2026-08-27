@@ -47,7 +47,7 @@ def _markers_for(pdf_info):
 
 def extract_text(pdf_path, pdf_info=None) -> str:
     """pdf_path may be a filesystem path (str) or a file-like object
-    (e.g. Streamlit's UploadedFile) -- pdfplumber accepts either."""
+    (e.g. an uploaded file) -- pdfplumber accepts either."""
     import pdfplumber
 
     markers = _markers_for(pdf_info)
@@ -68,7 +68,7 @@ def extract_pdf_info(pdf_path) -> dict:
     where "which program actually wrote this PDF" lives; see
     metadata.py's fields_from_pdf_info() for what gets pulled out of it.
     A file-like object that's already been read by extract_text() (e.g.
-    a Streamlit upload) needs its position reset first, same reason
+    an uploaded file) needs its position reset first, same reason
     pipeline.py opens it twice rather than trying to share one handle."""
     import pdfplumber
 

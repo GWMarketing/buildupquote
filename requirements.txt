@@ -7,11 +7,9 @@
 pdfplumber>=0.11
 
 # Step 2 -- the editing workspace
-# Streamlit dashboard (app.py) -- LEGACY. The app is moving to the FastAPI
-# deployment (fastapi_app.py) on the Hostinger VPS; app.py's streamlit
-# import is guarded, so the server does NOT need streamlit installed.
-# Uncomment only if you still run `streamlit run app.py`.
-# streamlit>=1.32
+# The core logic lives in workspace.py -- plain pandas and Python, no
+# framework. The FastAPI deployment (fastapi_app.py) and the tests both
+# import it.
 pandas>=2.0
 
 # Step 2b -- FastAPI deployment (fastapi_app.py, the Hostinger VPS)

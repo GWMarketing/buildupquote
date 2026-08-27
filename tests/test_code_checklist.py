@@ -1,5 +1,5 @@
 """Tests for the Texas code checklist (code_checklist.py) -- pure data
-and matching logic, no Streamlit needed."""
+and matching logic, no framework needed."""
 import os
 import sys
 import unittest

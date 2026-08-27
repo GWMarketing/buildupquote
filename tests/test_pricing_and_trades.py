@@ -1,10 +1,9 @@
 """Unit tests for the app's pure logic (pricing.py, trades.py).
 
-These deliberately don't import Streamlit -- this sandbox couldn't
-install it (no PyPI access), so keeping the actual math and
-classification logic in plain functions outside app.py means it can
-still be tested here, and the same functions get exercised for real the
-moment someone runs `streamlit run app.py` in an environment that has it.
+These deliberately don't import any framework -- the math and
+classification logic lives in plain functions (pricing.py, trades.py,
+workspace.py) so it can be unit-tested here, and the same functions are
+exercised for real by the FastAPI deployment (fastapi_app.py).
 """
 import os
 import sys

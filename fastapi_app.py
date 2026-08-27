@@ -1,13 +1,13 @@
 """BuildUpQuote -- FastAPI deployment for the Hostinger VPS.
 
-Serves the SAME parsing / pricing / proposal engine as the Streamlit
-dashboard, but as a REST API plus a self-contained web page
-(web/index.html) -- no Streamlit required on the server.
+Serves the parsing / pricing / proposal engine as a REST API plus a
+self-contained web page (web/index.html). The web page is the only app
+interface; no other app framework is involved.
 
 Run with:  uvicorn fastapi_app:app --host 0.0.0.0 --port 8000
 
-The pure row/totals logic is imported from app.py (its Streamlit import is
-guarded, so the module imports fine on a streamlit-free server).
+The pure row/totals logic is imported from workspace.py -- plain pandas
+and Python, no framework, so it imports anywhere.
 """
 import base64
 import datetime
@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 import tax
-import app as workspace  # noqa: E402 -- app.py imports fine without streamlit
+import workspace  # noqa: E402 -- pure logic, no framework
 from proposal import ContractorInfo, build_proposal, render_proposal_pdf
 from scope_parser import parse_pdf
 from trades import TRADE_OPTIONS

@@ -1,8 +1,8 @@
 # Deploying BuildUpQuote to your Hostinger VPS
 
 Everything here assumes an Ubuntu/Debian VPS (the standard Hostinger image).
-The app is the FastAPI deployment (`fastapi_app.py`) -- **no Streamlit is
-installed or needed on the server**.
+The app is the FastAPI deployment (`fastapi_app.py`) -- it is the only app
+interface; there is no legacy dashboard.
 
 ## Docker option (fastest, if the VPS has Docker)
 

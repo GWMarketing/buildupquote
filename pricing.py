@@ -1,7 +1,6 @@
-"""Pure pricing math, kept separate from app.py so it can be unit tested
-without needing Streamlit installed (this sandbox couldn't reach PyPI to
-install Streamlit -- see README's "Testing note" section for the full
-story). No dependencies here beyond the standard library.
+"""Pure pricing math, kept separate from the workspace/rendering code so it
+can be unit tested with no framework involved. No dependencies here beyond
+the standard library.
 """
 
 

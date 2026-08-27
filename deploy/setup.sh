@@ -34,7 +34,7 @@ python3 -m venv venv
 ./venv/bin/pip install --upgrade pip
 ./venv/bin/pip install -r requirements.txt
 
-echo "==> smoke test (imports only -- no streamlit needed)"
+echo "==> smoke test (imports only -- no framework needed)"
 ./venv/bin/python -c "import fastapi_app; print('fastapi_app imports OK')"
 
 echo

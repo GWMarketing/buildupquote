@@ -1,21 +1,18 @@
-"""Tests app.py's data-shaping helpers without needing Streamlit
-installed. This sandbox couldn't reach PyPI to install it, so a fake
-`streamlit` module is registered in sys.modules before importing app.py --
-enough to satisfy the module-level `st.set_page_config(...)` call, since
-none of the functions tested here (_rows_from_estimate, _best) actually
-call into Streamlit themselves. The real widget/layout code in main()
-still needs an actual `streamlit run app.py` to verify visually -- see
-README's testing note.
+"""Tests workspace.py's data-shaping helpers.
+
+All the pure logic lives in workspace.py -- plain pandas and Python, no
+framework -- so this suite runs on any box. The functions tested here
+(_rows_from_estimate, _best, _quote_totals, the edit merge, ...) are
+exactly the ones the FastAPI deployment (fastapi_app.py) exercises
+end-to-end; the rendering layer in web/index.html is judged visually.
 """
 import os
 import sys
 import unittest
-from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.modules.setdefault("streamlit", MagicMock())
 
-import app  # noqa: E402
+import workspace as app  # noqa: E402 -- pure logic, no framework
 import tax  # noqa: E402
 from scope_parser import parse_pdf, parse_text  # noqa: E402
 
@@ -574,7 +571,7 @@ class MergeTableEditsTest(unittest.TestCase):
             [{"Description": "Contractor add", "Trade": "Roofing", "Qty": 2.0,
               "Unit": "EA", "Unit Cost": 75.0, "Margin %": 20,
               "Include": True, "Material": True}],
-            index=[3],  # Streamlit hands added rows an index past the shown view
+            index=[3],  # the editor hands added rows an index past the shown view
         )
         edited = pd.concat([shown, new])
         result, added = app._merge_table_edits(master, shown, edited, 20)

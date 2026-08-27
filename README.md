@@ -5,9 +5,11 @@ Three pieces of the rebuild are done so far, in the order agreed on in
 
 1. **The parsing engine** (`scope_parser/`) -- turns a carrier estimate
    PDF into clean, structured data.
-2. **The editing workspace** (`app.py`) -- a Streamlit screen where you
-   upload a PDF, see the parsed scope, and adjust trade, unit cost, and
-   margin per line item until you have your price.
+2. **The editing workspace** -- `workspace.py` holds the pure logic
+   (row shaping, pricing, totals, edit merge); `fastapi_app.py` serves
+   it as a REST API + the web page (`web/index.html`) where you upload
+   a PDF, see the parsed scope, and adjust trade, unit cost, and margin
+   per line item until you have your price.
 3. **The branded proposal export** (`proposal/`) -- turns your edited
    scope into a homeowner-facing PDF with your logo, business info, the
    claim details, and a signature block.
@@ -32,7 +34,7 @@ Still to come: accounts/multi-tenant (Supabase), then polish.
 
 **Use Python 3.11 (or anything 3.10-3.12).** This was tested and confirmed
 working on 3.11. A brand-new Python version like 3.14 will very likely
-fail here -- pandas, Streamlit, and other packages usually take months
+fail here -- pandas and other packages usually take months
 after a new Python release before they publish ready-to-install versions
 for it, so `pip install` either errors out or tries to compile things
 from source and fails partway through. Check what you've got with
@@ -45,22 +47,22 @@ virtual environment with that specific version instead of plain
 python3.11 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-streamlit run app.py
+uvicorn fastapi_app:app --port 8000
 ```
 
-That opens the editing workspace in your browser. Fill in your business
-info in the sidebar (name, address, phone, logo -- all optional except
+That serves the editing workspace at **http://localhost:8000**. Fill in
+your business info (name, address, phone, logo -- all optional except
 name, which is what turns on the proposal PDF button), then upload one of
 your sample PDFs. You should see the claim info, any warnings the parser
 wants you to check, and an editable table of line items. As you edit,
-two download buttons appear: a plain CSV, and (once you've named your
-business) "Download Proposal PDF".
+the totals update live; download a plain CSV or a branded proposal PDF
+from the Export panel.
 
-### Deploying it on your own server (FastAPI -- the Hostinger VPS)
+### Running it on your own server (FastAPI -- the Hostinger VPS)
 
-The FastAPI deployment (`fastapi_app.py`) serves the same parser, pricing,
-and proposal engine as the dashboard, as a REST API + a self-contained web
-page (`web/index.html`). It does NOT need Streamlit on the server.
+The FastAPI deployment (`fastapi_app.py`) serves the parser, pricing, and
+proposal engine as a REST API + a self-contained web page
+(`web/index.html`) -- the one app interface.
 
 ```bash
 python3 -m venv venv
@@ -71,9 +73,8 @@ pip install -r requirements.txt
 uvicorn fastapi_app:app --host 0.0.0.0 --port 8000
 ```
 
-Then open `http://<your-server>:8000/`. Upload a carrier PDF, edit the
-scope, and download the branded proposal PDF or CSV -- the same workflow
-as the dashboard.
+Then open `http://<your-server>:8000/` and upload a carrier PDF -- the
+full workflow (upload, edit, totals, export) runs from that one page.
 
 **Ready-made deployment files live in `deploy/`** (one-shot setup script,
 systemd unit, Caddy + nginx proxy configs, and the ordered instructions) --
@@ -100,36 +101,20 @@ Put it behind a reverse proxy (Caddy or nginx) with TLS for the public
 URL. The API endpoints are `GET /api/meta`, `POST /api/parse` (multipart
 PDF upload), `POST /api/totals`, `POST /api/csv`, and `POST /api/proposal`.
 
-### Deploying it for a business partner (Streamlit Community Cloud)
+### Deploying it for a business partner
 
-Push this folder to a GitHub repo, then in [Streamlit Community
-Cloud](https://share.streamlit.io) choose **Create app -> Deploy a public
-app from GitHub** and point it at that repo (main branch, `app.py`). The
-cloud reads three files in this repo at deploy time:
+The VPS deployment is the whole story now: `deploy/` has the one-shot
+setup script, systemd unit, and Caddy/nginx configs, and the Docker stack
+(`Dockerfile`, `docker-compose.yml`) builds the same app in a container.
+A GitHub Actions workflow (`.github/workflows/deploy.yml`) SSHes into the
+VPS and rebuilds on every push to `main`. See `deploy/README.md` for the
+VPS-side prerequisites (repo at `/var/www/buildupquote`, Docker, SSH
+key) and the three repo secrets it needs.
 
-- `requirements.txt` -- Python packages, including WeasyPrint for the
-  proposal PDF. Nothing here needs a system installer.
-- `packages.txt` -- the Linux libraries WeasyPrint loads at render time
-  (Pango + Harfbuzz; glib, fontconfig and the rest come in as their
-  dependencies). The cloud runs `apt-get install` on this list before
-  installing the Python packages. Keep it to these package names only:
-  the cloud image mixes bullseye and trixie apt repos, and explicitly
-  naming `libglib2.0-0` there forces the bullseye glib, which conflicts
-  with the trixie glib that pango now needs. Without this file the PDF
-  button fails with "cannot load library libpango-1.0".
-- `.streamlit/config.toml` -- colours and the upload limit, shipped with
-  the app so your partner sees the same look you do.
-
-No wkhtmltopdf, no system downloads, no Rosetta -- that whole class of
-install problem doesn't exist on the cloud. Each push to GitHub
-redeploys the app, so your partner always checks the latest version.
-
-**Adding a line item the carrier missed** is already built in: scroll to
-the bottom of the editable table and there's a blank "+" row waiting --
-Streamlit's data editor supports adding rows natively (`num_rows=
-"dynamic"`), so nothing extra needs to be turned on. Fill in Trade, Qty,
-Unit, and Unit Cost on that row the same as any other line, and it
-flows into your price, the CSV, and the proposal PDF exactly like a
+**Adding a line item the carrier missed** is already built in: the
+scope table has a "＋ Add a line item" button that appends a blank row.
+Fill in Trade, Qty, Unit, and Unit Cost the same as any other line, and
+it flows into your price, the CSV, and the proposal PDF exactly like a
 parsed row would.
 
 **Totals by trade** appears right under the full line-item list, in the
@@ -156,18 +141,16 @@ python3 -m unittest discover -s tests -v
 You should see `Ran 305 tests ... OK`. If that number goes down, or `OK`
 turns into failures, something regressed.
 
-**A note on how this was tested.** The environment this was built in
-couldn't reach PyPI, so Streamlit itself couldn't be installed or run
-there -- `app.py` has been syntax-checked and its data logic (parsing a
-PDF, building the table rows, computing prices, assembling a proposal) is
-fully covered by `tests/test_app_logic.py`, `tests/test_pricing_and_trades.py`,
-and `tests/test_proposal.py`, but the actual widgets and layout haven't
-been seen running in a browser yet. Please run `streamlit run app.py`
-yourself and tell me if anything looks or behaves wrong -- that's the one
-part of this I couldn't verify directly. The proposal PDF *rendering*
-itself (HTML -> WeasyPrint -> PDF) has been verified end-to-end by the
-test suite, which renders a real proposal PDF and reads it back with
-pdfplumber.
+**A note on how this was tested.** The parsing, pricing, and proposal
+logic (workspace.py, scope_parser/, proposal/) is fully covered by
+`tests/test_app_logic.py`, `tests/test_pricing_and_trades.py`,
+`tests/test_ui.py`, and `tests/test_proposal.py`. The FastAPI layer
+(`fastapi_app.py`) is verified end-to-end against a real carrier PDF --
+parse, totals, CSV, and proposal PDF all exercised through the running
+server. The proposal PDF *rendering* itself (HTML -> WeasyPrint -> PDF)
+is verified by the test suite, which renders a real proposal PDF and
+reads it back with pdfplumber. The web page (`web/index.html`) is judged
+visually in a browser.
 
 ## What's in here
 
@@ -202,7 +185,9 @@ scope_parser/        the parsing engine -- no UI code at all
   pipeline.py             the one function you actually call:
                            parse_pdf("some_estimate.pdf") -> ParsedEstimate
 
-app.py                the editing workspace + proposal export (Streamlit)
+fastapi_app.py        the server: REST API + serves web/index.html
+workspace.py          the pure logic (rows, pricing, totals, edit merge)
+web/index.html        the editing screen -- one self-contained page
 trades.py              guesses a trade (Roofing, Siding, ...) per line item
                         from its description -- editable, just a starting point
 pricing.py             the one calculation the app does: qty x unit cost x
@@ -512,8 +497,8 @@ grand total.
 ## Large files: what to actually expect
 
 A 70MB, 167-page claim doesn't need to be shrunk before uploading --
-Streamlit's own upload limit defaults to 200MB, well above that, and
-nothing in this app lowers it. If a big file looks stuck with a blank
+nothing in this app imposes an upload limit worth worrying about, and
+nothing in this app lowers one. If a big file looks stuck with a blank
 screen and no spinner, that's a real bug (please report it), but a
 sketch-heavy claim genuinely does take real time to read, and it used to
 give zero feedback while doing so, which looked identical to "frozen."
@@ -683,12 +668,6 @@ law is **Business & Commerce Code § 27.02**, already enforced elsewhere
 deliberately left OUT of this checklist rather than repeated with the
 wrong citation -- `tests/test_code_checklist.py` pins that "707.002"
 never appears in the checklist's reference text.
-
-**Bigger tabs.** Glenn's other ask this round (2026-08-25): "make it so
-the menu items are bigger and easier to see." The five tabs across the
-top (`ui.py`'s `.stTabs` styling) are now taller, larger type, and bolder
-than Streamlit's default -- they're the app's main menu, so they're the
-first thing meant to be easy to read at a glance.
 
 ## Payment Schedule
 
@@ -1012,45 +991,38 @@ correct parse as broken, which is exactly backwards -- so
 (`coverage_label`), and the app only cross-checks its own sum against the
 document when there's no coverage split to account for.
 
-## The workspace: four tabs, colour, and a search box
+## The workspace: one page, colour, and a sticky totals bar
 
-Rebuilt 2026-08-25. The screen used to be one long scroll with a
-fourteen-column table in the middle of it. It is now four tabs, and the
-tables show what you actually edit.
+The web UI (`web/index.html`) is a single self-contained page -- the only
+UI. It stacks, top to bottom: your business info and the tax rules, the
+carrier-estimate upload, the claim info and any parser warnings, the
+editable scope table, a breakdown of your price by trade, a sticky totals
+bar along the bottom, and the export panel.
 
-### Colour lives in two files
+### Colour lives in one file
 
-`.streamlit/config.toml` sets the five values Streamlit uses for its own
-widgets -- buttons, sliders, checkboxes, tab underlines, focus rings.
-Nothing else can reach those. `ui.py`'s `PALETTE` repeats the same five so
-the custom CSS matches, and adds the status colours Streamlit has no
-concept of (good / warning / bad / info / "added by you"). **Change one,
-change the other**, or the app goes half-repainted.
+The page is one file, and its `<style>` block is the only place the
+colours live. The status tones are CSS variables at the top of that block
+(good / warning / bad / info / "added by you"), so a palette change is a
+single edit. None of it is load-bearing -- a mismatch quietly looks
+plainer but the page still works.
 
-The CSS styles only `data-testid` hooks, which Streamlit keeps stable
-across versions, rather than its internal class names, which it doesn't.
-Anything that stops matching after an upgrade quietly does nothing -- the
-app keeps working, it just looks plainer. None of it is load-bearing.
+### The scope table
 
-### The four tabs
+Every line the carrier priced, editable in place: `On`, `#`, Trade,
+Description, Qty, Unit, Unit Cost, Margin %, Your Price, a Needs Review
+checkbox, and a notes cell. The review badge above the table shows how
+many lines still need a look. Totals update live on every edit, and a
+totals-by-trade breakdown sits right under the table; the sticky totals
+bar at the bottom shows lines, subtotal, tax, and the grand total.
 
-**📋 Scope** -- every line the carrier priced. Eight columns by default:
-`#`, Include, Description, Qty, Unit, Unit Cost, Margin %, Trade. The
-Section, Material, Insurance RCV, Insurance O&P, Code Cite and review
-columns are one "Show reference columns" toggle away. They are still
-there; they are just not in your way while you price a job.
+### Review and the code checklist
 
-**🔎 Review** -- the two kinds of line that aren't plain carrier rows,
-each in its own table: **what you added** and **what the parser flagged**.
-This is also where the "Add a line item the carrier missed" form lives,
-since that is where added lines end up. Everything on this tab is priced
-and exported exactly like a carrier line -- splitting the screen does not
-split the money, and there is a test that says so.
-
-**💵 Pricing** -- contract type and sales tax, the totals, your price line
-by line, totals by trade, and the four payment stages.
-
-**📤 Export** -- name the file, then download.
+The Review and Code-additions views from the earlier dashboard are not in
+this UI yet -- the review badge and the per-row Needs Review checkbox
+are. The data model behind them (the added/flagged masks,
+`workspace._merge_table_edits`, the code checklist) is fully implemented
+and unit-tested in workspace.py / code_checklist.py, ready to wire in.
 
 ### The `#` column
 
@@ -1062,26 +1034,20 @@ be mistaken for one. The next `A` number is worked out from the labels
 already in use rather than from a row count, so deleting an added line
 can't make the next one collide.
 
-### Search
+### Search (planned)
 
-Every table has one. One box, no syntax: it matches any column, so a
-description, a trade, or a quantity read straight off the PDF all find the
-line. Several words must all appear somewhere in the row, in any order --
-"walls paint" finds "Paint the walls" the same as "paint walls" does.
-A filtered table says how much it is hiding ("Showing 4 of 131 lines").
-
-Edits made while a search is active are written back to the master table
-**by index**, touching only the rows on screen. That is the one piece of
-this worth knowing about: replacing the table wholesale, which is what the
-obvious implementation does, would delete every row the current filter
-happens not to be showing.
+The web UI doesn't have a search box in this version. The matching logic
+(`workspace.filter_rows` -- one box, matches any column, words in any
+order) and the merge-by-index behaviour that keeps an edit made while
+filtering from wiping the rows it isn't showing
+(`workspace._merge_table_edits`) are already implemented and unit-tested,
+ready to wire into the table.
 
 ### Naming your downloads
 
-The Export tab has a file-name box. It starts from your business name, the
-carrier and the claim number -- the same automatic name as before -- and
-you can type over it with whatever you'd rather find in your downloads
-folder. Both files use it. Characters your computer refuses (`/ \ : * ? "
+The export panel has a file-name box. It starts from your business name,
+the carrier and the claim number, and you can type over it with whatever
+you'd rather find in your downloads folder. Both files use it. Characters your computer refuses (`/ \ : * ? "
 < > |`) are stripped, a duplicate extension is not doubled, and an empty
 box falls back to `scope.csv` / `proposal.pdf` rather than producing a
 file called `.pdf`. Uploading a new claim clears the box back to the new
@@ -1089,14 +1055,13 @@ default.
 
 ### What can't be tested here
 
-`app.py` still needs a real browser to judge. What the suite does cover
-without one: every decision `ui.py` makes (`tests/test_ui.py`), the row
-numbering and the Review-tab masks (`tests/test_app_logic.py`), and the
-structure of `app.py` itself (`tests/test_app_structure.py`) -- which
-reads the file's own scope table and fails on any name a function reads
-that nothing defines. That last one exists because a crash shipped: a
-helper was inserted mid-`main()`, which silently truncated it, and every
-test still passed.
+The web page (`web/index.html`) needs a real browser to judge. What the
+suite does cover without one: every decision the workspace makes
+(`tests/test_ui.py`, `tests/test_app_logic.py`), the parser
+(`tests/test_metadata.py`), pricing and trades
+(`tests/test_pricing_and_trades.py`), the proposal builder
+(`tests/test_proposal.py`), and the FastAPI endpoints themselves,
+exercised end-to-end against a real carrier PDF.
 
 ## Not done yet
 
@@ -1113,5 +1078,6 @@ from real demand rather than guesswork.
 
 Accounts/multi-tenant (Supabase), so a business's info and past proposals
 are saved rather than living only in the current browser session -- next,
-per `architecture-decision.md`. After that: general polish, and revisiting
-whether Streamlit is still the right fit for the UI long-term.
+per `architecture-decision.md`. After that: general polish, plus the UI
+features still missing from the web page -- per-table search, and the
+Review and Code-additions views.

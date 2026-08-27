@@ -156,7 +156,7 @@ def parse_text(text: str, pdf_info=None) -> ParsedEstimate:
 
 def parse_pdf(pdf_path) -> ParsedEstimate:
     """pdf_path may be a filesystem path (str) or a file-like object
-    (e.g. a Streamlit file upload) -- see extract.py."""
+    (e.g. an uploaded file) -- see extract.py."""
     from .extract import extract_pdf_info, extract_text
 
     # Read the container metadata FIRST: it is the strongest single signal

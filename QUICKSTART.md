@@ -12,14 +12,13 @@ Open Terminal, then:
 ```bash
 cd ~/Desktop/buildupquote
 source venv/bin/activate
-streamlit run app.py
+uvicorn fastapi_app:app --port 8000
 ```
 
-Your browser opens by itself at **http://localhost:8501**. If it doesn't,
-open that address yourself.
+Then open **http://localhost:8000** in your browser.
 
 You'll know the virtual environment is on because your prompt grows a
-`(venv)` at the front. If it isn't there, `streamlit` won't be found.
+`(venv)` at the front. If it isn't there, `uvicorn` won't be found.
 
 **To stop it:** click back in the Terminal window and press `Ctrl + C`.
 Closing the browser tab does not stop it — the app keeps running until
@@ -30,17 +29,15 @@ Terminal window.
 
 ---
 
-## Yes — it's still the same local web app
+## Yes — it's the web app
 
-Nothing about how you run it has changed. `streamlit run app.py` starts a
-small web server on your own machine and serves the workspace to your
-browser at `localhost:8501`. Nothing leaves your computer; no PDF is
-uploaded anywhere.
+`uvicorn fastapi_app:app` starts a small web server on your own machine
+and serves the workspace to your browser at `localhost:8000`. Nothing
+leaves your computer; no PDF is uploaded anywhere. The same file is what
+runs on the Hostinger VPS, behind Caddy/nginx.
 
-This is one program, not the old setup. The earlier attempts ran a
-separate parsing server alongside a hand-written HTML page and had to be
-started in two pieces. This one is a single Python app — `app.py` draws
-the screen and calls the parser directly.
+This is one program: `fastapi_app.py` serves both the API endpoints and
+the page itself (`web/index.html`).
 
 ---
 
@@ -51,18 +48,18 @@ cd ~/Desktop/buildupquote
 python3.11 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-streamlit run app.py
+uvicorn fastapi_app:app --port 8000
 ```
 
 **Use Python 3.11** (anything 3.10–3.12 is fine). Check with
-`python3 --version`. If yours is newer than 3.12, pandas and Streamlit
-probably don't have installable builds for it yet — install 3.11
-alongside it with `brew install python@3.11` and use `python3.11` in the
-`venv` command above.
+`python3 --version`. If yours is newer than 3.12, pandas probably
+doesn't have an installable build for it yet — install 3.11 alongside it
+with `brew install python@3.11` and use `python3.11` in the `venv`
+command above.
 
 **No extra install for the proposal PDF.** The renderer is WeasyPrint,
 which comes with `pip install -r requirements.txt` — nothing to
-download, no system installer, no Rosetta.
+download, no system installer.
 
 ---
 
@@ -73,7 +70,7 @@ cd ~/Desktop/buildupquote
 python3 -m unittest discover -s tests
 ```
 
-Expect `Ran 305 tests ... OK`.
+Expect `Ran 332 tests ... OK`.
 
 If that number drops or `OK` turns into failures, something regressed —
 worth knowing before you send a proposal out. To see which test:
@@ -93,54 +90,54 @@ what needs fixing.
 
 | What you see | What it means | Fix |
 |---|---|---|
-| `command not found: streamlit` | Virtual environment isn't active | `source venv/bin/activate` — look for `(venv)` in your prompt |
+| `command not found: uvicorn` | Virtual environment isn't active | `source venv/bin/activate` — look for `(venv)` in your prompt |
 | `no such file or directory: venv/bin/activate` | You're in the wrong folder, or venv was never created | `cd ~/Desktop/buildupquote`, then the first-time setup above |
-| `Port 8501 is already in use` | It's already running in another Terminal window | Use that window, or `Ctrl + C` there first |
+| `Port 8000 is already in use` | Already running in another Terminal window | Use that window, or `Ctrl + C` there first |
 | `ModuleNotFoundError: No module named 'pandas'` | Dependencies not installed in this venv | `pip install -r requirements.txt` |
-| Browser shows nothing / connection refused | Server isn't up yet, or stopped | Check Terminal for an error; re-run `streamlit run app.py` |
+| Browser shows nothing / connection refused | Server isn't up yet, or stopped | Check Terminal for an error; re-run `uvicorn fastapi_app:app --port 8000` |
 | "Couldn't build the proposal PDF" | WeasyPrint not installed in the venv this app runs in | `pip install -r requirements.txt`, restart the app |
-| "cannot load library libpango-1.0" on a deployed Streamlit app | WeasyPrint's Linux system libraries missing on the cloud | Add `packages.txt` at the repo root (see README's deploy section) and push again |
-| App loads but the page looks stale | Streamlit cached an old run | Press `R` in the browser, or `Ctrl + C` and start again |
+| "cannot load library libpango-1.0" on the VPS | WeasyPrint's Linux system libraries missing | `sudo apt install libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b fonts-dejavu-core` (the Docker image already has them) |
 
 ---
 
 ## Using it
 
-1. **Sidebar first** — your business name, address, phone, licence, logo.
-   Only the name is required; it's what turns on the proposal PDF button.
+1. **Business info first** — name, address, phone, licence, logo. Only
+   the name is required; it's what turns on the proposal PDF button.
 2. **Upload a carrier PDF.** A big claim (150+ pages) can genuinely take a
-   few minutes to read — the spinner says so. Don't refresh.
-3. **Read the banner at the top.** Every upload gets one, and it tells you
-   how much to trust what follows:
-   - green — a format we know, everything reconciles
-   - blue — read with the general reader, and it adds up
-   - amber — needs your eyes, go line by line
-   - amber — not a scope at all (e.g. a settlement statement)
-4. **Work through the four tabs:**
-   - **📋 Scope** — every line the carrier priced. Eight columns by
-     default; flip "Show reference columns" for the carrier's own RCV,
-     O&P, section and the sales-tax material flag.
-   - **🔎 Review** — what you added, and what the parser flagged, each in
-     its own table. The "Add a line item the carrier missed" form is here.
-   - **💵 Pricing** — contract type and sales tax, your totals, totals by
-     trade, and the four payment stages.
-   - **📤 Export** — name the file, then download.
-5. **The `#` on the left of every table** is the carrier's own line
-   number, so you can check a row against the PDF in seconds. Lines you
-   added show as `A1`, `A2`…
-6. **Every table has a search box.** One box, no syntax — type a
-   description, a trade, or a number off the PDF.
-7. **Name your downloads.** The Export tab starts from your business, the
-   carrier and the claim number; type over it with anything you like.
+   few minutes to read — the status line says so. Don't refresh.
+3. **Read the claim panel.** Every upload gets one, and it tells you how
+   much to trust what follows: the parsed claim fields, any warnings, and
+   the deductible (edit it in the Export panel if the PDF didn't print it).
+4. **Work the scope table.** Every line the carrier priced, editable in
+   place:
+   - `On` — include or exclude the line.
+   - `#` — the carrier's own line number, so you can check a row against
+     the PDF in seconds. Lines you added show as `A1`, `A2`…
+   - Trade, Description, Qty, Unit, Unit Cost, Margin %, Your Price.
+   - **Needs Review** — check a line you still want to look at; the badge
+     above the table counts them.
+   - `＋ Add a line item` — append a row for anything the carrier missed.
+5. **Totals.** Update live as you edit — the bar along the bottom shows
+   lines, subtotal, tax, and the total; the breakdown under the table
+   shows your price by trade.
+6. **Export.** Pick the contract type and tax rate up top, set the
+   deductible if needed, then name your downloads. The name starts from
+   your business, the carrier and the claim number; type over it with
+   anything you like.
 
 ## Where things live
 
 ```
 ~/Desktop/buildupquote/
-├── app.py                 the screen you interact with
+├── fastapi_app.py         the server (API + serves the page)
+├── web/index.html         the page itself — one self-contained file
+├── workspace.py           the pure row/totals/edit logic (no framework)
 ├── scope_parser/          reads carrier PDFs (no UI code in here)
 ├── proposal/              builds the branded proposal PDF
-├── tests/                 305 tests
+├── deploy/                VPS setup: systemd, Caddy, nginx, one-shot script
+├── Dockerfile, docker-compose.yml   container build for the VPS
+├── tests/                 332 tests
 │   ├── fixtures/          the three real sample claims
 │   └── golden/            frozen parser output — the regression tripwire
 ├── tools/                 refresh_golden.py, run on purpose only
