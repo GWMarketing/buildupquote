@@ -123,6 +123,17 @@ CSS = """
 [data-testid="stSidebar"] { border-right: 1px solid #DCE4EC; }
 [data-testid="stSidebar"] h2 { font-size: 1.05rem; }
 
+/* The built-in sidebar collapse control (the chevron at the top of the
+   sidebar) is a permanent fixture -- always visible, never faded or
+   hidden, with a comfortable hit area. */
+[data-testid="stSidebarCollapseButton"] {
+  visibility: visible; opacity: 1;
+  min-width: 36px; min-height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+}
+[data-testid="stSidebarCollapseButton"]:hover { background: #E7F0FA; }
+
 /* ---------- buttons ---------- */
 .stButton button, .stDownloadButton button {
   border-radius: 8px; font-weight: 650;

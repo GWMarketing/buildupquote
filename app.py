@@ -975,31 +975,6 @@ def main():
         "Upload a carrier estimate, adjust the scope, and export a proposal in your own name.",
     )
 
-    # Sidebar collapse toggle. Streamlit has no programmatic collapse API,
-    # so this uses the standard browser trick: when collapsed, hide the
-    # sidebar with CSS. The sidebar widgets stay mounted underneath (their
-    # session_state values survive), so hiding it never loses the Business
-    # Info you typed -- the working area just gets the full width. The
-    # glyphs are the classic "arrow to bar" panel icons: U+21E4 leftwards
-    # arrow to bar (collapse) / U+21E5 (expand).
-    sidebar_collapsed = st.session_state.get("_sidebar_collapsed", False)
-    _, toggle_col = st.columns([9, 1])
-    with toggle_col:
-        if st.button(
-            "\u21e4  Hide business info" if not sidebar_collapsed else "\u21e5  Show business info",
-            key="_sidebar_toggle",
-            help="Collapse the Business Info sidebar to give the workspace more room.",
-        ):
-            st.session_state["_sidebar_collapsed"] = not sidebar_collapsed
-            rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
-            if rerun:
-                rerun()
-    if sidebar_collapsed:
-        st.markdown(
-            '<style>[data-testid="stSidebar"]{display:none !important;}</style>',
-            unsafe_allow_html=True,
-        )
-
     contractor = _contractor_sidebar()
 
     st.session_state.setdefault("estimate", None)
