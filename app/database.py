@@ -64,6 +64,20 @@ def ensure_legacy_columns(bind):
             statements.append("ALTER TABLE quotes ADD COLUMN site_address VARCHAR")
         if "status" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN status VARCHAR DEFAULT 'draft'")
+    # Organization profile fields landed after the first organizations
+    # table was created -- same idempotent in-place upgrade.
+    if "organizations" in existing_tables:
+        org_cols = {c["name"] for c in inspector.get_columns("organizations")}
+        for col, ddl in (
+            ("phone", "ALTER TABLE organizations ADD COLUMN phone VARCHAR"),
+            ("address", "ALTER TABLE organizations ADD COLUMN address VARCHAR"),
+            ("tax_id", "ALTER TABLE organizations ADD COLUMN tax_id VARCHAR"),
+            ("default_payment_terms", "ALTER TABLE organizations ADD COLUMN default_payment_terms VARCHAR"),
+            ("currency_symbol", "ALTER TABLE organizations ADD COLUMN currency_symbol VARCHAR"),
+            ("logo_url", "ALTER TABLE organizations ADD COLUMN logo_url VARCHAR"),
+        ):
+            if col not in org_cols:
+                statements.append(ddl)
     if statements:
         with bind.begin() as conn:
             for statement in statements:

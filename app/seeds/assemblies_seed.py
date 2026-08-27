@@ -35,6 +35,12 @@ _LEXICON_ROWS = [
     ("general", "grout", ["tile grout", "joint filler"], "kg"),
     ("general", "primer", ["floor primer", "sealer", "tanking primer"], "l"),
     ("general", "labor", ["labour", "installation", "fitting hours", "install"], "hr"),
+    ("tiling", "tile", ["floor tile", "ceramic tile", "porcelain tile", "tiles"], "m2"),
+    ("tiling", "tile adhesive", ["adhesive", "thin-set", "tile cement"], "kg"),
+    ("tiling", "grout", ["tile grout", "joint filler"], "kg"),
+    ("plumbing", "radiator", ["radiator", "radiators", "panel radiator"], "each"),
+    ("electrical", "wiring", ["wire", "cable", "rewire", "electrical"], "m"),
+    ("general", "sub-base", ["sub base", "subbase", "sub-floor"], "m2"),
 ]
 
 

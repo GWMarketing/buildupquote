@@ -1,5 +1,6 @@
 """Client CRUD -- the "who is this quote for" records, tenant-scoped."""
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -45,3 +46,33 @@ def create_client(
     db.commit()
     db.refresh(client)
     return client
+
+
+@router.delete("/{client_id}")
+def delete_client(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Delete a client -- but only if nothing references it. A 400 with a
+    clean message protects quotes that still point at this client."""
+    client = (
+        db.query(models.Client)
+        .filter(models.Client.id == client_id)
+        .first()
+    )
+    if client is None or client.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    quote_count = (
+        db.query(func.count(models.Quote.id))
+        .filter(models.Quote.client_id == client.id)
+        .scalar()
+    )
+    if quote_count:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Client has {quote_count} active quote(s); delete or reassign them first.",
+        )
+    db.delete(client)
+    db.commit()
+    return {"deleted": True}

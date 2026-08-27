@@ -37,6 +37,12 @@ class Organization(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     slug = Column(String, unique=True, index=True, nullable=False)
+    phone = Column(String, nullable=True)
+    address = Column(String, nullable=True)
+    tax_id = Column(String, nullable=True)
+    default_payment_terms = Column(String, nullable=True)
+    currency_symbol = Column(String, nullable=True)
+    logo_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users = relationship("User", back_populates="organization")

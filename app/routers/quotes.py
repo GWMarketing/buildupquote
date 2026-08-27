@@ -161,7 +161,7 @@ def save_lines(
         )
         db.add(models.QuoteLineItem(
             quote_id=quote.id,
-            trade=None,  # trade lexicon classification lands here later
+            trade=line.trade,
             description=line.description,
             item_type=line.item_type,
             quantity=line.quantity,
@@ -176,6 +176,57 @@ def save_lines(
     db.commit()
     # Re-query so the response reflects the freshly written lines (rows
     # were added by FK, not via the relationship collection).
+    return _quote_detail_out(_get_owned_quote(db, current_user, quote_id))
+
+
+@router.delete("/{quote_id}")
+def delete_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Delete a quote: cascade its line items (ORM + ON DELETE CASCADE)
+    and clean up any exported PDFs for it. 403 for another org's quote."""
+    quote = _get_owned_quote(db, current_user, quote_id)
+    # Remove exported PDFs for this quote (static/exports/pdf/quote-{id}-*.pdf).
+    if os.path.isdir(_EXPORT_DIR):
+        for name in os.listdir(_EXPORT_DIR):
+            if name.startswith(f"quote-{quote_id}-") and name.endswith(".pdf"):
+                try:
+                    os.unlink(os.path.join(_EXPORT_DIR, name))
+                except OSError:
+                    pass
+    db.delete(quote)
+    db.commit()
+    return {"deleted": True}
+
+
+@router.delete("/{quote_id}/lines/{line_id}")
+def delete_quote_line(
+    quote_id: int,
+    line_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Remove one line item, then recalculate the quote totals."""
+    quote = _get_owned_quote(db, current_user, quote_id)
+    line = (
+        db.query(models.QuoteLineItem)
+        .filter(
+            models.QuoteLineItem.id == line_id,
+            models.QuoteLineItem.quote_id == quote.id,
+        )
+        .first()
+    )
+    if line is None:
+        raise HTTPException(status_code=404, detail="Line item not found")
+    # Drop it from the in-memory collection too, so the later
+    # db.add(quote) cascade never touches a deleted instance.
+    quote.items = [item for item in (quote.items or []) if item.id != line.id]
+    db.delete(line)
+    db.flush()
+    _recalculate_quote_totals(db, quote)
+    db.commit()
     return _quote_detail_out(_get_owned_quote(db, current_user, quote_id))
 
 

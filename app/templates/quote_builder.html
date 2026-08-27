@@ -66,7 +66,7 @@
     <table class="w-full min-w-150 grid-table">
       <thead>
         <tr>
-          <th>Description</th><th>Type</th><th class="text-right">Qty</th><th>Unit</th>
+          <th>Description</th><th>Trade</th><th>Type</th><th class="text-right">Qty</th><th>Unit</th>
           <th class="text-right">Unit Cost</th><th class="text-right">Markup %</th>
           <th class="text-right">Total</th><th></th>
         </tr>
@@ -74,7 +74,13 @@
       <tbody>
         <template x-for="(row, i) in lines" :key="i">
           <tr>
-            <td><input class="bq-input" x-model="row.description" placeholder="Description"></td>
+            <td><input class="bq-input" x-model="row.description" placeholder="Description" @change="autoTag(row)"></td>
+            <td>
+              <select class="bq-input" x-model="row.trade">
+                <option value="">Auto</option>
+                <template x-for="t in trades" :key="t"><option :value="t" x-text="t"></option></template>
+              </select>
+            </td>
             <td>
               <select class="bq-input" x-model="row.item_type">
                 <option value="material">Material</option>
@@ -95,16 +101,16 @@
         <button class="bq-btn-secondary" @click="applyMargin()">Apply to all lines</button>
       </div>
       <p class="mt-2 text-xs text-slate-400">
-        Preview at this margin: <span class="font-semibold text-slate-700" x-text="BQ.money(previewAtMargin())"></span>
+        Preview at this margin: <span class="font-semibold text-slate-700" x-text="fmt(previewAtMargin())"></span>
       </p>
     </div>
 
     <div class="bq-card p-5">
       <h2 class="mb-3 text-sm font-semibold text-slate-900">Totals</h2>
       <dl class="space-y-1.5 text-sm">
-        <div class="flex justify-between"><dt class="text-slate-500">Subtotal</dt><dd class="font-medium" x-text="BQ.money(subtotal())"></dd></div>
-        <div class="flex justify-between"><dt class="text-slate-500">Materials</dt><dd class="font-medium" x-text="BQ.money(byType('material'))"></dd></div>
-        <div class="flex justify-between"><dt class="text-slate-500">Labor</dt><dd class="font-medium" x-text="BQ.money(byType('labor'))"></dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Subtotal</dt><dd class="font-medium" x-text="fmt(subtotal())"></dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Materials</dt><dd class="font-medium" x-text="fmt(byType('material'))"></dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Labor</dt><dd class="font-medium" x-text="fmt(byType('labor'))"></dd></div>
         <div class="flex justify-between items-center">
           <dt class="text-slate-500">Tax / VAT</dt>
           <dd class="flex items-center gap-1">
@@ -112,9 +118,9 @@
             <span>%</span>
           </dd>
         </div>
-        <div class="flex justify-between"><dt class="text-slate-500">Tax amount</dt><dd class="font-medium" x-text="BQ.money(taxAmount())"></dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Tax amount</dt><dd class="font-medium" x-text="fmt(taxAmount())"></dd></div>
         <div class="flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900">
-          <dt>Final total</dt><dd x-text="BQ.money(grandTotal())"></dd>
+          <dt>Final total</dt><dd x-text="fmt(grandTotal())"></dd>
         </div>
       </dl>
     </div>
@@ -144,7 +150,7 @@
             <td><input class="bq-input w-16" x-model="row.unit"></td>
             <td class="text-right"><input class="bq-input w-24 text-right" type="number" min="0" step="0.01" x-model.number="row.unit_cost"></td>
             <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" max="100" step="0.5" x-model.number="row.markup_percent"></td>
-            <td class="text-right font-semibold text-slate-900" x-text="BQ.money(BQ.lineTotal(row))"></td>
+            <td class="text-right font-semibold text-slate-900" x-text="fmt(BQ.lineTotal(row))"></td>
             <td><button class="text-slate-400 hover:text-red-600" @click="lines.splice(i, 1)">✕</button></td>
           </tr>
         </template>
@@ -162,6 +168,8 @@ function quoteBuilder(quoteId) {
     quoteId: quoteId,
     quote: { title: 'Untitled quote', status: 'draft', client_id: null, site_address: '' },
     clients: [], assemblies: [], selectedCode: '', dims: {}, lines: [],
+    trades: ['General', 'Carpentry', 'Drywall', 'Electrical', 'Plumbing', 'Tiling', 'Roofing', 'Siding', 'Flooring', 'Painting'],
+    currencySymbol: '$',
     margin: 20, taxRate: 0, saving: false, exporting: false, savedAt: '',
     pdfUrl: '', downloads: JSON.parse(localStorage.getItem('bq_downloads') || '[]'),
 
@@ -175,6 +183,10 @@ function quoteBuilder(quoteId) {
         const [clients, assemblies] = await Promise.all([BQ.api('/api/clients'), BQ.api('/api/assemblies')]);
         this.clients = clients; this.assemblies = assemblies;
       } catch (e) { console.error(e); }
+      try {
+        const org = await BQ.api('/api/organization/me');
+        if (org && org.currency_symbol) this.currencySymbol = org.currency_symbol;
+      } catch (e) { /* keep $ */ }
       if (this.quoteId) {
         await this.loadQuote();
       } else {
@@ -192,8 +204,8 @@ function quoteBuilder(quoteId) {
       const detail = await BQ.api('/api/quotes/' + this.quoteId);
       this.quote = detail;
       this.lines = detail.lines.map(l => ({
-        description: l.description, item_type: l.item_type, quantity: l.quantity,
-        unit: l.unit, unit_cost: l.unit_cost, markup_percent: l.markup_percent,
+        description: l.description, item_type: l.item_type, trade: l.trade || '',
+        quantity: l.quantity, unit: l.unit, unit_cost: l.unit_cost, markup_percent: l.markup_percent,
       }));
     },
 
@@ -217,8 +229,22 @@ function quoteBuilder(quoteId) {
     },
 
     addRow() {
-      this.lines.push({ description: '', item_type: 'material', quantity: 1, unit: 'each', unit_cost: 0, markup_percent: this.margin });
+      this.lines.push({ description: '', item_type: 'material', trade: '', quantity: 1, unit: 'each', unit_cost: 0, markup_percent: this.margin });
     },
+
+    // Auto-tag the trade from the description (only when not manually set).
+    async autoTag(row) {
+      if (row.trade || !(row.description || '').trim()) return;
+      try {
+        const res = await BQ.api('/api/lexicon/match', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: row.description }),
+        });
+        row.trade = res.trade;
+      } catch (e) { /* leave it unset */ }
+    },
+
+    fmt(n) { return this.currencySymbol + Number(n || 0).toFixed(2); },
 
     applyMargin() { this.lines.forEach(r => r.markup_percent = this.margin); },
 

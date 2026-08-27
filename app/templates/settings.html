@@ -1,10 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 <div x-data="settingsPage()" x-init="init()" class="max-w-2xl space-y-5">
-  <h1 class="text-xl font-bold text-slate-900">Settings</h1>
+  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Settings</h1>
 
-  <div class="bq-card p-6">
-    <h2 class="mb-4 text-sm font-semibold text-slate-900">Company profile</h2>
+  <div class="bq-card p-6" x-show="!hasOrg" x-cloak>
+    <p class="text-sm text-slate-500">No organization yet — create one from your account (register with a company name) before saving company settings.</p>
+  </div>
+
+  <div class="bq-card p-6" x-show="hasOrg" x-cloak>
+    <h2 class="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Company profile</h2>
     <div class="grid gap-4 sm:grid-cols-2">
       <div class="sm:col-span-2"><label class="mb-1 block text-xs font-medium text-slate-500">Business name</label>
         <input class="bq-input" x-model="profile.name"></div>
@@ -13,62 +17,95 @@
       <div><label class="mb-1 block text-xs font-medium text-slate-500">Phone</label>
         <input class="bq-input" x-model="profile.phone"></div>
       <div><label class="mb-1 block text-xs font-medium text-slate-500">VAT / Tax ID</label>
-        <input class="bq-input" x-model="profile.vat_id"></div>
+        <input class="bq-input" x-model="profile.tax_id"></div>
       <div><label class="mb-1 block text-xs font-medium text-slate-500">Default payment terms</label>
-        <select class="bq-input" x-model="profile.payment_terms">
+        <select class="bq-input" x-model="profile.default_payment_terms">
+          <option value="">—</option>
           <option>Due on receipt</option><option>Net 7</option><option>Net 14</option><option>Net 30</option>
         </select></div>
       <div><label class="mb-1 block text-xs font-medium text-slate-500">Currency</label>
-        <select class="bq-input" x-model="profile.currency">
-          <option value="USD">USD — US Dollar</option>
-          <option value="AUD">AUD — Australian Dollar</option>
-          <option value="GBP">GBP — British Pound</option>
-          <option value="EUR">EUR — Euro</option>
+        <select class="bq-input" x-model="profile.currency_symbol">
+          <option value="$">$ — US Dollar</option>
+          <option value="A$">A$ — Australian Dollar</option>
+          <option value="£">£ — British Pound</option>
+          <option value="€">€ — Euro</option>
         </select></div>
     </div>
-    <button class="bq-btn mt-5" @click="save()" x-text="saved ? 'Saved ✓' : 'Save profile'"></button>
+    <div class="mt-5 flex items-center gap-3">
+      <button class="bq-btn" :disabled="saving" @click="save()" x-text="saving ? 'Saving…' : 'Save profile'"></button>
+      <span class="text-sm text-emerald-600" x-show="saved" x-cloak>Saved ✓</span>
+      <span class="text-sm text-red-600" x-show="error" x-cloak x-text="error"></span>
+    </div>
   </div>
 
-  <div class="bq-card p-6">
-    <h2 class="mb-4 text-sm font-semibold text-slate-900">Logo</h2>
+  <div class="bq-card p-6" x-show="hasOrg" x-cloak>
+    <h2 class="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Logo</h2>
     <div class="flex items-center gap-5">
-      <img :src="logoPreview" x-show="logoPreview" x-cloak class="h-20 w-20 rounded-lg border border-slate-200 object-contain bg-white">
+      <img :src="logoPreview" x-show="logoPreview" x-cloak
+           class="h-20 w-20 rounded-lg border border-slate-200 bg-white object-contain">
       <div>
-        <input type="file" accept="image/png,image/jpeg,image/svg+xml" @change="onLogo($event)" class="text-sm">
-        <p class="mt-1 text-xs text-slate-400">PNG, JPG or SVG — shown live, stored in this browser for now.</p>
+        <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" @change="onLogo($event)" class="text-sm">
+        <p class="mt-1 text-xs text-slate-400">PNG, JPG, SVG, GIF or WebP (max 2MB) — uploaded to the server and shown on exported PDFs.</p>
+        <p class="mt-1 text-xs text-emerald-600" x-show="logoSaved" x-cloak>Logo updated ✓</p>
       </div>
     </div>
   </div>
-
-  <p class="text-xs text-slate-400">Profile data is saved in your browser (localStorage) in this version — server-side persistence for the organization is the next step.</p>
 </div>
 
 <script>
 function settingsPage() {
   return {
-    saved: false,
-    profile: { name: '', address: '', phone: '', vat_id: '', payment_terms: 'Net 30', currency: 'USD' },
+    hasOrg: false, saving: false, saved: false, logoSaved: false, error: '',
     logoPreview: '',
-    init() {
+    profile: { name: '', address: '', phone: '', tax_id: '', default_payment_terms: '', currency_symbol: '$' },
+    async init() {
       try {
-        const p = JSON.parse(localStorage.getItem('bq_company') || '{}');
-        if (p.profile) this.profile = Object.assign(this.profile, p.profile);
-        if (p.logo) this.logoPreview = p.logo;
-      } catch (e) { /* first visit */ }
+        const org = await BQ.api('/api/organization/me');
+        this.hasOrg = true;
+        this.profile = {
+          name: org.name || '',
+          address: org.address || '',
+          phone: org.phone || '',
+          tax_id: org.tax_id || '',
+          default_payment_terms: org.default_payment_terms || '',
+          currency_symbol: org.currency_symbol || '$',
+        };
+        this.logoPreview = org.logo_url || '';
+      } catch (e) {
+        if (e.status !== 404) { this.error = e.message; }
+        this.hasOrg = false;
+      }
     },
-    save() {
-      localStorage.setItem('bq_company', JSON.stringify({ profile: this.profile, logo: this.logoPreview }));
-      this.saved = true;
-      setTimeout(() => this.saved = false, 1500);
+    async save() {
+      this.saving = true; this.saved = false; this.error = '';
+      try {
+        await BQ.api('/api/organization/me', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.profile),
+        });
+        this.saved = true;
+        setTimeout(() => this.saved = false, 1500);
+      } catch (e) { this.error = e.message; }
+      this.saving = false;
     },
-    onLogo(e) {
+    async onLogo(e) {
       const file = e.target.files[0];
       if (!file) return;
+      // Immediate local preview, then upload to the server.
       const reader = new FileReader();
-      reader.onload = () => { this.logoPreview = reader.result; this.save(); };
+      reader.onload = () => this.logoPreview = reader.result;
       reader.readAsDataURL(file);
+      const form = new FormData();
+      form.append('file', file);
+      this.logoSaved = false;
+      try {
+        const org = await BQ.api('/api/organization/logo', { method: 'POST', body: form });
+        this.logoPreview = org.logo_url;
+        this.logoSaved = true;
+        setTimeout(() => this.logoSaved = false, 1500);
+      } catch (ex) { this.error = ex.message; }
     },
   };
 }
 </script>
 {% endblock %}
+

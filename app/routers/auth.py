@@ -33,7 +33,7 @@ def _unique_slug(db, base: str) -> str:
     return candidate
 
 
-@router.post("/register", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=schemas.RegisterResponse, status_code=status.HTTP_201_CREATED)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     """Create an account. 400 if the email is already registered.
 
@@ -69,7 +69,10 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.add(db_user)
     db.commit()
     db.refresh(db_user)  # pull created_at from the server_default
-    return db_user
+    # Issue a JWT immediately so the UI can land on /dashboard without a
+    # separate login round-trip.
+    token = create_access_token({"sub": db_user.email})
+    return {"user": db_user, "access_token": token, "token_type": "bearer"}
 
 
 @router.post("/token")

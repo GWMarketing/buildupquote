@@ -33,6 +33,7 @@ from app.database import Base, SessionLocal, engine, ensure_legacy_columns, get_
 from app.routers import assemblies as assemblies_router
 from app.routers import auth as auth_router
 from app.routers import clients as clients_router
+from app.routers import lexicon as lexicon_router
 from app.routers import organization as organization_router
 from app.routers import pages as pages_router
 from app.routers import quotes as quotes_router
@@ -73,6 +74,7 @@ app.include_router(organization_router.router)
 app.include_router(clients_router.router)
 app.include_router(assemblies_router.router)
 app.include_router(quotes_router.router)
+app.include_router(lexicon_router.router)
 
 _WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 

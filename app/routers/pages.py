@@ -28,6 +28,11 @@ def login(request: Request):
     return templates.TemplateResponse(request, "login.html", {"active": ""})
 
 
+@router.get("/register")
+def register(request: Request):
+    return templates.TemplateResponse(request, "register.html", {"active": ""})
+
+
 @router.get("/dashboard")
 def dashboard(request: Request):
     return templates.TemplateResponse(request, "dashboard.html", {"active": "dashboard"})

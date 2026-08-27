@@ -14,10 +14,25 @@ class OrganizationCreate(BaseModel):
     name: str
 
 
+class OrganizationUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    tax_id: Optional[str] = None
+    default_payment_terms: Optional[str] = None
+    currency_symbol: Optional[str] = None
+
+
 class OrganizationOut(BaseModel):
     id: int
     name: str
     slug: str
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    tax_id: Optional[str] = None
+    default_payment_terms: Optional[str] = None
+    currency_symbol: Optional[str] = None
+    logo_url: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -136,6 +151,7 @@ class QuoteUpdate(BaseModel):
 class QuoteLineWrite(BaseModel):
     description: str
     item_type: str = "material"  # material / labor / plant / subcontractor
+    trade: Optional[str] = None  # auto-tagged from the trade lexicon
     quantity: float = 0
     unit: str = "item"
     unit_cost: float = 0
@@ -146,6 +162,7 @@ class QuoteLineOut(BaseModel):
     id: int
     description: str
     item_type: str
+    trade: Optional[str] = None
     quantity: float
     unit: str
     unit_cost: float
@@ -172,4 +189,16 @@ class QuoteOut(BaseModel):
 
 class QuoteDetailOut(QuoteOut):
     lines: list[QuoteLineOut] = []
+
+
+class RegisterResponse(BaseModel):
+    """What /api/auth/register returns: the new user plus a fresh JWT so
+    the page can sign in immediately (no second login round-trip)."""
+    user: UserOut
+    access_token: str
+    token_type: str = "bearer"
+
+
+class LexiconMatchRequest(BaseModel):
+    description: str
 
