@@ -51,7 +51,7 @@ def _tone(name):
 CSS = """
 <style>
 /* ---------- page rhythm ---------- */
-.block-container { padding-top: 1.6rem; max-width: 1500px; }
+.block-container { padding-top: 1.6rem; max-width: 1500px; padding-bottom: 96px; }
 
 /* ---------- the coloured masthead ---------- */
 .bq-mast {
@@ -61,6 +61,21 @@ CSS = """
 }
 .bq-mast h1 { margin: 0; font-size: 1.85rem; font-weight: 700; letter-spacing: -.02em; color:#fff; }
 .bq-mast p  { margin: 6px 0 0; opacity: .93; font-size: .96rem; }
+
+/* ---------- sticky quote totals bar ---------- */
+/* Pinned to the bottom of the viewport on every tab, rebuilt each rerun
+   from the live quote totals (see app._quote_totals / ui.totals_bar). */
+.bq-totals-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 999;
+  display: flex; align-items: center; justify-content: flex-end; gap: 30px;
+  background: #0F2A43; color: #fff; padding: 10px 26px;
+  border-top: 3px solid #0F6CBD;
+  box-shadow: 0 -3px 12px rgba(15, 42, 67, .18);
+  font-size: .82rem; letter-spacing: .02em;
+}
+.bq-totals-bar .bq-total-item { color: #B9CEE4; white-space: nowrap; }
+.bq-totals-bar .bq-total-item b { color: #fff; font-weight: 700; font-size: .98rem; margin-left: 4px; }
+.bq-totals-bar .bq-total-grand b { font-size: 1.24rem; }
 
 /* ---------- section headings ---------- */
 .bq-sec { display: flex; align-items: center; gap: 10px; margin: 6px 0 2px; }
@@ -237,6 +252,21 @@ def inject_css(st):
 def masthead(st, title, subtitle):
     st.markdown(
         f'<div class="bq-mast"><h1>{title}</h1><p>{subtitle}</p></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def totals_bar(st, subtotal, tax_amount, total, line_count):
+    """The sticky quote-totals bar pinned to the bottom of the page.
+    Rebuilt every rerun from the live totals, so it always matches the
+    current tables -- no state kept here, it's pure display."""
+    st.markdown(
+        '<div class="bq-totals-bar">'
+        f'<span class="bq-total-item">Lines <b>{line_count}</b></span>'
+        f'<span class="bq-total-item">Subtotal <b>${subtotal:,.2f}</b></span>'
+        f'<span class="bq-total-item">Tax <b>${tax_amount:,.2f}</b></span>'
+        f'<span class="bq-total-item bq-total-grand">Total <b>${total:,.2f}</b></span>'
+        "</div>",
         unsafe_allow_html=True,
     )
 

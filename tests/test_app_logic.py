@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.modules.setdefault("streamlit", MagicMock())
 
 import app  # noqa: E402
+import tax  # noqa: E402
 from scope_parser import parse_pdf, parse_text  # noqa: E402
 
 FIXTURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
@@ -662,3 +663,57 @@ class MergeTableEditsTest(unittest.TestCase):
         result, added = app._merge_table_edits(master, shown, edited, 20)
         self.assertEqual(added, 2)
         self.assertEqual(list(result.iloc[-2:]["#"]), ["A2", "A3"])
+
+
+class QuoteTotalsTest(unittest.TestCase):
+    """_quote_totals() feeds the sticky totals bar at the bottom of the
+    page -- it must always match the Pricing tab's metrics, tracking every
+    edit (quantities, costs, margins, Include toggles, added rows)."""
+
+    def test_nothing_loaded_is_zero(self):
+        import pandas as pd
+
+        rows = pd.DataFrame(columns=app._TABLE_COLUMNS)
+        self.assertEqual(app._quote_totals(rows, tax.NONE, 0.0), (0.0, 0.0, 0.0, 0))
+        self.assertEqual(app._quote_totals(None, tax.NONE, 0.0), (0.0, 0.0, 0.0, 0))
+
+    def test_subtotal_total_and_count_from_included_rows(self):
+        import pandas as pd
+
+        rows = pd.DataFrame([
+            app._manual_row("Gutter", "Roofing", 10, "LF", 5.0, 20, True, position=1),   # 60.00
+            app._manual_row("Shingles", "Roofing", 2, "SQ", 100.0, 0, True, position=2),  # 200.00
+        ], columns=app._TABLE_COLUMNS)
+        self.assertEqual(app._quote_totals(rows, tax.NONE, 0.0), (260.0, 0.0, 260.0, 2))
+
+    def test_unchecked_rows_are_dropped_from_the_quote(self):
+        import pandas as pd
+
+        rows = pd.DataFrame([
+            app._manual_row("Kept", "Roofing", 10, "LF", 5.0, 20, True, position=1),
+        ], columns=app._TABLE_COLUMNS)
+        rows.loc[0, "Include"] = False
+        self.assertEqual(app._quote_totals(rows, tax.NONE, 0.0), (0.0, 0.0, 0.0, 0))
+
+    def test_sales_tax_tracks_the_material_flag(self):
+        import pandas as pd
+
+        material = app._manual_row("Materials", "Roofing", 10, "LF", 5.0, 20, True, position=1)  # 60.00
+        labor = app._manual_row("Labor", "Roofing", 2, "HR", 25.0, 0, False, position=2)  # 50.00
+        rows = pd.DataFrame([material, labor], columns=app._TABLE_COLUMNS)
+        # Separated residential taxes only material lines: 60 @ 10% = 6.
+        subtotal, tax_amount, total, count = app._quote_totals(rows, tax.SEPARATED_RESIDENTIAL, 10.0)
+        self.assertEqual(subtotal, 110.0)
+        self.assertAlmostEqual(tax_amount, 6.0)
+        self.assertAlmostEqual(total, 116.0)
+        self.assertEqual(count, 2)
+
+    def test_edits_change_the_totals(self):
+        import pandas as pd
+
+        rows = pd.DataFrame([
+            app._manual_row("Gutter", "Roofing", 10, "LF", 5.0, 20, True, position=1),
+        ], columns=app._TABLE_COLUMNS)
+        # An edit to Unit Cost (5 -> 8) changes the line total 60 -> 96.
+        rows.loc[0, "Unit Cost"] = 8.0
+        self.assertEqual(app._quote_totals(rows, tax.NONE, 0.0), (96.0, 0.0, 96.0, 1))

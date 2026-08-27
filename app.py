@@ -759,6 +759,23 @@ def _priced(frame):
     return out
 
 
+def _quote_totals(rows, tax_rule, tax_rate):
+    """The running quote totals from the master rows: (subtotal, sales tax,
+    total, included line count). Rebuilt every rerun, so the sticky totals
+    bar at the bottom of the page always matches whatever the contractor
+    has edited -- same formula as the Pricing tab's metrics."""
+    if rows is None or rows.empty:
+        return 0.0, 0.0, 0.0, 0
+    included = _priced(rows[rows["Include"].fillna(False)])
+    subtotal = float(included["Your Price"].sum())
+    tax_amount = tax.compute_sales_tax(
+        [{"line_total": r["Your Price"], "is_material": r["Material"]}
+         for _, r in included.iterrows()],
+        tax_rule, tax_rate,
+    )
+    return subtotal, tax_amount, subtotal + tax_amount, int(len(included))
+
+
 def _added_mask(frame):
     """Rows the contractor added rather than the carrier: no carrier line
     behind them, so no "Insurance RCV". Every parsed carrier row has a
@@ -1488,6 +1505,18 @@ def main():
             "subtotal, sales tax if your contract type itemizes it, and the total. It never "
             "includes the carrier's depreciation, ACV, or condition figures."
         )
+
+    # ---- sticky quote totals ----
+    # Always visible at the bottom of the page, recomputed every rerun so
+    # the bar tracks whatever the contractor has edited in any table.
+    current_rows = st.session_state.get("rows")
+    if current_rows is not None:
+        tax_rule = st.session_state.get("tax_rule", tax.NONE)
+        tax_rate = st.session_state.get("tax_rate", tax.DEFAULT_TEXAS_RATE_PCT)
+        if tax_rule not in tax.ITEMIZES_TAX:
+            tax_rate = 0.0
+        subtotal, tax_amount, total, line_count = _quote_totals(current_rows, tax_rule, tax_rate)
+        ui.totals_bar(st, subtotal, tax_amount, total, line_count)
 
 
 if __name__ == "__main__":
