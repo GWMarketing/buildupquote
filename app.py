@@ -195,7 +195,7 @@ def _trade_totals(included):
 
 def _manual_row(description, trade, qty, unit, unit_cost, margin, is_material, position=1):
     """Builds one row dict for a line item a contractor types in by hand
-    (the "Add a line item the carrier missed" form), shaped exactly like a
+    (typed into the '+' row at the bottom of a table), shaped exactly like a
     parsed row from _rows_from_estimate -- same columns, in the same
     order -- so it drops into the Scope table and flows through pricing,
     trade totals, and the proposal export identically to a carrier line.
@@ -871,36 +871,135 @@ def _next_added_label(frame, prefix="A"):
     return max(used, default=0) + 1
 
 
+def _cell(row, column, default):
+    """A single cell from a data-editor row, with the editor's blanks
+    (None/NaN) turned into a default."""
+    value = row.get(column)
+    if value is None:
+        return default
+    try:
+        if bool(pd.isna(value)):
+            return default
+    except (TypeError, ValueError):
+        pass
+    return value
+
+
+def _editor_row_to_manual(row, default_margin, master):
+    """Turn one row the data editor ADDED (only the visible columns are
+    filled) into a full _TABLE_COLUMNS row, shaped exactly like _manual_row()
+    so it flows through pricing, the payment breakdown, and the proposal
+    export as the counter-offer supplement it is -- no carrier line behind
+    it, so Insurance RCV stays blank and the Payment Schedule lists it as a
+    supplement. Returns None when the row is completely blank, so an
+    accidental "+" click doesn't create a junk line."""
+    description = str(_cell(row, "Description", "") or "").strip()
+    qty = float(_cell(row, "Qty", 0.0))
+    unit = str(_cell(row, "Unit", "") or "")
+    unit_cost = float(_cell(row, "Unit Cost", 0.0))
+    margin = int(_cell(row, "Margin %", default_margin))
+    trade = _cell(row, "Trade", None)
+    if not trade:
+        trade = TRADE_OPTIONS[0] if TRADE_OPTIONS else "General"
+    is_material = bool(_cell(row, "Material", True))
+    include = bool(_cell(row, "Include", True))
+    if not (description or qty or unit or unit_cost):
+        return None
+    out = _manual_row(
+        description, trade, qty, unit, unit_cost, margin, is_material,
+        position=_next_added_label(master),
+    )
+    out["Include"] = include
+    return out
+
+
+def _merge_table_edits(master, shown, edited, default_margin):
+    """Merge what an editable table returned back into the master row set.
+
+    Every table on screen is a filtered VIEW of the same master rows -- a
+    search box, or the Review tab showing only what you added -- so the
+    merge is by row identity against what the view was SHOWING:
+
+      * rows the editor changed, and that the view was showing -> written
+        back by index;
+      * rows the editor ADDED (their index is not one the view showed) ->
+        appended as proper counter-offer rows via _editor_row_to_manual();
+      * rows the view showed but the editor no longer has -> deleted, and
+        only those, so a filter or another tab can never wipe the rows it
+        isn't showing.
+
+    Returns (master, number_added).
+    """
+    known = set(shown.index)
+
+    added_count = 0
+    is_new = ~edited.index.isin(list(known))
+    for _, row in edited[is_new].iterrows():
+        manual = _editor_row_to_manual(row, default_margin, master)
+        if manual is None:
+            continue
+        master = pd.concat(
+            [master, pd.DataFrame([manual], columns=_TABLE_COLUMNS)],
+            ignore_index=True,
+        )
+        added_count += 1
+
+    deleted = known - set(edited.index)
+    if deleted:
+        master = master.drop(index=sorted(deleted))
+
+    edit_mask = edited.index.isin(list(known))
+    if edit_mask.any():
+        writable = _writable_columns(edited.columns, master.columns)
+        master = master.copy()
+        edit_index = edited.index[edit_mask]
+        for col in writable:
+            # Edited cells can arrive in a wider dtype than the master
+            # column holds (a concatenated blank "+" row upcasts object /
+            # float) -- coerce back to the master column's dtype so the
+            # assignment can't be rejected by pandas.
+            master.loc[edit_index, col] = edited.loc[edit_index, col].astype(master[col].dtype)
+
+    return master, added_count
+
+
 def _editable_table(frame, columns, key, caption=None, empty_message="Nothing here."):
     """Draw one editable table and write any edits straight back into the
     master row set.
 
-    Edits are merged BY INDEX rather than by replacing the whole table,
-    because every table on screen is a filtered view of the same rows --
-    a search box, or the Review tab showing only what you added. Replacing
-    wholesale would delete everything the current view happens not to be
-    showing.
+    The table is also where new lines get added now: the native "+" row at
+    its bottom (_merge_table_edits turns what you type there into a proper
+    counter-offer/supplement row). Edits, additions, and deletions are
+    merged by row identity against what this view was showing -- never a
+    wholesale replace, so a search filter or the Review tab can never wipe
+    the rows it isn't displaying.
     """
     if caption:
         st.caption(caption)
     if frame.empty:
+        # The editor stays on screen so the "+" row is available even
+        # before the table has any lines in it.
         st.info(empty_message)
-        return
     edited = st.data_editor(
         frame,
-        num_rows="fixed",
+        num_rows="dynamic",
         use_container_width=True,
         hide_index=True,
         column_order=[c for c in columns if c in frame.columns],
         column_config=_column_config(),
         key=key,
     )
-    # Written back by position rather than with DataFrame.update(),
-    # which ignores blanks -- clearing a unit cost has to actually clear
-    # it. Only the rows currently on screen are touched, so a search
-    # filter or the Review tab can never wipe the rows it isn't showing.
-    writable = _writable_columns(edited.columns, st.session_state["rows"].columns)
-    st.session_state["rows"].loc[edited.index, writable] = edited[writable]
+    st.session_state["rows"], added_count = _merge_table_edits(
+        st.session_state["rows"],
+        frame,
+        edited,
+        int(st.session_state.get("default_margin", 20)),
+    )
+    if added_count:
+        st.success(
+            f"Added {added_count} line{'s' if added_count != 1 else ''} to your scope -- "
+            "no carrier line behind it, so it exports as a supplement."
+        )
 
 
 def _search_box(label, key):
@@ -920,52 +1019,6 @@ def _export_basename(contractor_name, fields):
         _best(fields, "claim_number", default=""),
         "", "buildupquote.",
     ).rstrip(".")
-
-
-def _add_line_item_form(form_key, expanded_caption="Add a line item the carrier missed"):
-    """Add-line form, usable from the Review tab AND the Pricing tab.
-
-    A line added here has NO carrier line behind it -- _manual_row() leaves
-    Insurance RCV blank -- which is exactly what _payment_breakdown() and
-    build_proposal() read to classify the line as a SUPPLEMENT: exported on
-    the proposal PDF's Payment Schedule at the contractor's own price.
-    """
-    with st.expander(f"+ {expanded_caption}", expanded=True):
-        with st.form(form_key, clear_on_submit=True):
-            desc_col, trade_col = st.columns([2, 1])
-            new_description = desc_col.text_input("Description")
-            new_trade = trade_col.selectbox("Trade", options=TRADE_OPTIONS)
-            qty_col, unit_col, cost_col = st.columns(3)
-            new_qty = qty_col.number_input("Qty", min_value=0.0, value=1.0, step=1.0)
-            new_unit = unit_col.text_input("Unit", value="EA")
-            new_unit_cost = cost_col.number_input("Unit cost ($)", min_value=0.0, value=0.0, step=1.0)
-            margin_col, material_col = st.columns(2)
-            new_margin = margin_col.number_input(
-                "Margin %", min_value=0, max_value=100,
-                value=int(st.session_state["default_margin"]),
-            )
-            new_material = material_col.checkbox("Counts as material (for sales tax)", value=True)
-            if st.form_submit_button("Add item"):
-                if not new_description.strip():
-                    st.warning("Give it a description before adding it.")
-                    return
-                new_row = _manual_row(
-                    new_description, new_trade, new_qty, new_unit,
-                    new_unit_cost, new_margin, new_material,
-                    position=_next_added_label(st.session_state["rows"]),
-                )
-                st.session_state["rows"] = pd.concat(
-                    [st.session_state["rows"],
-                     pd.DataFrame([new_row], columns=_TABLE_COLUMNS)],
-                    ignore_index=True,
-                )
-                st.success(
-                    f"Added {new_description.strip()} to your price. No carrier line "
-                    "behind it, so it exports as a supplement."
-                )
-                rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
-                if rerun:
-                    rerun()
 
 
 def main():
@@ -1179,7 +1232,8 @@ def main():
             st, "Lines worth a second look", "warn",
             "Two kinds of line end up here: ones you added yourself, and ones the parser "
             "wasn't sure about. Everything on this tab is priced and exported exactly "
-            "like a carrier line.",
+            "like a carrier line. To add your own line -- your counter-offer beyond what "
+            "the carrier priced -- type it into the '+' row of the table below.",
         )
 
         st.markdown(
@@ -1189,53 +1243,19 @@ def main():
         )
         st.write("")
 
-        with st.expander("➕ Add a line item the carrier missed", expanded=added_count == 0):
-            with st.form("add_item_form", clear_on_submit=True):
-                desc_col, trade_col = st.columns([2, 1])
-                new_description = desc_col.text_input("Description")
-                new_trade = trade_col.selectbox("Trade", options=TRADE_OPTIONS)
-                qty_col, unit_col, cost_col = st.columns(3)
-                new_qty = qty_col.number_input("Qty", min_value=0.0, value=1.0, step=1.0)
-                new_unit = unit_col.text_input("Unit", value="EA")
-                new_unit_cost = cost_col.number_input("Unit cost ($)", min_value=0.0, value=0.0, step=1.0)
-                margin_col, material_col = st.columns(2)
-                new_margin = margin_col.number_input(
-                    "Margin %", min_value=0, max_value=100,
-                    value=int(st.session_state["default_margin"]),
-                )
-                new_material = material_col.checkbox("Counts as material (for sales tax)", value=True)
-                if st.form_submit_button("Add item"):
-                    if not new_description.strip():
-                        st.warning("Give it a description before adding it.")
-                    else:
-                        new_row = _manual_row(
-                            new_description, new_trade, new_qty, new_unit,
-                            new_unit_cost, new_margin, new_material,
-                            position=_next_added_label(st.session_state["rows"]),
-                        )
-                        st.session_state["rows"] = pd.concat(
-                            [st.session_state["rows"],
-                             pd.DataFrame([new_row], columns=_TABLE_COLUMNS)],
-                            ignore_index=True,
-                        )
-                        st.success(f"Added “{new_description.strip()}” to your scope.")
-                        # Redraw so the table below shows it immediately.
-                        # getattr keeps this working on the older
-                        # Streamlit that called it experimental_rerun.
-                        rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
-                        if rerun:
-                            rerun()
-
         added_rows = rows[_added_mask(rows) & ~_code_required_mask(rows)]
         ui.section(st, f"Added by you ({len(added_rows)})", "added")
-        if added_rows.empty:
-            st.info("You haven't added anything to this scope yet.")
-        else:
-            added_query = _search_box("Search your additions", "added_search")
-            added_shown = ui.filter_rows(added_rows, added_query)
-            if added_query:
-                st.caption(f"Showing {len(added_shown)} of {len(added_rows)} lines.")
-            _editable_table(added_shown, _SIMPLE_COLUMNS, key="added_editor")
+        added_query = _search_box("Search your additions", "added_search") if not added_rows.empty else ""
+        added_shown = ui.filter_rows(added_rows, added_query) if added_query else added_rows
+        if added_query:
+            st.caption(f"Showing {len(added_shown)} of {len(added_rows)} lines.")
+        _editable_table(
+            added_shown, _SIMPLE_COLUMNS, key="added_editor",
+            empty_message=(
+                "You haven't added anything to this scope yet -- the '+' row at the "
+                "bottom of the table is where your first line goes."
+            ),
+        )
 
         flagged_rows = rows[_flagged_mask(rows)]
         ui.section(st, f"Flagged by the parser ({len(flagged_rows)})", "warn")
@@ -1329,7 +1349,6 @@ def main():
             key="price_editor",
             empty_message="No lines match this filter.",
         )
-        _add_line_item_form("add_item_form_pricing", "Add a line item (exports as a supplement)")
 
         ui.section(
             st, "Totals by trade", "info",

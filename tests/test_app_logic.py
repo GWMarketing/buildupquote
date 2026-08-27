@@ -520,3 +520,144 @@ class ExportNameTest(unittest.TestCase):
         self.assertFalse(name.endswith("."))
         self.assertNotIn(".csv", name)
         self.assertNotIn(".pdf", name)
+
+
+class MergeTableEditsTest(unittest.TestCase):
+    """The editable tables are the single way lines get added now (the
+    '+' row at the bottom). _merge_table_edits() must turn an editor's
+    added/deleted/edited rows into the right master-table changes without
+    ever touching the rows the current view wasn't showing."""
+
+    @staticmethod
+    def _carrier_row(number, description, cost=100.0):
+        return {
+            "#": str(number), "Include": True, "Trade": "Roofing", "Section": "Roofing",
+            "Description": description, "Qty": 1.0, "Unit": "EA", "Unit Cost": cost,
+            "Margin %": 20, "Material": True, "Insurance RCV": 100.0,
+            "Insurance O&P": 0.0, "Code Cite": False, "Needs Review": False,
+            "Review Note": "", "Recoverable Depreciation": 0.0,
+        }
+
+    def _master(self):
+        import pandas as pd
+
+        return pd.DataFrame(
+            [
+                self._carrier_row(1, "Carrier A"),
+                self._carrier_row(2, "Carrier B"),
+                app._manual_row("Added line", "Roofing", 1, "EA", 50.0, 20, True, position=1),
+            ],
+            columns=app._TABLE_COLUMNS,
+        )
+
+    def test_edits_to_shown_rows_are_written_back(self):
+        import pandas as pd
+
+        master = self._master()
+        shown = master.iloc[[0, 1]]
+        edited = shown.copy()
+        edited.loc[0, "Unit Cost"] = 999.0
+        result, added = app._merge_table_edits(master, shown, edited, 20)
+        self.assertEqual(added, 0)
+        self.assertEqual(result.loc[0, "Unit Cost"], 999.0)
+        self.assertEqual(result.loc[1, "Unit Cost"], 100.0)  # untouched row
+        self.assertEqual(len(result), 3)
+
+    def test_added_row_becomes_a_counter_offer_supplement(self):
+        import pandas as pd
+
+        master = self._master()
+        shown = master.iloc[[0, 1]]
+        new = pd.DataFrame(
+            [{"Description": "Contractor add", "Trade": "Roofing", "Qty": 2.0,
+              "Unit": "EA", "Unit Cost": 75.0, "Margin %": 20,
+              "Include": True, "Material": True}],
+            index=[3],  # Streamlit hands added rows an index past the shown view
+        )
+        edited = pd.concat([shown, new])
+        result, added = app._merge_table_edits(master, shown, edited, 20)
+        self.assertEqual(added, 1)
+        self.assertEqual(len(result), 4)
+        last = result.iloc[-1]
+        self.assertEqual(last["#"], "A2")  # next label after the existing A1
+        self.assertTrue(pd.isna(last["Insurance RCV"]))  # supplement classification
+        self.assertEqual(last["Section"], "Added by you")
+        self.assertEqual(last["Description"], "Contractor add")
+
+    def test_added_row_never_clobbers_a_hidden_row_with_the_same_index(self):
+        # The editor can hand back an added row whose index collides with a
+        # master row the current view was NOT showing -- the merge must
+        # treat it as new, not as an edit of the hidden row.
+        import pandas as pd
+
+        master = self._master()
+        shown = master.iloc[[0, 1]]  # hides master index 2
+        new = pd.DataFrame(
+            [{"Description": "Colliding add", "Trade": "Roofing", "Qty": 1.0,
+              "Unit": "EA", "Unit Cost": 60.0, "Margin %": 20,
+              "Include": True, "Material": True}],
+            index=[2],  # collides with the hidden row
+        )
+        edited = pd.concat([shown, new])
+        result, added = app._merge_table_edits(master, shown, edited, 20)
+        self.assertEqual(added, 1)
+        self.assertEqual(len(result), 4)
+        self.assertEqual(result.loc[2, "Description"], "Added line")  # hidden row intact
+        self.assertEqual(result.iloc[-1]["Description"], "Colliding add")
+
+    def test_deleting_a_shown_row_drops_only_that_row(self):
+        import pandas as pd
+
+        master = self._master()
+        shown = master.iloc[[0, 1, 2]]
+        edited = shown.drop(index=[1])
+        result, added = app._merge_table_edits(master, shown, edited, 20)
+        self.assertEqual(added, 0)
+        self.assertNotIn(1, result.index)
+        self.assertEqual(list(result["Description"]), ["Carrier A", "Added line"])
+
+    def test_hidden_rows_survive_edits_and_deletes_elsewhere(self):
+        import pandas as pd
+
+        master = self._master()
+        shown = master.iloc[[0, 2]]  # a filtered view (carrier A + the added line)
+        edited = shown.copy()
+        edited.loc[2, "Unit Cost"] = 777.0
+        edited = edited.drop(index=[0])  # user deleted carrier A from this view
+        result, added = app._merge_table_edits(master, shown, edited, 20)
+        self.assertNotIn(0, result.index)  # shown-and-deleted: gone
+        self.assertEqual(result.loc[2, "Unit Cost"], 777.0)  # shown-and-edited: updated
+        self.assertEqual(result.loc[1, "Description"], "Carrier B")  # never shown: untouched
+
+    def test_blank_added_row_is_skipped(self):
+        import pandas as pd
+
+        master = self._master()
+        shown = master.iloc[[0, 1]]
+        blank = pd.DataFrame(
+            [{"Description": None, "Qty": None, "Unit": None, "Unit Cost": None}],
+            index=[9],
+        )
+        edited = pd.concat([shown, blank])
+        result, added = app._merge_table_edits(master, shown, edited, 20)
+        self.assertEqual(added, 0)
+        self.assertEqual(len(result), 3)
+
+    def test_multiple_added_rows_get_sequential_labels(self):
+        import pandas as pd
+
+        master = self._master()
+        shown = master.iloc[[0, 1]]
+        new_rows = pd.DataFrame(
+            [
+                {"Description": "Add one", "Trade": "Roofing", "Qty": 1.0, "Unit": "EA",
+                 "Unit Cost": 10.0, "Margin %": 20, "Include": True, "Material": True},
+                {"Description": "Add two", "Trade": "Painting", "Qty": 2.0, "Unit": "EA",
+                 "Unit Cost": 20.0, "Margin %": 20, "Include": True, "Material": True},
+            ],
+            index=[3, 4],
+        )
+        edited = pd.concat([shown, new_rows])
+        result, added = app._merge_table_edits(master, shown, edited, 20)
+        self.assertEqual(added, 2)
+        self.assertEqual(list(result.iloc[-2:]["#"]), ["A2", "A3"])

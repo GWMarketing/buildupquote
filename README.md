@@ -433,18 +433,20 @@ document didn't come from Xactimate.
 
 Two related changes, both about a job with several trades on it.
 
-**Adding a line item.** There's now an explicit "➕ Add a line item the
-carrier missed" panel right above the Scope table, with its own
-Description/Trade/Qty/Unit/Unit cost/Margin fields and an "Add item"
-button. `app._manual_row()` builds that row with the exact same columns
-`_rows_from_estimate()` produces from a parsed PDF, so a hand-typed line
-flows through pricing, trade totals, and the proposal export exactly
-like a carrier line -- it's just missing the three insurance-reference
+**Adding a line item.** There are no add-item buttons or panels anymore --
+the way you add a line is the same everywhere: click the "+" row at the
+bottom of any editable table (Scope, Review's "Added by you", or Pricing)
+and type Description/Trade/Qty/Unit/Unit cost/Margin into it.
+`app._editor_row_to_manual()` shapes what you typed into the exact same
+columns `_rows_from_estimate()` produces from a parsed PDF, so the line
+flows through pricing, trade totals, and the proposal export identically
+to a carrier line -- it's just missing the three insurance-reference
 columns (Insurance RCV, Insurance O&P, Code Cite), since there's no
-carrier line behind it to reference. Streamlit's table also still lets
-you type a new row directly into the last row of the Scope table itself
-(the "+" at its bottom) -- both paths land in the same place, the panel
-is just there so it's not something you have to already know to look for.
+carrier line behind it to reference. That missing RCV is exactly what
+makes it the counter-offer: the proposal PDF's Payment Schedule reads a
+line with no carrier RCV as a SUPPLEMENT -- the contractor's own price
+beyond what the carrier priced. The line gets an "A#" label and lands on
+the Review tab's "Added by you" list.
 
 **Trade subtotals at the bottom.** The proposal PDF used to print a
 "Subtotal — Roofing" (etc.) row right after each trade's own items,
