@@ -788,21 +788,22 @@ def _code_required_mask(frame):
 def _column_config():
     """One definition of how every column behaves, shared by every table
     on every tab -- so a figure looks and edits the same wherever it is
-    seen."""
+    seen. Widths are left to the editor (columns autosize to their
+    content) rather than pinned, so the same data never needs hand-tuning
+    per table."""
     return {
         "#": st.column_config.TextColumn(
-            "#", width="small", disabled=True,
+            "#", disabled=True,
             help="The carrier's own line number, so you can check this row against "
                  "the PDF. Lines you added are numbered A1, A2...",
         ),
-        "Include": st.column_config.CheckboxColumn(width="small", help="Uncheck to drop this line from your price."),
-        "Trade": st.column_config.SelectboxColumn(options=TRADE_OPTIONS, width="medium"),
-        "Qty": st.column_config.NumberColumn(format="%.2f", width="small"),
-        "Unit": st.column_config.TextColumn(width="small"),
-        "Unit Cost": st.column_config.NumberColumn(format="$%.2f", width="small"),
-        "Margin %": st.column_config.NumberColumn(min_value=0, max_value=100, format="%d%%", width="small"),
+        "Include": st.column_config.CheckboxColumn(help="Uncheck to drop this line from your price."),
+        "Trade": st.column_config.SelectboxColumn(options=TRADE_OPTIONS),
+        "Qty": st.column_config.NumberColumn(format="%.2f"),
+        "Unit": st.column_config.TextColumn(),
+        "Unit Cost": st.column_config.NumberColumn(format="$%.2f"),
+        "Margin %": st.column_config.NumberColumn(min_value=0, max_value=100, format="%d%%"),
         "Material": st.column_config.CheckboxColumn(
-            width="small",
             help="Counts toward sales tax under a Separated contract (materials only). "
                  "Uncheck for pure-labor lines.",
         ),
@@ -813,17 +814,15 @@ def _column_config():
                  "reference only, it never affects your price.",
         ),
         "Code Cite": st.column_config.CheckboxColumn(
-            disabled=True, width="small",
+            disabled=True,
             help="This line cites a specific building-code section -- see \"Claim context\" "
                  "for what that means for coverage.",
         ),
         "Needs Review": st.column_config.CheckboxColumn(
-            width="small",
             help="Check a line that needs another look, or uncheck one you've verified "
                  "against the PDF -- this drives the Review tab's 'Needs review' list.",
         ),
         "Review Note": st.column_config.TextColumn(
-            width="large",
             help="Why this line was flagged -- the parser's reason, or a note you add "
                  "while reviewing.",
         ),
@@ -831,7 +830,7 @@ def _column_config():
         # Also the one column the Pricing tab's editable table DISPLAYS
         # but must NOT write back (see _writable_columns).
         "Your Price": st.column_config.NumberColumn(
-            format="$%.2f", disabled=True, width="medium",
+            format="$%.2f", disabled=True,
             help="Qty x Unit Cost x (1 + margin) -- computed, not typed.",
         ),
     }
