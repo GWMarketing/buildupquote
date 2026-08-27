@@ -106,15 +106,18 @@ CSS = """
 
 /* ---------- tabs ---------- */
 /* Made deliberately large -- these are the app's main menu, and the
-   first thing Glenn said needed to be easier to see (2026-08-25). */
-.stTabs [data-baseweb="tab-list"] { gap: 6px; border-bottom: 3px solid #DCE4EC; }
+   first thing Glenn said needed to be easier to see (2026-08-25);
+   bumped further 2026-08-27 (bigger tabs, icons and fonts, heavier
+   weight). The emoji icons are part of the label text, so the larger
+   font-size scales them up with it. */
+.stTabs [data-baseweb="tab-list"] { gap: 10px; border-bottom: 3px solid #DCE4EC; }
 .stTabs [data-baseweb="tab"] {
-  height: 58px; padding: 0 28px; font-weight: 700; font-size: 1.14rem;
-  border-radius: 10px 10px 0 0; color: #5A6B7A;
+  height: 76px; padding: 0 38px; font-weight: 800; font-size: 1.38rem;
+  border-radius: 12px 12px 0 0; color: #5A6B7A;
 }
-.stTabs [data-baseweb="tab"] p { font-size: 1.14rem; font-weight: 700; }
+.stTabs [data-baseweb="tab"] p { font-size: 1.38rem; font-weight: 800; }
 .stTabs [aria-selected="true"] {
-  background: #E7F0FA; color: #0F6CBD; box-shadow: inset 0 -3px 0 #0F6CBD;
+  background: #E7F0FA; color: #0F6CBD; box-shadow: inset 0 -4px 0 #0F6CBD;
 }
 
 /* ---------- metrics ---------- */
