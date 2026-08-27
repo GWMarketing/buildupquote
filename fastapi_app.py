@@ -29,6 +29,7 @@ import tax
 import workspace  # noqa: E402 -- pure logic, no framework
 import app.models  # noqa: E402 -- registers the User table with Base.metadata
 from app.database import Base, engine, get_db
+from app.routers import auth as auth_router
 from proposal import ContractorInfo, build_proposal, render_proposal_pdf
 from scope_parser import parse_pdf
 from trades import TRADE_OPTIONS
@@ -49,6 +50,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="BUILDUPQUOTE", version="1.0.0", lifespan=lifespan)
+app.include_router(auth_router.router)
 
 _WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 
