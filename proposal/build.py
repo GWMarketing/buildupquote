@@ -8,6 +8,8 @@ from collections import OrderedDict
 from pricing import compute_line_total
 from tax import ITEMIZES_TAX, NONE as NO_TAX, TAX_RULE_LABELS, compute_sales_tax
 
+from code_checklist import SECTION_LABEL as CODE_SECTION_LABEL
+
 from .models import ClaimInfo, ContractorInfo, ProposalData, ProposalLineItem, TradeGroup
 
 
@@ -135,6 +137,13 @@ def build_proposal(rows, contractor: ContractorInfo, claim_fields: dict,
         margin = r.get("Margin %") or 0
         line_total = compute_line_total(qty, unit_cost, margin)
         unit_price = round(unit_cost * (1 + margin / 100), 2)
+        # Code-required additions carry the code item's own plain-English
+        # explanation (their Review Note) so the proposal can print it as a
+        # note under the line -- the justification for why the item is on
+        # the job at all. Ordinary carrier and hand-added rows keep no note.
+        note = ""
+        if (r.get("Section") or "") == CODE_SECTION_LABEL:
+            note = (r.get("Review Note") or "").strip()
         items.append(ProposalLineItem(
             trade=r.get("Trade") or "Other",
             description=description,
@@ -143,6 +152,7 @@ def build_proposal(rows, contractor: ContractorInfo, claim_fields: dict,
             unit_price=unit_price,
             line_total=line_total,
             is_material=r.get("Material", True),
+            note=note,
         ))
         recoverable_depreciation_total += _num_or_zero(r.get("Recoverable Depreciation"))
         if _is_blank(r.get("Insurance RCV")):

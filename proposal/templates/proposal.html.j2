@@ -66,6 +66,18 @@
   }
   table.items tr.trade-header { page-break-after: avoid; }
   table.items tr.subtotal td { font-weight: 700; border-top: 1px solid #AEBBC9; border-bottom: none; }
+  /* The code/law justification printed under a code-required line item --
+     its own little row, so an adjuster can read why the item is there. */
+  table.items tr.item-note td {
+    padding: 3px 8px 7px 16px; font-size: 8.5pt; color: #5B6B7C;
+    line-height: 1.4; border-bottom: 1px solid #E2E7ED;
+    border-left: 2px solid #0F6CBD; background: #F7FAFD;
+  }
+  table.items tr.item-note { page-break-before: avoid; }
+  table.items tr.item-note .note-kicker {
+    font-weight: 700; color: #0F6CBD; text-transform: uppercase;
+    font-size: 7.5pt; letter-spacing: .4px; margin-right: 4px;
+  }
   .num { text-align: right; white-space: nowrap; }
 
   /* ---- summary by trade ---- */
@@ -198,6 +210,11 @@
       <td class="num">${{ "%.2f"|format(item.unit_price) }}</td>
       <td class="num">${{ "{:,.2f}".format(item.line_total) }}</td>
     </tr>
+    {% if item.note %}
+    <tr class="item-note">
+      <td colspan="5"><span class="note-kicker">Why this line is here:</span> {{ item.note }}</td>
+    </tr>
+    {% endif %}
     {% endfor %}
     {% endfor %}
     </tbody>

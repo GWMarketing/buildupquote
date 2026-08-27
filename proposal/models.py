@@ -66,6 +66,11 @@ class ProposalLineItem:
     # tax.py) -- defaults to True (treated as material) since undercharging
     # tax is the costlier mistake. Never rendered on the proposal itself.
     is_material: bool = True
+    # Plain-English why-this-line-is-here, carried from the row's Review
+    # Note for code-required additions (see build_proposal). Rendered on
+    # the proposal as a small note row underneath the item -- the
+    # justification an adjuster can read without having to ask.
+    note: str = ""
 
 
 @dataclass

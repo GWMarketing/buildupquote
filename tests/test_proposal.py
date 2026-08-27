@@ -12,6 +12,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import tax  # noqa: E402
+from code_checklist import SECTION_LABEL as CODE_SECTION_LABEL  # noqa: E402
 from proposal import ContractorInfo, build_proposal, render_proposal_html, render_proposal_pdf  # noqa: E402
 from proposal import models as proposal_models  # noqa: E402
 from proposal.build import group_line_items  # noqa: E402
@@ -138,6 +139,48 @@ class BuildProposalWithTaxTest(unittest.TestCase):
                                tax_rule=tax.COMMERCIAL, tax_rate_pct=10.0)
         self.assertEqual(data.tax_amount, 389.0)
         self.assertEqual(data.total_price, 4279.0)
+
+
+class CodeItemNoteTest(unittest.TestCase):
+    """Code-required additions carry the code item's own plain-English
+    explanation as a note that prints under the line item on the proposal
+    -- its own little row, the justification an adjuster can read without
+    having to ask."""
+
+    ROWS = SAMPLE_ROWS + [
+        {"Include": True, "Trade": "Roofing",
+         "Description": "IRC R905.1 - General requirements for roof covering",
+         "Qty": 1, "Unit": "EA", "Unit Cost": 500.0, "Margin %": 20,
+         "Section": CODE_SECTION_LABEL,
+         "Review Note": "Roof coverings must be applied in accordance with "
+                        "the manufacturer instructions and the approved plans."},
+    ]
+
+    def _data(self):
+        return build_proposal(self.ROWS, CONTRACTOR, SAMPLE_CLAIM_FIELDS, "2026-08-23")
+
+    def test_code_required_row_carries_its_explanation_as_the_note(self):
+        data = self._data()
+        notes = [i.note for g in data.grouped_items for i in g.items]
+        self.assertTrue(any("manufacturer instructions" in n for n in notes))
+        # Ordinary carrier rows stay note-free.
+        carrier = data.grouped_items[0].items[0]
+        self.assertEqual(carrier.note, "")
+
+    def test_note_renders_as_its_own_row_under_the_line_item(self):
+        html = render_proposal_html(self._data())
+        self.assertIn("item-note", html)
+        self.assertIn("Why this line is here:", html)
+        self.assertIn("manufacturer instructions", html)
+
+    def test_note_survives_into_the_pdf_text(self):
+        import pdfplumber
+
+        out_path = "/tmp/test_code_item_note.pdf"
+        render_proposal_pdf(self._data(), out_path)
+        with pdfplumber.open(out_path) as pdf:
+            text = "\n".join(p.extract_text() or "" for p in pdf.pages)
+        self.assertIn("manufacturer instructions", text)
 
 
 class GroupLineItemsTest(unittest.TestCase):
