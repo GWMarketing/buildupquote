@@ -106,7 +106,7 @@ class ScreenStructureTests(unittest.TestCase):
             "st.tabs",                 # the five screens
             "tab_scope", "tab_review", "tab_code", "tab_price", "tab_export",
             "_editable_table",         # the scope grid
-            "Flagged by the parser",
+            "Needs review",
             "_carrier_summary_panel",  # the carrier's own Overhead/Profit/Net Claim ladder
             "_code_additions_tab",     # the Texas code checklist + code-required additions
             "Totals by trade",

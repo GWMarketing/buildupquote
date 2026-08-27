@@ -186,7 +186,8 @@ class VisibleColumnsTest(unittest.TestCase):
         contractor loses their place. The default view is these."""
         self.assertEqual(
             app._SIMPLE_COLUMNS,
-            ["#", "Include", "Description", "Qty", "Unit", "Unit Cost", "Margin %", "Trade"],
+            ["#", "Include", "Description", "Qty", "Unit", "Unit Cost", "Margin %",
+             "Trade", "Needs Review"],
         )
 
     def test_the_full_view_adds_the_rest_and_loses_nothing(self):

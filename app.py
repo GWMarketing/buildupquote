@@ -118,6 +118,10 @@ _VISIBLE_COLUMNS = [c for c in _TABLE_COLUMNS if c != "Recoverable Depreciation"
 # place -- the ones below are what you actually touch while pricing a job.
 _SIMPLE_COLUMNS = [
     "#", "Include", "Description", "Qty", "Unit", "Unit Cost", "Margin %", "Trade",
+    # The review checkbox is part of the working table now -- checking a
+    # line (or unchecking one you've verified against the PDF) is how the
+    # Review tab's "Needs review" list is driven.
+    "Needs Review",
 ]
 # Everything else: reference figures from the carrier, the sales-tax
 # material flag, and the parser's own review notes. One toggle away.
@@ -813,8 +817,16 @@ def _column_config():
             help="This line cites a specific building-code section -- see \"Claim context\" "
                  "for what that means for coverage.",
         ),
-        "Needs Review": st.column_config.CheckboxColumn(disabled=True, width="small"),
-        "Review Note": st.column_config.TextColumn(disabled=True, width="large"),
+        "Needs Review": st.column_config.CheckboxColumn(
+            width="small",
+            help="Check a line that needs another look, or uncheck one you've verified "
+                 "against the PDF -- this drives the Review tab's 'Needs review' list.",
+        ),
+        "Review Note": st.column_config.TextColumn(
+            width="large",
+            help="Why this line was flagged -- the parser's reason, or a note you add "
+                 "while reviewing.",
+        ),
         # Computed live by _priced() -- shown as money, never typed over.
         # Also the one column the Pricing tab's editable table DISPLAYS
         # but must NOT write back (see _writable_columns).
@@ -1238,7 +1250,7 @@ def main():
 
         st.markdown(
             ui.pill(f"{added_count} added by you", "added")
-            + ui.pill(f"{flagged_count} flagged by the parser", "warn" if flagged_count else "good"),
+            + ui.pill(f"{flagged_count} need review", "warn" if flagged_count else "good"),
             unsafe_allow_html=True,
         )
         st.write("")
@@ -1258,14 +1270,18 @@ def main():
         )
 
         flagged_rows = rows[_flagged_mask(rows)]
-        ui.section(st, f"Flagged by the parser ({len(flagged_rows)})", "warn")
+        ui.section(st, f"Needs review ({len(flagged_rows)})", "warn")
         if flagged_rows.empty:
-            st.success("Nothing was flagged on this document -- every row read cleanly.")
+            st.success(
+                "Nothing needs review -- every row read cleanly. Check the 'Needs Review' "
+                "box on any Scope line to send it here."
+            )
         else:
             st.caption(
-                "The parser kept what the document actually said on these rows rather than "
-                "guessing at a number. Check each against the PDF using the # on the left, "
-                "then correct the figures here if you need to."
+                "Lines the parser wasn't sure about, or lines you've checked yourself. Each "
+                "shows its note; check each against the PDF using the # on the left, fix the "
+                "figures here if you need to, then uncheck the 'Needs Review' box once you're "
+                "satisfied and it leaves this list."
             )
             flagged_query = _search_box("Search flagged lines", "flagged_search")
             flagged_shown = ui.filter_rows(flagged_rows, flagged_query)

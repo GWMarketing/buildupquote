@@ -240,8 +240,11 @@ that box before you trust the output.
 Similarly, if a line item's row doesn't match the column layout the
 parser expected, it gets flagged `needs_review = True` with a reason,
 rather than guessing at a dollar figure. Those show up as checked boxes
-in the "Needs Review" column in the app. See `SafetyValveTest` in
-`test_pipeline.py` for exactly what triggers this.
+in the "Needs Review" column in the app. The box is yours to work with:
+check a line that needs another look, or uncheck one you've verified
+against the PDF, and it lands on -- or leaves -- the Review tab's
+"Needs review" list. See `SafetyValveTest` in `test_pipeline.py` for
+exactly what triggers this.
 
 On the proposal side, the safety net is structural rather than a check
 you could fail to run: `ProposalLineItem` (what actually reaches the PDF)
