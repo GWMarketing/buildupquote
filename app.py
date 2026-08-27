@@ -810,9 +810,10 @@ def _column_config():
     per table."""
     return {
         "#": st.column_config.TextColumn(
-            "#", disabled=True,
+            "#",
             help="The carrier's own line number, so you can check this row against "
-                 "the PDF. Lines you added are numbered A1, A2...",
+                 "the PDF. Lines you added are numbered A1, A2... Editable if you "
+                 "need to relabel a row.",
         ),
         "Include": st.column_config.CheckboxColumn(help="Uncheck to drop this line from your price."),
         "Trade": st.column_config.SelectboxColumn(options=TRADE_OPTIONS),
@@ -824,16 +825,19 @@ def _column_config():
             help="Counts toward sales tax under a Separated contract (materials only). "
                  "Uncheck for pure-labor lines.",
         ),
-        "Insurance RCV": st.column_config.NumberColumn(format="$%.2f", disabled=True),
+        "Insurance RCV": st.column_config.NumberColumn(
+            format="$%.2f",
+            help="The carrier's replacement-cost value for this line. Clearing it marks "
+                 "the line as added-by-you (a supplement) in pricing and on the proposal.",
+        ),
         "Insurance O&P": st.column_config.NumberColumn(
-            format="$%.2f", disabled=True,
-            help="Overhead & profit the carrier already priced into this line, if any -- "
-                 "reference only, it never affects your price.",
+            format="$%.2f",
+            help="Overhead & profit the carrier priced into this line, if any. Reference "
+                 "only -- it never affects your price; editable to correct a parse.",
         ),
         "Code Cite": st.column_config.CheckboxColumn(
-            disabled=True,
-            help="This line cites a specific building-code section -- see \"Claim context\" "
-                 "for what that means for coverage.",
+            help="Whether this line cites a building-code section -- see \"Claim context\" "
+                 "for what that means for coverage. Editable if the parse got it wrong.",
         ),
         "Needs Review": st.column_config.CheckboxColumn(
             help="Check a line that needs another look, or uncheck one you've verified "
