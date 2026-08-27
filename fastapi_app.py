@@ -14,21 +14,41 @@ import datetime
 import io
 import os
 import tempfile
+from contextlib import asynccontextmanager
 from typing import Optional
 
 import pandas as pd
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 import tax
 import workspace  # noqa: E402 -- pure logic, no framework
+import app.models  # noqa: E402 -- registers the User table with Base.metadata
+from app.database import Base, engine, get_db
 from proposal import ContractorInfo, build_proposal, render_proposal_pdf
 from scope_parser import parse_pdf
 from trades import TRADE_OPTIONS
 
-app = FastAPI(title="BUILDUPQUOTE", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Create tables on startup (idempotent). If postgres isn't reachable
+    yet -- local dev without a database, or the db container still doing
+    its first-time initialization on deploy -- log and continue: the
+    app's core (parse/totals/proposal) doesn't need the DB, and
+    /api/db-check reports the real state."""
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as exc:  # noqa: BLE001 -- surfaced via /api/db-check
+        print(f"[startup] database not reachable, skipping table creation: {exc}")
+    yield
+
+
+app = FastAPI(title="BUILDUPQUOTE", version="1.0.0", lifespan=lifespan)
 
 _WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 
@@ -135,6 +155,19 @@ async def meta():
         "trade_options": TRADE_OPTIONS,
         "default_tax_rate_pct": tax.DEFAULT_TEXAS_RATE_PCT,
     }
+
+
+@app.get("/api/db-check")
+async def db_check(db: Session = Depends(get_db)):
+    """Postgres reachability: SELECT 1 -> {"database": "connected"}.
+
+    503 with {"database": "disconnected"} when the database is down -- the
+    rest of the API keeps working either way."""
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:  # noqa: BLE001 -- the check itself is the feature
+        raise HTTPException(status_code=503, detail={"database": "disconnected"})
+    return {"database": "connected"}
 
 
 @app.post("/api/parse")

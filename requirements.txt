@@ -18,6 +18,19 @@ fastapi>=0.110
 uvicorn[standard]>=0.29
 python-multipart>=0.0.9
 
+# Step 2c -- PostgreSQL + user models (CRM groundwork)
+# Backed by app/database.py, app/models.py, app/schemas.py. pydantic[email]
+# pulls email-validator for EmailStr; pwdlib[argon2] is the password
+# hasher the auth endpoints will use (argon2). Alembic is installed and
+# ready for migrations; tables are created on startup via
+# Base.metadata.create_all for now.
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9
+alembic
+python-jose[cryptography]
+pwdlib[argon2]
+pydantic[email]
+
 # Step 3 -- branded proposal PDF export (proposal/)
 jinja2>=3.1
 weasyprint>=60
