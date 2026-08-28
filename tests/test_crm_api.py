@@ -22,6 +22,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 import fastapi_app  # noqa: E402
 
 _FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+_STATIC = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app", "static")
 
 
 class CrmApiTestCase(unittest.TestCase):
@@ -121,6 +122,44 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertEqual(r.json()["full_name"], "Ada Lovelace")
         self.assertEqual(r.json()["role"], "owner")
 
+    def test_profile_persists_across_fresh_login(self):
+        # Register, save a full profile, then "log out" and sign back in with
+        # a brand-new token: the next session must see exactly what was saved.
+        self.register("relogin@acme.com", full_name="Glenn Westman")
+        r = self.client.post("/api/auth/token", data={
+            "username": "relogin@acme.com", "password": "pw12345678",
+        })
+        auth = {"Authorization": "Bearer " + r.json()["access_token"]}
+        payload = {
+            "name": "Glenn's Roofing & Co",
+            "bio": "Roof repair specialists",
+            "website": "https://glennwestman.com",
+            "email": "office@example.com",
+            "phone": "555-1234",
+            "address": "1 Market St",
+            "license_number": "CSLB #1",
+            "tax_id": "EIN-1",
+            "default_payment_terms": "Net 14",
+            "currency_symbol": "£",
+            "full_name": "Glenn Westman",
+            "job_title": "Owner / Lead Contractor",
+        }
+        r = self.client.put("/api/organization/me", headers=auth, json=payload)
+        self.assertEqual(r.status_code, 200, r.text)
+
+        # Simulate next-day login: a completely fresh token, no prior context.
+        r = self.client.post("/api/auth/token", data={
+            "username": "relogin@acme.com", "password": "pw12345678",
+        })
+        auth2 = {"Authorization": "Bearer " + r.json()["access_token"]}
+        r = self.client.get("/api/organization/me", headers=auth2)
+        self.assertEqual(r.status_code, 200, r.text)
+        for k, v in payload.items():
+            self.assertEqual(r.json()[k], v, k)
+        r = self.client.get("/api/users/me", headers=auth2)
+        self.assertEqual(r.json()["job_title"], "Owner / Lead Contractor")
+        self.assertEqual(r.json()["full_name"], "Glenn Westman")
+
     def test_logo_upload_roundtrip(self):
         auth = self.register("logo@acme.com")
         png = (
@@ -136,6 +175,10 @@ class CrmApiTestCase(unittest.TestCase):
         r = self.client.get(logo_url)
         self.assertEqual(r.status_code, 200)
         self.assertTrue(r.content.startswith(b"\x89PNG"))
+        # Clean the test logo off the working tree (uploaded logos are gitignored).
+        logo_path = os.path.join(_STATIC, "uploads", "logos", os.path.basename(logo_url))
+        if os.path.exists(logo_path):
+            os.remove(logo_path)
         # Logo upload is rejected for disallowed extensions.
         r = self.client.post("/api/organization/logo", headers=auth,
                              files={"file": ("logo.txt", b"not an image", "text/plain")})
@@ -307,7 +350,16 @@ class CrmApiTestCase(unittest.TestCase):
         # The url endpoint still serves the download-history record.
         r = self.client.get(f"/api/quotes/{qid}/pdf", headers=auth)
         self.assertEqual(r.status_code, 200, r.text)
-        self.assertTrue(r.json()["url"].startswith("/static/exports/pdf/"))
+        pdf_url = r.json()["url"]
+        self.assertTrue(pdf_url.startswith("/static/exports/pdf/"))
+        # Clean the generated PDFs off the working tree (they're gitignored).
+        export_dir = os.path.join(_STATIC, "exports", "pdf")
+        for name in os.listdir(export_dir):
+            if name.startswith(f"quote-{qid}-") and name.endswith(".pdf"):
+                try:
+                    os.remove(os.path.join(export_dir, name))
+                except OSError:
+                    pass
 
 
     # ------------------------------------------------------------------
