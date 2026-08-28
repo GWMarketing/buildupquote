@@ -84,4 +84,61 @@ table.grid-table td { padding: .35rem .5rem; border-bottom: 1px solid #f1f5f9; v
 .dark table.grid-table th { color: #94a3b8; border-color: #334155; }
 .dark table.grid-table td { border-color: #1e293b; }
 
+/* ------------------------------------------------------------------ */
+/* Design system: page hero, icon chips, empty states                  */
+/* ------------------------------------------------------------------ */
+
+.bq-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #293548 100%);
+  color: #fff;
+  padding: 1.5rem 1.75rem;
+  box-shadow: 0 10px 25px -12px rgba(15, 23, 42, .45);
+}
+.bq-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(560px 200px at 88% -30%, rgba(245, 158, 11, .4), transparent 60%),
+    radial-gradient(480px 200px at 5% 130%, rgba(234, 88, 12, .28), transparent 60%);
+}
+.dark .bq-hero { box-shadow: 0 10px 25px -12px rgba(0, 0, 0, .7); }
+
+.bq-hero .hero-content { position: relative; z-index: 1; }
+.bq-hero .hero-eyebrow { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; color: #fbbf24; }
+.bq-hero h1 { margin-top: .25rem; font-size: 1.5rem; font-weight: 800; letter-spacing: -.01em; }
+.bq-hero p.hero-sub { margin-top: .25rem; font-size: .875rem; color: #cbd5e1; }
+.bq-hero .hero-actions { position: relative; z-index: 1; }
+
+.icon-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: .75rem;
+  flex-shrink: 0;
+}
+.icon-chip.sm { width: 1.75rem; height: 1.75rem; border-radius: .5rem; }
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+}
+
+
 

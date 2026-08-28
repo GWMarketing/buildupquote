@@ -1,9 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
 <div x-data="parserPage()" x-init="init()" class="space-y-5">
+  <div class="bq-hero">
+    <div class="hero-content">
+      <p class="hero-eyebrow">Insurance Parser</p>
+      <h1>Turn a carrier estimate into a quote</h1>
+      <p class="hero-sub">Upload the insurer's PDF — BuildUpQuote reads the scope, then hands it to the quote builder.</p>
+    </div>
+  </div>
+
   <!-- Upload + claim info -->
   <div class="bq-card p-5">
-    <h2 class="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Carrier estimate</h2>
+    <div class="card-title">
+      <span class="icon-chip sm bg-amber-500/10 text-amber-600 dark:text-amber-400"><i data-lucide="file-up" class="h-4 w-4"></i></span>
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Carrier estimate</h2>
+    </div>
     <div class="flex flex-wrap items-center gap-3">
       <input type="file" accept="application/pdf" @change="upload($event)" class="text-sm">
       <span class="text-xs text-slate-400" x-show="uploading" x-cloak>Reading PDF…</span>

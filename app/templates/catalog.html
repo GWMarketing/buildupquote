@@ -1,8 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <div x-data="catalogPage()" x-init="init()" class="space-y-4">
-  <h1 class="text-xl font-bold text-slate-900">Rate Catalog</h1>
-  <p class="text-sm text-slate-500">Master rate sheet from the global parametric assemblies — labor rates, materials, plant, and subcontractor markups.</p>
+  <div class="bq-hero">
+    <div class="hero-content">
+      <p class="hero-eyebrow">Rate Catalog</p>
+      <h1>Master rate sheet</h1>
+      <p class="hero-sub">Labor rates, materials, plant, and subcontractor markups from the parametric assemblies.</p>
+    </div>
+  </div>
 
   <div class="grid gap-4 lg:grid-cols-4">
     <template x-for="group in groups" :key="group.type">

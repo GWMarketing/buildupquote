@@ -1,12 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="flex min-h-[70vh] items-center justify-center">
-  <div class="w-full max-w-sm">
-    <div class="mb-6 text-center">
-      <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">BUILDUPQUOTE</h1>
-      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Set up your contractor workspace</p>
+<div class="flex min-h-[85vh] items-center justify-center py-8">
+  <div class="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 lg:grid-cols-2">
+    <!-- Brand panel -->
+    <div class="relative hidden overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-10 text-white lg:flex lg:flex-col lg:justify-center">
+      <div class="pointer-events-none absolute inset-0" style="background: radial-gradient(420px 220px at 85% -10%, rgba(245,158,11,.28), transparent 60%);"></div>
+      <div class="relative z-10">
+        <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg">
+          <i data-lucide="hard-hat" class="h-6 w-6"></i>
+        </span>
+        <h2 class="mt-6 text-2xl font-extrabold tracking-tight">BUILDUPQUOTE</h2>
+        <p class="mt-2 text-sm text-slate-300">Set up your contractor workspace — quotes, clients, and branded PDFs in minutes.</p>
+        <ul class="mt-8 space-y-3 text-sm text-slate-300">
+          <li class="flex items-center gap-2"><i data-lucide="file-text" class="h-4 w-4 text-amber-400"></i> Insurance PDF → editable scope</li>
+          <li class="flex items-center gap-2"><i data-lucide="users" class="h-4 w-4 text-amber-400"></i> Clients & contact imports</li>
+          <li class="flex items-center gap-2"><i data-lucide="file-down" class="h-4 w-4 text-amber-400"></i> Branded PDF proposals</li>
+        </ul>
+      </div>
     </div>
-    <div class="bq-card p-6">
+    <!-- Form panel -->
+    <div class="p-8">
+      <div class="mb-6">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg lg:hidden">
+          <i data-lucide="hard-hat" class="h-5 w-5"></i>
+        </span>
+        <h1 class="mt-4 text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">Set up your workspace</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Create your account and start quoting.</p>
+      </div>
       <div id="error" class="mb-3 hidden rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"></div>
       <form id="registerForm" class="space-y-3">
         <div>
@@ -25,12 +45,12 @@
           <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Company / business name</label>
           <input id="organization_name" type="text" required class="bq-input" placeholder="e.g. Glenn's Roofing & Co">
         </div>
-        <button type="submit" class="w-full rounded-lg bg-slate-900 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200">
+        <button type="submit" class="w-full rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 py-2 text-sm font-medium text-white shadow hover:from-amber-600 hover:to-orange-700">
           Create account
         </button>
       </form>
       <p class="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
-        Already registered? <a href="/login" class="font-medium text-blue-600 hover:underline dark:text-blue-400">Sign in</a>
+        Already registered? <a href="/login" class="font-medium text-amber-600 hover:underline dark:text-amber-400">Sign in</a>
       </p>
     </div>
   </div>
@@ -65,3 +85,4 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
 });
 </script>
 {% endblock %}
+

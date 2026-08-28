@@ -37,7 +37,10 @@
 
   <!-- Parametric assembly drawer -->
   <div class="bq-card p-5">
-    <h2 class="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Add from assembly template</h2>
+    <div class="card-title">
+      <span class="icon-chip sm bg-amber-500/10 text-amber-600 dark:text-amber-400"><i data-lucide="layers" class="h-4 w-4"></i></span>
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Add from assembly template</h2>
+    </div>
     <div class="flex flex-wrap items-end gap-3">
       <div class="min-w-56 flex-1">
         <label class="mb-1 block text-xs font-medium text-slate-500">Assembly</label>
@@ -63,7 +66,10 @@
   <!-- Interactive line items grid -->
   <div class="bq-card overflow-x-auto">
     <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-slate-700">
-      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Line items</h2>
+      <div class="card-title">
+        <span class="icon-chip sm bg-amber-500/10 text-amber-600 dark:text-amber-400"><i data-lucide="list" class="h-4 w-4"></i></span>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Line items</h2>
+      </div>
       <button class="bq-btn-secondary" @click="addRow()">＋ Row</button>
     </div>
     <table class="w-full min-w-150 grid-table">
@@ -129,7 +135,10 @@
   <!-- Financial cockpit -->
   <div class="grid gap-5 lg:grid-cols-3">
     <div class="bq-card p-5 lg:col-span-2">
-      <h2 class="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Gross margin</h2>
+      <div class="card-title">
+        <span class="icon-chip sm bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><i data-lucide="percent" class="h-4 w-4"></i></span>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Gross margin</h2>
+      </div>
       <div class="flex items-center gap-4">
         <input type="range" min="0" max="50" step="1" class="flex-1 accent-amber-500" x-model.number="margin" @input="onMarginChange()">
         <span class="w-16 text-right font-semibold text-slate-900 dark:text-white" x-text="margin + '%'"></span>
@@ -141,7 +150,10 @@
     </div>
 
     <div class="bq-card p-5">
-      <h2 class="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Totals</h2>
+      <div class="card-title">
+        <span class="icon-chip sm bg-blue-500/10 text-blue-600 dark:text-blue-400"><i data-lucide="calculator" class="h-4 w-4"></i></span>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Totals</h2>
+      </div>
       <dl class="space-y-1.5 text-sm">
         <div class="flex justify-between"><dt class="text-slate-500">Net subtotal</dt><dd class="font-medium" x-text="fmt(subtotal())"></dd></div>
         <div class="flex justify-between"><dt class="text-slate-500">Materials</dt><dd class="font-medium" x-text="fmt(byType('material'))"></dd></div>
@@ -154,8 +166,8 @@
           </dd>
         </div>
         <div class="flex justify-between"><dt class="text-slate-500">Tax amount</dt><dd class="font-medium" x-text="fmt(taxAmount())"></dd></div>
-        <div class="flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900 dark:border-slate-700 dark:text-white">
-          <dt>Gross quote total</dt><dd x-text="fmt(grandTotal())"></dd>
+        <div class="flex justify-between border-t-2 border-amber-400 pt-2 text-base font-bold text-slate-900 dark:border-amber-500 dark:text-white">
+          <dt>Gross quote total</dt><dd class="text-amber-600 dark:text-amber-400" x-text="fmt(grandTotal())"></dd>
         </div>
       </dl>
     </div>

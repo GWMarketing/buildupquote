@@ -1,12 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
 <div x-data="settingsPage()" x-init="init()" class="mx-auto max-w-4xl space-y-5">
-  <div class="flex items-center justify-between">
-    <h1 class="text-xl font-bold text-slate-900 dark:text-white">Settings</h1>
-    <button class="bq-btn" :disabled="saving || !hasOrg" @click="save()">
-      <span x-show="saving" x-cloak class="mr-1 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
-      <span x-text="saving ? 'Saving…' : 'Save Changes'"></span>
-    </button>
+  <div class="bq-hero flex flex-wrap items-center justify-between gap-4">
+    <div class="hero-content">
+      <p class="hero-eyebrow">Settings</p>
+      <h1>Business profile & branding</h1>
+      <p class="hero-sub">Company details, logo, tax info, and quote defaults.</p>
+    </div>
+    <div class="hero-actions">
+      <button class="bq-btn" :disabled="saving || !hasOrg" @click="save()">
+        <span x-show="saving" x-cloak class="mr-1 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+        <span x-text="saving ? 'Saving…' : 'Save Changes'"></span>
+      </button>
+    </div>
   </div>
   <p class="text-sm text-emerald-600" x-show="saved" x-cloak>Saved ✓</p>
   <p class="text-sm text-red-600" x-show="error" x-cloak x-text="error"></p>
