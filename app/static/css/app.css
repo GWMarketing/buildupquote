@@ -1,4 +1,5 @@
 /* BuildUpQuote shared UI helpers -- plain CSS (Tailwind CDN doesn't run @apply) */
+/* Contractor theme: amber/orange accents (#F59E0B / #EA580C), slate navy, crisp cards. */
 
 .bq-card {
   background: #fff;
@@ -16,8 +17,9 @@
   font-size: .875rem;
   color: #1e293b;
   background: #fff;
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
-.bq-input:focus { outline: none; border-color: #64748b; box-shadow: 0 0 0 2px #e2e8f0; }
+.bq-input:focus { outline: none; border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, .25); }
 .dark .bq-input { border-color: #475569; background: #0f172a; color: #f1f5f9; }
 
 .bq-btn {
@@ -25,16 +27,17 @@
   align-items: center;
   gap: .25rem;
   border-radius: .5rem;
-  background: #0f172a;
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
   color: #fff;
   padding: .5rem .75rem;
   font-size: .875rem;
   font-weight: 500;
+  box-shadow: 0 1px 2px rgba(234, 88, 12, .25);
 }
-.bq-btn:hover { background: #334155; }
-.bq-btn:disabled { opacity: .5; cursor: not-allowed; }
-.dark .bq-btn { background: #fff; color: #0f172a; }
-.dark .bq-btn:hover { background: #e2e8f0; }
+.bq-btn:hover { background: linear-gradient(135deg, #d97706, #c2410c); }
+.bq-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+.dark .bq-btn { background: linear-gradient(135deg, #f59e0b, #ea580c); color: #fff; }
+.dark .bq-btn:hover { background: linear-gradient(135deg, #d97706, #c2410c); }
 
 .bq-btn-secondary {
   display: inline-flex;
@@ -48,9 +51,9 @@
   font-size: .875rem;
   font-weight: 500;
 }
-.bq-btn-secondary:hover { background: #f8fafc; }
+.bq-btn-secondary:hover { background: #fffbeb; border-color: #f59e0b; color: #b45309; }
 .dark .bq-btn-secondary { border-color: #475569; background: #1e293b; color: #e2e8f0; }
-.dark .bq-btn-secondary:hover { background: #334155; }
+.dark .bq-btn-secondary:hover { background: #334155; border-color: #f59e0b; }
 
 .badge {
   display: inline-flex;
@@ -61,8 +64,8 @@
   font-weight: 600;
   white-space: nowrap;
 }
-.badge-draft { background: #e2e8f0; color: #334155; }
-.dark .badge-draft { background: #334155; color: #e2e8f0; }
+.badge-draft { background: #fef3c7; color: #92400e; }
+.dark .badge-draft { background: #78350f; color: #fde68a; }
 .badge-sent { background: #dbeafe; color: #1d4ed8; }
 .dark .badge-sent { background: #1e3a8a; color: #bfdbfe; }
 .badge-accepted { background: #d1fae5; color: #047857; }
@@ -80,4 +83,5 @@ table.grid-table th {
 table.grid-table td { padding: .35rem .5rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
 .dark table.grid-table th { color: #94a3b8; border-color: #334155; }
 .dark table.grid-table td { border-color: #1e293b; }
+
 

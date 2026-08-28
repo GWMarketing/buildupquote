@@ -5,17 +5,20 @@
   <div class="bq-card p-5">
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <div>
-        <label class="mb-1 block text-xs font-medium text-slate-500">Quote name</label>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Project title</label>
         <input class="bq-input" x-model="quote.title" @change="patch({ title: quote.title })">
       </div>
       <div>
         <label class="mb-1 block text-xs font-medium text-slate-500">Client</label>
-        <select class="bq-input" x-model.number="quote.client_id" @change="patch({ client_id: quote.client_id })">
-          <option :value="null">No client</option>
-          <template x-for="c in clients" :key="c.id">
-            <option :value="c.id" x-text="c.name"></option>
-          </template>
-        </select>
+        <div class="flex gap-2">
+          <select class="bq-input" x-model.number="quote.client_id" @change="patch({ client_id: quote.client_id })">
+            <option :value="null">No client</option>
+            <template x-for="c in clients" :key="c.id">
+              <option :value="c.id" x-text="c.name"></option>
+            </template>
+          </select>
+          <button class="bq-btn-secondary shrink-0 px-2.5" @click="openClientModal()" title="New client">＋</button>
+        </div>
       </div>
       <div>
         <label class="mb-1 block text-xs font-medium text-slate-500">Site address</label>
@@ -34,7 +37,7 @@
 
   <!-- Parametric assembly drawer -->
   <div class="bq-card p-5">
-    <h2 class="mb-3 text-sm font-semibold text-slate-900">Add from assembly template</h2>
+    <h2 class="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Add from assembly template</h2>
     <div class="flex flex-wrap items-end gap-3">
       <div class="min-w-56 flex-1">
         <label class="mb-1 block text-xs font-medium text-slate-500">Assembly</label>
@@ -51,7 +54,7 @@
           <input class="bq-input" type="number" min="0" step="0.1" x-model.number="dims[k]" :placeholder="k">
         </div>
       </template>
-      <button class="bq-btn" :disabled="!selectedCode || !inputsReady()" @click="addAssembly()">＋ Add lines</button>
+      <button class="bq-btn" :disabled="!selectedCode || !inputsReady()" @click="addAssembly()">＋ Apply</button>
     </div>
     <p class="mt-2 text-xs text-slate-400" x-show="selectedInputs.length" x-cloak
        x-text="'Requires: ' + selectedInputs.join(', ')"></p>
@@ -59,8 +62,8 @@
 
   <!-- Interactive line items grid -->
   <div class="bq-card overflow-x-auto">
-    <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-      <h2 class="text-sm font-semibold text-slate-900">Line items</h2>
+    <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Line items</h2>
       <button class="bq-btn-secondary" @click="addRow()">＋ Row</button>
     </div>
     <table class="w-full min-w-150 grid-table">
@@ -74,7 +77,25 @@
       <tbody>
         <template x-for="(row, i) in lines" :key="i">
           <tr>
-            <td><input class="bq-input" x-model="row.description" placeholder="Description" @change="autoTag(row)"></td>
+            <td class="relative">
+              <input class="bq-input" x-model="row.description" placeholder="Description — start typing…"
+                     @input.debounce.250ms="autoComplete(row)" @focus="row._showSuggest = !!row._suggestions.length"
+                     @blur="setTimeout(() => row._showSuggest = false, 200)" @keydown.escape="row._showSuggest = false">
+              <ul x-show="row._showSuggest && row._suggestions.length" x-cloak
+                  class="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                <template x-for="s in row._suggestions" :key="s.canonical_name">
+                  <li @mousedown.prevent="pickSuggestion(row, s)"
+                      class="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 hover:bg-amber-50 dark:hover:bg-slate-800">
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100" x-text="s.canonical_name"></p>
+                      <p class="text-xs text-slate-400" x-text="s.trade + ' · ' + s.unit + ' · ' + BQ.money(s.default_unit_cost)"></p>
+                    </div>
+                    <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:bg-slate-800"
+                          x-text="s.default_trade_type"></span>
+                  </li>
+                </template>
+              </ul>
+            </td>
             <td>
               <select class="bq-input" x-model="row.trade">
                 <option value="">Auto</option>
@@ -90,25 +111,39 @@
               </select>
             </td>
             <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" step="0.001" x-model.number="row.quantity"></td>
+            <td><input class="bq-input w-16" x-model="row.unit"></td>
+            <td class="text-right"><input class="bq-input w-24 text-right" type="number" min="0" step="0.01" x-model.number="row.unit_cost"></td>
+            <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" max="100" step="0.5" x-model.number="row.markup_percent"></td>
+            <td class="text-right font-semibold text-slate-900 dark:text-slate-100" x-text="fmt(BQ.lineTotal(row))"></td>
+            <td><button class="text-slate-400 hover:text-red-600" @click="deleteLine(row, i)" title="Delete line">✕</button></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+    <p class="p-5 text-sm text-slate-500" x-show="lines.length === 0" x-cloak>
+      No lines yet — pick an assembly above or click "＋ Row".
+    </p>
+  </div>
 
-  <!-- Financial cockpit + actions -->
+
+  <!-- Financial cockpit -->
   <div class="grid gap-5 lg:grid-cols-3">
     <div class="bq-card p-5 lg:col-span-2">
-      <h2 class="mb-3 text-sm font-semibold text-slate-900">Gross margin</h2>
+      <h2 class="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Gross margin</h2>
       <div class="flex items-center gap-4">
-        <input type="range" min="0" max="50" step="1" class="flex-1" x-model.number="margin" @input="onMarginChange()">
-        <span class="w-16 text-right font-semibold text-slate-900" x-text="margin + '%'"></span>
+        <input type="range" min="0" max="50" step="1" class="flex-1 accent-amber-500" x-model.number="margin" @input="onMarginChange()">
+        <span class="w-16 text-right font-semibold text-slate-900 dark:text-white" x-text="margin + '%'"></span>
         <button class="bq-btn-secondary" @click="onMarginChange()">Apply to all lines</button>
       </div>
       <p class="mt-2 text-xs text-slate-400">
-        Preview at this margin: <span class="font-semibold text-slate-700" x-text="fmt(previewAtMargin())"></span>
+        Profit at this margin: <span class="font-semibold text-slate-700 dark:text-slate-200" x-text="fmt(previewAtMargin())"></span>
       </p>
     </div>
 
     <div class="bq-card p-5">
-      <h2 class="mb-3 text-sm font-semibold text-slate-900">Totals</h2>
+      <h2 class="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Totals</h2>
       <dl class="space-y-1.5 text-sm">
-        <div class="flex justify-between"><dt class="text-slate-500">Subtotal</dt><dd class="font-medium" x-text="fmt(subtotal())"></dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Net subtotal</dt><dd class="font-medium" x-text="fmt(subtotal())"></dd></div>
         <div class="flex justify-between"><dt class="text-slate-500">Materials</dt><dd class="font-medium" x-text="fmt(byType('material'))"></dd></div>
         <div class="flex justify-between"><dt class="text-slate-500">Labor</dt><dd class="font-medium" x-text="fmt(byType('labor'))"></dd></div>
         <div class="flex justify-between items-center">
@@ -119,8 +154,8 @@
           </dd>
         </div>
         <div class="flex justify-between"><dt class="text-slate-500">Tax amount</dt><dd class="font-medium" x-text="fmt(taxAmount())"></dd></div>
-        <div class="flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900">
-          <dt>Final total</dt><dd x-text="fmt(grandTotal())"></dd>
+        <div class="flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900 dark:border-slate-700 dark:text-white">
+          <dt>Gross quote total</dt><dd x-text="fmt(grandTotal())"></dd>
         </div>
       </dl>
     </div>
@@ -138,28 +173,37 @@
 
   <!-- PDF download history -->
   <div class="bq-card p-5" x-show="downloads.length">
-    <h2 class="mb-2 text-sm font-semibold text-slate-900">PDF downloads</h2>
+    <h2 class="mb-2 text-sm font-semibold text-slate-900 dark:text-white">PDF downloads</h2>
     <ul class="space-y-1 text-sm">
       <template x-for="d in downloads" :key="d.url">
         <li><a :href="d.url" target="_blank" class="text-blue-600 hover:underline" x-text="d.url"></a></li>
       </template>
     </ul>
   </div>
-</div>
 
-            <td><input class="bq-input w-16" x-model="row.unit"></td>
-            <td class="text-right"><input class="bq-input w-24 text-right" type="number" min="0" step="0.01" x-model.number="row.unit_cost"></td>
-            <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" max="100" step="0.5" x-model.number="row.markup_percent"></td>
-            <td class="text-right font-semibold text-slate-900" x-text="fmt(BQ.lineTotal(row))"></td>
-            <td><button class="text-slate-400 hover:text-red-600" @click="deleteLine(row, i)" title="Delete line">✕</button></td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
-    <p class="p-5 text-sm text-slate-500" x-show="lines.length === 0" x-cloak>
-      No lines yet — add an assembly above or click "＋ Row".
-    </p>
+  <!-- New-client modal -->
+  <div x-show="clientModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+       @keydown.escape.window="clientModalOpen = false">
+    <div class="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
+      <h2 class="text-base font-semibold text-slate-900 dark:text-white">Add new client</h2>
+      <div class="mt-4 space-y-3">
+        <div><label class="mb-1 block text-xs font-medium text-slate-500">Name *</label>
+          <input class="bq-input" x-model="clientForm.name"></div>
+        <div><label class="mb-1 block text-xs font-medium text-slate-500">Site address</label>
+          <input class="bq-input" x-model="clientForm.site_address"></div>
+        <div><label class="mb-1 block text-xs font-medium text-slate-500">Phone</label>
+          <input class="bq-input" x-model="clientForm.phone"></div>
+        <div><label class="mb-1 block text-xs font-medium text-slate-500">Email</label>
+          <input class="bq-input" type="email" x-model="clientForm.email"></div>
+      </div>
+      <div class="mt-5 flex justify-end gap-2">
+        <button class="bq-btn-secondary" @click="clientModalOpen = false">Cancel</button>
+        <button class="bq-btn" :disabled="savingClient" @click="saveNewClient()"
+                x-text="savingClient ? 'Adding…' : 'Add client'"></button>
+      </div>
+    </div>
   </div>
+</div>
 
 
 <script>
@@ -172,6 +216,8 @@ function quoteBuilder(quoteId) {
     currencySymbol: '$',
     margin: 20, taxRate: 0, saving: false, exporting: false, savedAt: '',
     pdfUrl: '', downloads: JSON.parse(localStorage.getItem('bq_downloads') || '[]'),
+    clientModalOpen: false, savingClient: false,
+    clientForm: { name: '', site_address: '', phone: '', email: '' },
 
     get selectedInputs() {
       const a = this.assemblies.find(a => a.code === this.selectedCode);
@@ -209,6 +255,7 @@ function quoteBuilder(quoteId) {
         id: l.id,
         description: l.description, item_type: l.item_type, trade: l.trade || '',
         quantity: l.quantity, unit: l.unit, unit_cost: l.unit_cost, markup_percent: l.markup_percent,
+        _suggestions: [], _showSuggest: false,
       }));
     },
 
@@ -218,9 +265,9 @@ function quoteBuilder(quoteId) {
     async patch(fields) {
       try {
         await BQ.api('/api/quotes/' + this.quoteId, {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields),
+          method: 'PATCH', body: fields,
         });
-      } catch (e) { console.error(e); }
+      } catch (e) { BQ.toast('Could not save: ' + e.message); }
     },
 
     async addAssembly() {
@@ -234,7 +281,30 @@ function quoteBuilder(quoteId) {
     },
 
     addRow() {
-      this.lines.push({ description: '', item_type: 'material', trade: '', quantity: 1, unit: 'each', unit_cost: 0, markup_percent: this.margin });
+      this.lines.push({
+        id: undefined, description: '', item_type: 'material', trade: '',
+        quantity: 1, unit: 'each', unit_cost: 0, markup_percent: this.margin,
+        _suggestions: [], _showSuggest: false,
+      });
+    },
+
+    // ---- Catalog typeahead (POSTGRES TRIGRAM AUTOCORRECT) ----
+    async autoComplete(row) {
+      const q = (row.description || '').trim();
+      if (q.length < 2) { row._suggestions = []; row._showSuggest = false; return; }
+      try {
+        const res = await BQ.api('/api/catalog/autocorrect?q=' + encodeURIComponent(q));
+        row._suggestions = res.results || [];
+        row._showSuggest = row._suggestions.length > 0;
+      } catch (e) { row._suggestions = []; row._showSuggest = false; }
+    },
+    pickSuggestion(row, s) {
+      row.description = s.canonical_name;
+      row.trade = s.trade || row.trade;
+      row.unit = s.unit || row.unit;
+      row.unit_cost = s.default_unit_cost != null ? s.default_unit_cost : row.unit_cost;
+      if (s.default_trade_type) row.item_type = s.default_trade_type;
+      row._suggestions = []; row._showSuggest = false;
     },
 
     // Auto-tag the trade from the description (only when not manually set).
@@ -242,14 +312,14 @@ function quoteBuilder(quoteId) {
       if (row.trade || !(row.description || '').trim()) return;
       try {
         const res = await BQ.api('/api/lexicon/match', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ description: row.description }),
+          method: 'POST', body: { description: row.description },
         });
         row.trade = res.trade;
       } catch (e) { /* leave it unset */ }
     },
 
     fmt(n) { return this.currencySymbol + Number(n || 0).toFixed(2); },
+
 
     applyMargin() { this.lines.forEach(r => r.markup_percent = this.margin); },
 
@@ -314,6 +384,7 @@ function quoteBuilder(quoteId) {
           id: l.id,
           description: l.description, item_type: l.item_type, trade: l.trade || '',
           quantity: l.quantity, unit: l.unit, unit_cost: l.unit_cost, markup_percent: l.markup_percent,
+          _suggestions: [], _showSuggest: false,
         }));
       } catch (e) { BQ.toast('Delete failed: ' + e.message); }
     },
@@ -331,7 +402,27 @@ function quoteBuilder(quoteId) {
       } catch (e) { BQ.toast('Export failed: ' + e.message); }
       this.exporting = false;
     },
+
+    // ---- Quick new-client modal ----
+    openClientModal() {
+      this.clientForm = { name: '', site_address: '', phone: '', email: '' };
+      this.clientModalOpen = true;
+    },
+    async saveNewClient() {
+      if (!this.clientForm.name.trim()) { BQ.toast('Name is required'); return; }
+      this.savingClient = true;
+      try {
+        const c = await BQ.api('/api/clients', { method: 'POST', body: this.clientForm });
+        this.clients.push(c);
+        this.quote.client_id = c.id;
+        this.clientModalOpen = false;
+        await this.patch({ client_id: c.id });
+        BQ.toast('Client added', 'success');
+      } catch (e) { BQ.toast('Could not add client: ' + e.message); }
+      this.savingClient = false;
+    },
   };
 }
 </script>
 {% endblock %}
+

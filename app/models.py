@@ -13,6 +13,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -123,6 +124,52 @@ class AssemblyComponent(Base):
     default_markup_percent = Column(Numeric(5, 2), default=20.00)
 
     assembly = relationship("ParametricAssembly", back_populates="components")
+
+
+class TradeSynonym(Base):
+    """A raw term a contractor actually types ('sheetrock', '2x4', 'thinset')
+    pointing at the canonical TradeCatalogItem it resolves to. raw_term is
+    GIN-indexed with trigram operators so PostgreSQL similarity() lookups
+    stay fast."""
+
+    __tablename__ = "trade_synonyms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    catalog_id = Column(
+        Integer, ForeignKey("trade_catalog_items.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    raw_term = Column(String, nullable=False, index=True)
+
+    catalog = relationship("TradeCatalogItem", back_populates="synonyms")
+
+    __table_args__ = (
+        Index(
+            "ix_trade_synonyms_raw_term_trgm", "raw_term",
+            postgresql_using="gin",
+            postgresql_ops={"raw_term": "gin_trgm_ops"},
+        ),
+    )
+
+
+class TradeCatalogItem(Base):
+    """The canonical trade catalog: a priced material/labor line a
+    description can be autocorrected to. 'trade' is the trade category
+    (Drywall, Framing, ...), default_trade_type is material/labor/plant/
+    subcontractor."""
+
+    __tablename__ = "trade_catalog_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trade = Column(String, nullable=False, index=True)
+    canonical_name = Column(String, nullable=False, unique=True, index=True)
+    unit = Column(String, nullable=False)
+    default_unit_cost = Column(Numeric(10, 2), nullable=False, default=0)
+    default_trade_type = Column(String, nullable=False, default="material")
+
+    synonyms = relationship(
+        "TradeSynonym", back_populates="catalog", cascade="all, delete-orphan",
+    )
 
 
 class Quote(Base):

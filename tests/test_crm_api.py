@@ -363,6 +363,42 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertIn("claim_fields", body)
         self.assertIn("warnings", body)
 
+    # ------------------------------------------------------------------
+    # Trade catalog autocorrect
+    # ------------------------------------------------------------------
+    def test_catalog_autocorrect_returns_canonical_items(self):
+        auth = self.register("catalog@acme.com")
+        r = self.client.get("/api/catalog/autocorrect", params={"q": "dryw"}, headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        results = r.json()["results"]
+        hit = next((res for res in results if res["canonical_name"] == "Drywall board (12.5mm)"), None)
+        self.assertIsNotNone(hit, results)
+        self.assertEqual(hit["trade"], "Drywall")
+        self.assertEqual(hit["unit"], "m2")
+        self.assertGreater(hit["default_unit_cost"], 0)
+        self.assertEqual(hit["default_trade_type"], "material")
+
+    def test_catalog_autocorrect_short_query_returns_empty(self):
+        auth = self.register("catalog2@acme.com")
+        r = self.client.get("/api/catalog/autocorrect", params={"q": "d"}, headers=auth)
+        self.assertEqual(r.json()["results"], [])
+
+    def test_catalog_autocorrect_matches_slang_aliases(self):
+        auth = self.register("catalog3@acme.com")
+        r = self.client.get("/api/catalog/autocorrect", params={"q": "sheetrock"}, headers=auth)
+        self.assertTrue(any(res["canonical_name"] == "Drywall board (12.5mm)"
+                            for res in r.json()["results"]), r.text)
+        r = self.client.get("/api/catalog/autocorrect", params={"q": "2x4"}, headers=auth)
+        self.assertTrue(any(res["canonical_name"] == "Timber wall stud (2x4)"
+                            for res in r.json()["results"]), r.text)
+
+    def test_catalog_autocorrect_dedupes_synonyms(self):
+        auth = self.register("catalog4@acme.com")
+        r = self.client.get("/api/catalog/autocorrect", params={"q": "tile", "limit": 25}, headers=auth)
+        names = [res["canonical_name"] for res in r.json()["results"]]
+        self.assertEqual(len(names), len(set(names)))
+        self.assertIn("Floor tile (ceramic)", names)
+
 
 if __name__ == "__main__":
     unittest.main()

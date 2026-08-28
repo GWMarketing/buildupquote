@@ -32,12 +32,14 @@ import app.models  # noqa: E402 -- registers the User table with Base.metadata
 from app.database import Base, SessionLocal, engine, ensure_legacy_columns, get_db
 from app.routers import assemblies as assemblies_router
 from app.routers import auth as auth_router
+from app.routers import catalog as catalog_router
 from app.routers import clients as clients_router
 from app.routers import lexicon as lexicon_router
 from app.routers import organization as organization_router
 from app.routers import pages as pages_router
 from app.routers import quotes as quotes_router
 from app.seeds.assemblies_seed import seed_assemblies_and_lexicon
+from app.seeds.trade_catalog_seed import seed_trade_catalog
 from proposal import ContractorInfo, build_proposal, render_proposal_pdf
 from scope_parser import parse_pdf
 from trades import TRADE_OPTIONS
@@ -51,11 +53,19 @@ async def lifespan(_: FastAPI):
     app's core (parse/totals/proposal) doesn't need the DB, and
     /api/db-check reports the real state."""
     try:
+        # The trigram/fuzzy extensions must exist BEFORE create_all builds the
+        # GIN gin_trgm_ops index on trade_synonyms.raw_term. PostgreSQL only --
+        # SQLite (dev/tests) has neither the extensions nor the index type.
+        if engine.dialect.name == "postgresql":
+            with engine.begin() as conn:
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS fuzzystrmatch"))
         Base.metadata.create_all(bind=engine)
         ensure_legacy_columns(engine)
         seed_db = SessionLocal()
         try:
             seed_assemblies_and_lexicon(seed_db)
+            seed_trade_catalog(seed_db)
         finally:
             seed_db.close()
     except Exception as exc:  # noqa: BLE001 -- surfaced via /api/db-check
@@ -73,6 +83,7 @@ app.include_router(auth_router.router)
 app.include_router(organization_router.router)
 app.include_router(clients_router.router)
 app.include_router(assemblies_router.router)
+app.include_router(catalog_router.router)
 app.include_router(quotes_router.router)
 app.include_router(lexicon_router.router)
 
