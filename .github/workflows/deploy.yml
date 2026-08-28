@@ -15,6 +15,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
+            set -e
             cd /var/www/buildupquote
-            git pull origin main
-            docker compose up -d --build
+            git pull origin main --ff-only
+            docker compose up -d --build --force-recreate
