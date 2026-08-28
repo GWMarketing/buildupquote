@@ -11,8 +11,9 @@ POST /api/catalog/calculate-assembly runs a hand-written Python assembly
 calculator (stud_wall / floor_tiling) for the given dimensions and returns
 the normalized, priced line items.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -140,4 +141,75 @@ def calculate_assembly(
         "lines": lines,
         "total": round(sum(float(line["subtotal"]) for line in lines), 2),
     }
+
+
+# ---------------------------------------------------------------------------
+# Rate catalog management (the Catalog page: browse / add / delete items)
+# ---------------------------------------------------------------------------
+
+@router.get("/items", response_model=list[schemas.CatalogItemOut])
+def list_catalog_items(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Every standard rate item, ordered by trade then name."""
+    return (
+        db.query(models.TradeCatalogItem)
+        .order_by(models.TradeCatalogItem.trade, models.TradeCatalogItem.canonical_name)
+        .all()
+    )
+
+
+@router.post("/items", response_model=schemas.CatalogItemOut, status_code=status.HTTP_201_CREATED)
+def create_catalog_item(
+    payload: schemas.CatalogItemCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Add a standard rate item. canonical_name is unique (case-insensitive)."""
+    trade = (payload.trade or "").strip()
+    name = (payload.canonical_name or "").strip()
+    if not trade or not name:
+        raise HTTPException(status_code=400, detail="Trade and name are required")
+    exists = (
+        db.query(models.TradeCatalogItem)
+        .filter(func.lower(models.TradeCatalogItem.canonical_name) == name.lower())
+        .first()
+    )
+    if exists:
+        raise HTTPException(status_code=400, detail="That catalog item already exists")
+    item = models.TradeCatalogItem(
+        trade=trade,
+        canonical_name=name,
+        unit=(payload.unit or "").strip() or "unit",
+        default_unit_cost=payload.default_unit_cost or 0,
+        default_trade_type=(payload.default_trade_type or "Material").strip() or "Material",
+    )
+    db.add(item)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="That catalog item already exists")
+    db.refresh(item)
+    return item
+
+
+@router.delete("/items/{item_id}")
+def delete_catalog_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Remove a rate item from the catalog."""
+    item = (
+        db.query(models.TradeCatalogItem)
+        .filter(models.TradeCatalogItem.id == item_id)
+        .first()
+    )
+    if item is None:
+        raise HTTPException(status_code=404, detail="Catalog item not found")
+    db.delete(item)
+    db.commit()
+    return {"deleted": True}
 

@@ -1,58 +1,168 @@
 {% extends "base.html" %}
 {% block content %}
-<div x-data="catalogPage()" x-init="init()" class="space-y-4">
-  <div class="bq-hero">
-    <div class="hero-content">
-      <p class="hero-eyebrow">Rate Catalog</p>
-      <h1>Master rate sheet</h1>
-      <p class="hero-sub">Labor rates, materials, plant, and subcontractor markups from the parametric assemblies.</p>
+<div x-data="catalogManager()" x-init="init()" class="mx-auto max-w-7xl space-y-6 px-4 py-8">
+
+  <!-- Header -->
+  <div class="flex flex-col justify-between gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center dark:border-slate-700 dark:bg-slate-900">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Standard Rate Catalog</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Manage standard unit prices and labor rates used for live quoting and autocorrect.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      <input type="text" x-model="searchQuery" @input.debounce.250ms="filterCatalog()"
+             placeholder="Search materials or trades..."
+             class="w-64 rounded-lg border border-slate-200 p-2 text-sm focus:ring-2 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+      <button @click="openNewItemModal = true"
+              class="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 shadow-sm transition hover:bg-amber-600">
+        <i data-lucide="plus-circle" class="h-4 w-4"></i> + Add Rate Item
+      </button>
     </div>
   </div>
 
-  <div class="grid gap-4 lg:grid-cols-4">
-    <template x-for="group in groups" :key="group.type">
-      <div class="bq-card overflow-hidden">
-        <div class="border-b border-slate-100 px-4 py-3">
-          <h2 class="text-sm font-semibold capitalize text-slate-900" x-text="group.type"></h2>
-          <p class="text-xs text-slate-400" x-text="group.rows.length + ' items'"></p>
-        </div>
-        <ul class="divide-y divide-slate-50 text-sm">
-          <template x-for="r in group.rows" :key="r.description">
-            <li class="flex items-center justify-between px-4 py-2">
-              <div class="min-w-0">
-                <p class="truncate text-slate-700" x-text="r.description"></p>
-                <p class="text-xs text-slate-400" x-text="r.unit + ' · ' + r.markup + '% markup'"></p>
-              </div>
-              <span class="font-semibold text-slate-900" x-text="BQ.money(r.cost)"></span>
-            </li>
-          </template>
-        </ul>
+  <!-- Catalog Table -->
+  <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+      <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+        <tr>
+          <th class="px-6 py-3 text-left">Trade</th>
+          <th class="px-6 py-3 text-left">Material / Task Name</th>
+          <th class="px-6 py-3 text-left">Category</th>
+          <th class="px-6 py-3 text-left">Unit</th>
+          <th class="px-6 py-3 text-right">Default Cost</th>
+          <th class="px-6 py-3 text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+        <template x-for="item in filteredItems" :key="item.id">
+          <tr class="transition hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
+            <td class="px-6 py-4">
+              <span class="rounded bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800 dark:bg-slate-800 dark:text-slate-200" x-text="item.trade"></span>
+            </td>
+            <td class="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100" x-text="item.canonical_name"></td>
+            <td class="px-6 py-4 text-xs text-slate-500 dark:text-slate-400" x-text="item.default_trade_type"></td>
+            <td class="px-6 py-4 text-slate-600 dark:text-slate-300" x-text="item.unit"></td>
+            <td class="px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100" x-text="currencySymbol + Number(item.default_unit_cost).toFixed(2)"></td>
+            <td class="px-6 py-4 text-right">
+              <button @click="deleteItem(item.id)" class="text-slate-400 transition hover:text-red-600" title="Delete item">
+                <i data-lucide="trash-2" class="h-4 w-4"></i>
+              </button>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="!loading && filteredItems.length === 0" x-cloak>
+          <td colspan="6" class="px-6 py-12 text-center text-sm text-slate-400 dark:text-slate-500">
+            <span x-text="items.length ? 'No items match your search.' : 'No catalog items yet — add one above.'"></span>
+          </td>
+        </tr>
+        <tr x-show="loading" x-cloak>
+          <td colspan="6" class="px-6 py-12 text-center text-sm text-slate-400 dark:text-slate-500">Loading catalog…</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+
+  <!-- Add Item Modal -->
+  <div x-show="openNewItemModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+       @keydown.escape.window="openNewItemModal = false">
+    <div class="w-full max-w-md space-y-4 rounded-xl bg-white p-6 text-slate-800 shadow-xl dark:bg-slate-900 dark:text-slate-200">
+      <h3 class="text-lg font-bold dark:text-white">Add New Catalog Item</h3>
+      <div>
+        <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Trade Category</label>
+        <input type="text" x-model="newItem.trade" placeholder="e.g. Drywall, Plumbing, Carpentry" class="bq-input w-full">
       </div>
-    </template>
+      <div>
+        <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Canonical Name / Description</label>
+        <input type="text" x-model="newItem.canonical_name" placeholder="e.g. 15mm Copper Pipe 3m" class="bq-input w-full">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Unit</label>
+          <input type="text" x-model="newItem.unit" placeholder="m2, sheet, hour, linear_m" class="bq-input w-full">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Default Cost (<span x-text="currencySymbol"></span>)</label>
+          <input type="number" step="0.01" min="0" x-model.number="newItem.default_unit_cost" class="bq-input w-full">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Type</label>
+        <select x-model="newItem.default_trade_type" class="bq-input w-full">
+          <option value="Material">Material</option>
+          <option value="Labor">Labor</option>
+          <option value="Subcontractor">Subcontract</option>
+          <option value="Plant">Plant / Tool Hire</option>
+        </select>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button @click="openNewItemModal = false" class="rounded border border-slate-200 px-4 py-2 text-slate-600 dark:border-slate-700 dark:text-slate-300">Cancel</button>
+        <button @click="saveItem()" :disabled="saving" class="rounded bg-amber-500 px-4 py-2 font-bold text-slate-950 transition hover:bg-amber-600 disabled:opacity-60"
+                x-text="saving ? 'Saving…' : 'Save Item'"></button>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
-function catalogPage() {
-  return { groups: [],
+function catalogManager() {
+  return {
+    items: [], filteredItems: [], searchQuery: '',
+    loading: true, saving: false,
+    openNewItemModal: false,
+    currencySymbol: '£',
+    newItem: { trade: '', canonical_name: '', unit: 'unit', default_unit_cost: 0.0, default_trade_type: 'Material' },
+
     async init() {
       try {
-        const assemblies = await BQ.api('/api/assemblies');
-        const byType = {};
-        for (const a of assemblies) {
-          for (const c of a.components) {
-            (byType[c.item_type] = byType[c.item_type] || []).push({
-              description: c.description,
-              unit: c.unit,
-              cost: c.default_unit_cost,
-              markup: c.default_markup_percent,
-            });
-          }
-        }
-        this.groups = Object.entries(byType).map(([type, rows]) => ({ type, rows }));
-      } catch (e) { console.error(e); }
+        const org = await BQ.api('/api/organization/me');
+        if (org && org.currency_symbol) this.currencySymbol = org.currency_symbol;
+      } catch (e) { /* org-less or fetch issue: keep default */ }
+      await this.fetchCatalog();
+    },
+
+    async fetchCatalog() {
+      try {
+        this.items = await BQ.api('/api/catalog/items');
+        this.filteredItems = this.items;
+      } catch (e) { BQ.toast('Failed to load catalog: ' + e.message); }
+      this.loading = false;
+      this.$nextTick(() => lucide.createIcons());
+    },
+
+    filterCatalog() {
+      const q = (this.searchQuery || '').toLowerCase().trim();
+      if (!q) { this.filteredItems = this.items; return; }
+      this.filteredItems = this.items.filter(i =>
+        (i.canonical_name || '').toLowerCase().includes(q) ||
+        (i.trade || '').toLowerCase().includes(q));
+    },
+
+    async saveItem() {
+      if (!this.newItem.trade.trim() || !this.newItem.canonical_name.trim()) {
+        BQ.toast('Trade and name are required');
+        return;
+      }
+      this.saving = true;
+      try {
+        await BQ.api('/api/catalog/items', { method: 'POST', body: this.newItem });
+        this.openNewItemModal = false;
+        this.newItem = { trade: '', canonical_name: '', unit: 'unit', default_unit_cost: 0.0, default_trade_type: 'Material' };
+        BQ.toast('Catalog item added', 'success');
+        await this.fetchCatalog();
+      } catch (e) { BQ.toast('Could not add item: ' + e.message); }
+      this.saving = false;
+    },
+
+    async deleteItem(id) {
+      if (!confirm('Delete this catalog item?')) return;
+      try {
+        await BQ.api('/api/catalog/items/' + id, { method: 'DELETE' });
+        BQ.toast('Catalog item deleted', 'success');
+        await this.fetchCatalog();
+      } catch (e) { BQ.toast('Could not delete item: ' + e.message); }
     },
   };
 }
 </script>
 {% endblock %}
+

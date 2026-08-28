@@ -383,6 +383,52 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertEqual(r.status_code, 307, r.text)
         self.assertIn("google_error=", r.headers["location"])
 
+    # ------------------------------------------------------------------
+    # Rate catalog management
+    # ------------------------------------------------------------------
+    def test_catalog_items_list_seeded(self):
+        auth = self.register("catlist@acme.com")
+        r = self.client.get("/api/catalog/items", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        items = r.json()
+        self.assertGreater(len(items), 0)
+        first = items[0]
+        for field in ("id", "trade", "canonical_name", "unit",
+                      "default_unit_cost", "default_trade_type"):
+            self.assertIn(field, first)
+
+    def test_catalog_item_create_and_delete(self):
+        auth = self.register("catcrud@acme.com")
+        r = self.client.post("/api/catalog/items", headers=auth, json={
+            "trade": "Plumbing", "canonical_name": "15mm Copper Pipe 3m",
+            "unit": "length", "default_unit_cost": 12.5, "default_trade_type": "Material",
+        })
+        self.assertEqual(r.status_code, 201, r.text)
+        body = r.json()
+        self.assertEqual(body["canonical_name"], "15mm Copper Pipe 3m")
+        self.assertEqual(body["default_unit_cost"], 12.5)
+        # Duplicate (case-insensitive) is rejected cleanly.
+        r = self.client.post("/api/catalog/items", headers=auth, json={
+            "trade": "Plumbing", "canonical_name": "15mm copper pipe 3m",
+            "unit": "length", "default_unit_cost": 12.5,
+        })
+        self.assertEqual(r.status_code, 400, r.text)
+        # Delete removes it.
+        r = self.client.delete(f"/api/catalog/items/{body['id']}", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["deleted"], True)
+        r = self.client.get("/api/catalog/items", headers=auth)
+        names = [i["canonical_name"] for i in r.json()]
+        self.assertNotIn("15mm Copper Pipe 3m", names)
+
+    def test_catalog_page_renders_manager(self):
+        r = self.client.get("/catalog")
+        self.assertEqual(r.status_code, 200, r.text)
+        html = r.text
+        for needle in ("catalogManager", "/api/catalog/items", "openNewItemModal",
+                       "filterCatalog", "default_trade_type", "Add Rate Item"):
+            self.assertIn(needle, html)
+
     def test_org_profile_update_all_fields(self):
         auth = self.register("profile@acme.com", full_name="Glenn Westman")
         r = self.client.put("/api/organization/me", headers=auth, json={

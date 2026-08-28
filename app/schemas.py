@@ -138,6 +138,32 @@ class AssemblyBuildRequest(BaseModel):
     height: float = 0.0
 
 
+class CatalogItemCreate(BaseModel):
+    """POST /api/catalog/items -- a new entry in the standard rate catalog."""
+
+    trade: str
+    canonical_name: str
+    unit: str = "unit"
+    default_unit_cost: float = 0.0
+    default_trade_type: str = "Material"
+
+
+class CatalogItemOut(BaseModel):
+    """A rate-catalog item as the catalog manager page shows it. The stored
+    default_trade_type is a display label ("Material", "Labor",
+    "Subcontractor", "Plant"); the autocorrect endpoint lowercases it for the
+    quote builder's item_type contract."""
+
+    id: int
+    trade: str
+    canonical_name: str
+    unit: str
+    default_unit_cost: float
+    default_trade_type: str
+
+    model_config = {"from_attributes": True}
+
+
 class AssemblyLineOut(BaseModel):
     description: str
     item_type: str
