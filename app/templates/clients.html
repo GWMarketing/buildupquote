@@ -23,10 +23,16 @@
           <input type="file" x-ref="importFile" accept=".vcf,.csv,text/x-vcard,text/csv" class="hidden" @change="onFile($event)">
         </div>
       </div>
-      <div>
-        <textarea x-ref="pasteBox" class="bq-input h-28 w-full" placeholder="Jane Doe&#10;jane@example.com&#10;555-010-1234&#10;123 Main St&#10;&#10;Bob Smith&#10;bob@example.com"></textarea>
-        <button class="bq-btn-secondary mt-2" :disabled="importing" @click="quickPaste()"
-                x-text="importing ? 'Importing…' : 'Import pasted leads'"></button>
+      <div class="flex flex-col justify-between">
+        <div class="flex h-28 flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 text-center text-sm text-slate-400 dark:border-slate-600 dark:bg-slate-800">
+          <p class="px-4">Have leads in a message or on your phone?</p>
+          <p class="mt-1">
+            <button class="font-medium text-amber-600 hover:underline dark:text-amber-400" @click="openPaste()">Quick-paste them</button>
+            <span x-show="pickerSupported">or</span>
+            <button class="font-medium text-amber-600 hover:underline dark:text-amber-400" x-show="pickerSupported"
+                    @click="pickContacts()" :disabled="importing" x-text="importing ? 'Syncing…' : 'sync from your phone'"></button>
+          </p>
+        </div>
       </div>
     </div>
     <p class="mt-2 text-sm text-emerald-600" x-show="importMsg" x-cloak x-text="importMsg"></p>
@@ -83,6 +89,22 @@
     </div>
   </div>
 
+  <!-- Quick-paste lead modal -->
+  <div x-show="pasteOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+       @keydown.escape.window="pasteOpen = false">
+    <div class="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+      <h2 class="mb-1 text-base font-semibold text-slate-900">Quick-paste leads</h2>
+      <p class="mb-3 text-xs text-slate-500">Paste one contact per blank line — names, emails, phones and site addresses are picked up automatically.</p>
+      <textarea x-ref="pasteBox" class="bq-input h-40 w-full" placeholder="Jane Doe&#10;jane@example.com&#10;555-010-1234&#10;123 Main St&#10;&#10;Bob Smith&#10;bob@example.com"></textarea>
+      <p class="mt-2 text-sm text-emerald-600" x-show="importMsg" x-cloak x-text="importMsg"></p>
+      <p class="mt-1 text-sm text-red-600" x-show="importError" x-cloak x-text="importError"></p>
+      <div class="mt-5 flex justify-end gap-2">
+        <button class="bq-btn-secondary" @click="pasteOpen = false">Cancel</button>
+        <button class="bq-btn" :disabled="importing" @click="quickPaste()" x-text="importing ? 'Importing…' : 'Import leads'"></button>
+      </div>
+    </div>
+  </div>
+
   <!-- Delete confirmation modal -->
   <div x-show="target" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
        @keydown.escape.window="target = null">
@@ -107,13 +129,37 @@ function clientsPage() {
   return {
     clients: [], loading: true, modalOpen: false, saving: false,
     target: null, deleting: false, deleteError: '',
-    importing: false, importMsg: '', importError: '',
+    pasteOpen: false, importing: false, importMsg: '', importError: '',
+    pickerSupported: typeof navigator !== 'undefined' && !!(navigator.contacts && navigator.contacts.select),
     form: { name: '', site_address: '', phone: '', email: '' },
     async init() {
       try { this.clients = await BQ.api('/api/clients'); } catch (e) { console.error(e); }
       this.loading = false;
     },
     openModal() { this.form = { name: '', site_address: '', phone: '', email: '' }; this.modalOpen = true; },
+    openPaste() { this.importMsg = ''; this.importError = ''; this.pasteOpen = true; },
+    async pickContacts() {
+      // Native Contact Picker API (Chrome/Edge Android, iOS Safari 14.5+).
+      this.importing = true; this.importError = ''; this.importMsg = '';
+      try {
+        const contacts = await navigator.contacts.select(['name', 'email', 'tel'], { multiple: true });
+        if (!contacts || !contacts.length) return;
+        const blocks = contacts.map(c => [
+          (c.name && c.name[0]) || '',
+          (c.email && c.email[0]) || '',
+          (c.tel && c.tel[0]) || '',
+        ].filter(Boolean).join('\n')).join('\n\n');
+        const res = await BQ.api('/api/clients/quick-parse-text', {
+          method: 'POST', body: { text: blocks },
+        });
+        this.importMsg = 'Synced ' + res.created + ' from your phone' + (res.skipped ? ' (skipped ' + res.skipped + ' existing)' : '');
+        this.clients = await BQ.api('/api/clients');
+      } catch (e) {
+        if (e && e.name === 'NotAllowedError') return;  // user cancelled
+        this.importError = 'Sync failed: ' + (e && e.message || e);
+      }
+      this.importing = false;
+    },
     async addClient() {
       if (!this.form.name.trim()) { BQ.toast('Name is required'); return; }
       this.saving = true;
@@ -172,6 +218,8 @@ function clientsPage() {
         this.importMsg = 'Added ' + res.created + ', skipped ' + res.skipped;
         if (this.$refs.pasteBox) this.$refs.pasteBox.value = '';
         this.clients = await BQ.api('/api/clients');
+        this.pasteOpen = false;
+        BQ.toast('Leads imported', 'success');
       } catch (e) { this.importError = 'Import failed: ' + e.message; }
       this.importing = false;
     },

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.auth import get_current_user
 from app.database import get_db
-from app.services import contact_import
+from app.services import contact_service
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 
@@ -101,7 +101,7 @@ def _contact_key(contact):
     email = _normalize_email(get("email"))
     if email:
         return "e:" + email
-    phone = contact_import.normalize_phone(get("phone"))
+    phone = contact_service.normalize_phone(get("phone"))
     if phone:
         return "p:" + phone
     name = (get("name") or "").strip().lower()
@@ -165,9 +165,9 @@ async def import_clients_file(
     raw = (await file.read()).decode("utf-8", errors="replace")
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext == ".vcf":
-        contacts = contact_import.parse_vcard(raw)
+        contacts = contact_service.parse_vcard_data(raw)
     elif ext == ".csv":
-        contacts = contact_import.parse_csv(raw)
+        contacts = contact_service.parse_csv_contacts(raw)
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -188,5 +188,45 @@ def quick_parse_clients(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You need an organization before importing clients",
         )
-    contacts = contact_import.parse_quick_text(payload.text)
+    contacts = contact_service.parse_quick_text(payload.text)
     return _persist_contacts(db, current_user, contacts)
+
+
+@router.post("/quick-parse-lead", response_model=schemas.ClientOut)
+def quick_parse_lead(
+    payload: schemas.LeadParseRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Single-lead upsert: parse pasted text and create the client, or return
+    the existing one if the same contact is already on file (idempotent)."""
+    if current_user.organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You need an organization before importing clients",
+        )
+    parsed = contact_service.parse_lead_text(payload.raw_text)
+    # The parser falls back to a generic name; reject junk that has no real
+    # contact signal (email/phone/labelled name).
+    if not contact_service.has_contact_signal(payload.raw_text):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Couldn't find any contact details in that text",
+        )
+    result = _persist_contacts(db, current_user, [parsed])
+    if result["created"]:
+        return result["clients"][0]
+    # Duplicate: hand back the matching existing client.
+    key = _contact_key(parsed)
+    existing = (
+        db.query(models.Client)
+        .filter(models.Client.organization_id == current_user.organization_id)
+        .all()
+    )
+    for client in existing:
+        if _contact_key(client) == key:
+            return client
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Couldn't resolve that lead to a client",
+    )

@@ -187,6 +187,12 @@ class QuickParseRequest(BaseModel):
     text: str
 
 
+class LeadParseRequest(BaseModel):
+    """A single free-form lead (Name/email/phone/site in loose text)."""
+
+    raw_text: str
+
+
 class ClientImportResult(BaseModel):
     created: int
     skipped: int

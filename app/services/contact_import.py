@@ -51,6 +51,18 @@ def normalize_phone(phone):
     return digits[-10:] if digits else None
 
 
+def has_contact_signal(raw_text: str) -> bool:
+    """True when the text actually contains contact info: an email address,
+    a phone number, or a labelled Name/From/Client/Customer field.
+
+    Guards quick-import endpoints against junk (a bare word or number) that
+    parse_lead_text would otherwise turn into a 'first line as name' row."""
+    parsed = parse_lead_text(raw_text)
+    if parsed.get("email") or parsed.get("phone"):
+        return True
+    return bool(_NAME_LABEL_RE.search(raw_text or ""))
+
+
 # ---------------------------------------------------------------------------
 # Free-form lead text
 # ---------------------------------------------------------------------------

@@ -172,6 +172,46 @@ class CrmApiTestCase(unittest.TestCase):
                 self.assertIn("initGoogleButton", html)
                 self.assertIn(cid, html)
 
+    def test_quick_parse_lead_creates_client(self):
+        auth = self.register("qplead@acme.com")
+        r = self.client.post("/api/clients/quick-parse-lead", headers=auth, json={
+            "raw_text": "Name: Jane Doe\n+44 7700 900123\njane@example.com\nSite: 123 High St, Manchester",
+        })
+        self.assertEqual(r.status_code, 200, r.text)
+        body = r.json()
+        self.assertEqual(body["name"], "Jane Doe")
+        self.assertEqual(body["email"], "jane@example.com")
+        self.assertEqual(body["phone"], "+44 7700 900123")
+        self.assertEqual(body["site_address"], "123 High St, Manchester")
+
+    def test_quick_parse_lead_is_idempotent(self):
+        auth = self.register("qpidem@acme.com")
+        payload = {"raw_text": "Bob Smith\nbob@example.com\n555-010-2222"}
+        r1 = self.client.post("/api/clients/quick-parse-lead", headers=auth, json=payload)
+        self.assertEqual(r1.status_code, 200, r1.text)
+        r2 = self.client.post("/api/clients/quick-parse-lead", headers=auth, json=payload)
+        self.assertEqual(r2.status_code, 200, r2.text)
+        self.assertEqual(r2.json()["id"], r1.json()["id"])
+        r = self.client.get("/api/clients", headers=auth)
+        self.assertEqual(len(r.json()), 1)
+
+    def test_quick_parse_lead_rejects_garbage(self):
+        auth = self.register("qpgarbage@acme.com")
+        r = self.client.post("/api/clients/quick-parse-lead", headers=auth, json={"raw_text": "123456"})
+        self.assertEqual(r.status_code, 400, r.text)
+        self.assertIn("contact details", r.json()["detail"])
+
+    def test_quick_parse_lead_requires_org(self):
+        r = self.client.post("/api/auth/register", json={
+            "email": "noorg@w.com", "password": "pw12345678",
+        })
+        self.assertEqual(r.status_code, 201, r.text)
+        token = r.json()["access_token"]
+        headers = {"Authorization": "Bearer " + token}
+        r = self.client.post("/api/clients/quick-parse-lead", headers=headers,
+                             json={"raw_text": "Name: X\nx@y.com"})
+        self.assertEqual(r.status_code, 400, r.text)
+
     def test_org_profile_update_all_fields(self):
         auth = self.register("profile@acme.com", full_name="Glenn Westman")
         r = self.client.put("/api/organization/me", headers=auth, json={

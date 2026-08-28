@@ -113,5 +113,58 @@ class PhoneNormalizeTest(unittest.TestCase):
         self.assertEqual(contact_import.normalize_phone("(555) 010-1234"), "5550101234")
 
 
+class ContactServiceTest(unittest.TestCase):
+    """The public contact_service facade (the 1-Click Sync Hub's contract)
+    must expose the same parsing behaviour under its stable names."""
+
+    def test_parse_lead_text_via_service(self):
+        from app.services import contact_service
+
+        lead = contact_service.parse_lead_text(
+            "Name: Jane Doe\nTel: +44 7700 900123\njane@example.com\nSite: 123 High St, Manchester\n"
+        )
+        self.assertEqual(lead["name"], "Jane Doe")
+        self.assertEqual(lead["email"], "jane@example.com")
+        self.assertEqual(lead["phone"], "+44 7700 900123")
+        self.assertEqual(lead["site_address"], "123 High St, Manchester")
+
+    def test_parse_vcard_data_via_service(self):
+        from app.services import contact_service
+
+        vcf = "BEGIN:VCARD\nVERSION:3.0\nFN:Bob Smith\nEMAIL;TYPE=WORK:bob@smith.co.uk\nTEL;TYPE=CELL:07700 900456\nEND:VCARD\n"
+        contacts = contact_service.parse_vcard_data(vcf)
+        self.assertEqual(len(contacts), 1)
+        self.assertEqual(contacts[0]["name"], "Bob Smith")
+        self.assertEqual(contacts[0]["email"], "bob@smith.co.uk")
+        self.assertEqual(contacts[0]["phone"], "07700 900456")
+
+    def test_parse_csv_contacts_via_service(self):
+        from app.services import contact_service
+
+        csv_text = "First Name,Last Name,Email Address,Mobile,Street\nAlice,Jones,alice@example.com,07999 123456,9 Market St\n"
+        contacts = contact_service.parse_csv_contacts(csv_text)
+        self.assertEqual(len(contacts), 1)
+        self.assertEqual(contacts[0]["name"], "Alice Jones")
+        self.assertEqual(contacts[0]["email"], "alice@example.com")
+        self.assertEqual(contacts[0]["phone"], "07999 123456")
+        self.assertEqual(contacts[0]["site_address"], "9 Market St")
+
+    def test_parse_quick_text_via_service(self):
+        from app.services import contact_service
+
+        contacts = contact_service.parse_quick_text("Jane Doe\njane@example.com\n\nBob Smith\nbob@example.com\n")
+        self.assertEqual(len(contacts), 2)
+
+    def test_has_contact_signal_rejects_junk(self):
+        from app.services import contact_service
+
+        self.assertFalse(contact_service.has_contact_signal(""))
+        self.assertFalse(contact_service.has_contact_signal("123456"))
+        self.assertFalse(contact_service.has_contact_signal("just some words"))
+        self.assertTrue(contact_service.has_contact_signal("Jane\njane@example.com"))
+        self.assertTrue(contact_service.has_contact_signal("Name: Jane"))
+        self.assertTrue(contact_service.has_contact_signal("Call +44 7700 900123 today"))
+
+
 if __name__ == "__main__":
     unittest.main()
