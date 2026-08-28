@@ -56,6 +56,10 @@ def ensure_legacy_columns(bind):
         statements.append("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'owner'")
     if "job_title" not in existing:
         statements.append("ALTER TABLE users ADD COLUMN job_title VARCHAR")
+    if "google_access_token" not in existing:
+        statements.append("ALTER TABLE users ADD COLUMN google_access_token VARCHAR")
+    if "google_refresh_token" not in existing:
+        statements.append("ALTER TABLE users ADD COLUMN google_refresh_token VARCHAR")
     # The quotes table predates client_id/site_address/status (added when
     # the CRM UI landed) -- same in-place upgrade, still zero data.
     if "quotes" in existing_tables:

@@ -34,6 +34,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 # hide the button and /api/auth/google answers 503 "not configured". Set the
 # client ID from a Google Cloud Console "Web application" OAuth client.
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+# Google Contacts sync (People API) needs the OAuth client secret -- unlike
+# Sign-In, which only requires the public client ID. Empty disables the
+# "Sync Google Contacts" flow (503 from the endpoints, button hidden).
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 _GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
 _google_jwks_cache = {"fetched_at": 0.0, "keys": None}
 

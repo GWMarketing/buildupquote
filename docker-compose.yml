@@ -13,6 +13,12 @@ services:
       # origin, and paste its client ID below (ends with
       # .apps.googleusercontent.com). Leave empty/unset to hide the button.
       GOOGLE_CLIENT_ID: "774097660308-37rbr63bv9ec5bu9ma0bfa88220b1nt0.apps.googleusercontent.com"
+      # Google Contacts sync (People API) -- unlike Sign-In this needs the OAuth
+      # client secret. Set GOOGLE_CLIENT_SECRET in a .env file next to this
+      # compose file (docker compose reads it automatically for interpolation;
+      # .env is gitignored so deploys never clobber it). Leave unset to hide
+      # the Sync Google Contacts button.
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

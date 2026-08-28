@@ -9,7 +9,7 @@ import os
 from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
 
-from app.auth import GOOGLE_CLIENT_ID
+from app.auth import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 
 router = APIRouter(include_in_schema=False)
 
@@ -75,7 +75,10 @@ def quote_detail(request: Request, quote_id: int):
 
 @router.get("/clients")
 def clients(request: Request):
-    return templates.TemplateResponse(request, "clients.html", {"active": "clients"})
+    return templates.TemplateResponse(request, "clients.html", {
+        "active": "clients",
+        "google_contacts_enabled": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
+    })
 
 
 @router.get("/catalog")

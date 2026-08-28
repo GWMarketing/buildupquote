@@ -8,3 +8,6 @@ app/static/exports/pdf/*.pdf
 app/static/uploads/logos/*
 !app/static/uploads/logos/.gitkeep
 
+
+# local secrets for docker compose interpolation (never commit)
+.env

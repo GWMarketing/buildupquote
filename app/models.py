@@ -64,6 +64,10 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     role = Column(String, default="owner")
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True, index=True)
+    # Google Contacts sync (People API): the user's OAuth tokens. The refresh
+    # token is long-lived; the access token is refreshed on demand.
+    google_access_token = Column(String, nullable=True)
+    google_refresh_token = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     organization = relationship("Organization", back_populates="users")

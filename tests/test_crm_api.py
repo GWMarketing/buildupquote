@@ -223,6 +223,159 @@ class CrmApiTestCase(unittest.TestCase):
                        "quick-parse-lead", "import-file", "site_address"):
             self.assertIn(needle, html)
 
+    # ------------------------------------------------------------------
+    # Google Contacts sync (People API)
+    # ------------------------------------------------------------------
+    def test_google_contacts_unconfigured_answers_503(self):
+        auth = self.register("gc503@acme.com")
+        r = self.client.get("/api/auth/google/contacts/auth", headers=auth)
+        self.assertEqual(r.status_code, 503, r.text)
+        r = self.client.post("/api/clients/import-google-contacts", headers=auth)
+        self.assertEqual(r.status_code, 503, r.text)
+
+    def test_google_contacts_auth_url_when_configured(self):
+        from unittest import mock
+
+        import app.routers.auth as auth_router
+
+        auth = self.register("gcaurl@acme.com")
+        with mock.patch.object(auth_router, "GOOGLE_CLIENT_ID", "cid"), \
+             mock.patch.object(auth_router, "GOOGLE_CLIENT_SECRET", "secret"):
+            r = self.client.get("/api/auth/google/contacts/auth", headers=auth)
+            self.assertEqual(r.status_code, 200, r.text)
+            url = r.json()["auth_url"]
+            self.assertIn("https://accounts.google.com/o/oauth2/v2/auth?", url)
+            self.assertIn("access_type=offline", url)
+            self.assertIn("prompt=consent", url)
+            self.assertIn("redirect_uri=", url)
+
+    def test_google_contacts_import_not_connected(self):
+        from unittest import mock
+
+        import app.routers.clients as clients_router
+
+        auth = self.register("gcnc@acme.com")
+        with mock.patch.object(clients_router, "GOOGLE_CLIENT_ID", "cid"), \
+             mock.patch.object(clients_router, "GOOGLE_CLIENT_SECRET", "secret"):
+            r = self.client.post("/api/clients/import-google-contacts", headers=auth)
+            self.assertEqual(r.status_code, 400, r.text)
+            self.assertIn("Connect", r.json()["detail"])
+
+    def test_google_contacts_import_creates_clients(self):
+        from unittest import mock
+
+        from app import models
+        from app.database import SessionLocal
+        from app.services import google_contacts
+
+        import app.routers.clients as clients_router
+
+        auth = self.register("gcimport@acme.com")
+        # Attach OAuth tokens directly to the user row.
+        session = SessionLocal()
+        user = session.query(models.User).filter(models.User.email == "gcimport@acme.com").first()
+        user.google_access_token = "access-1"
+        user.google_refresh_token = "refresh-1"
+        session.commit()
+        session.close()
+
+        people = [{
+            "names": [{"displayName": "Google Jane"}],
+            "emailAddresses": [{"value": "gjane@example.com"}],
+            "phoneNumbers": [{"value": "+44 7700 900111"}],
+            "addresses": [{"formattedValue": "9 Google Rd"}],
+        }]
+        with mock.patch.object(clients_router, "GOOGLE_CLIENT_ID", "cid"), \
+             mock.patch.object(clients_router, "GOOGLE_CLIENT_SECRET", "secret"), \
+             mock.patch.object(google_contacts, "fetch_contacts",
+                               return_value={"connections": people}):
+            r = self.client.post("/api/clients/import-google-contacts", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        body = r.json()
+        self.assertEqual(body["created"], 1)
+        self.assertEqual(body["clients"][0]["name"], "Google Jane")
+        self.assertEqual(body["clients"][0]["site_address"], "9 Google Rd")
+
+    def test_google_contacts_import_refreshes_stale_token(self):
+        from unittest import mock
+
+        from app import models
+        from app.database import SessionLocal
+        from app.services import google_contacts
+
+        import app.routers.clients as clients_router
+
+        auth = self.register("gcrefresh@acme.com")
+        session = SessionLocal()
+        user = session.query(models.User).filter(models.User.email == "gcrefresh@acme.com").first()
+        user.google_access_token = "stale"
+        user.google_refresh_token = "refresh-1"
+        session.commit()
+        session.close()
+
+        responses = iter([
+            google_contacts.GoogleContactsError("expired", status=401),
+            {"connections": [{"emailAddresses": [{"value": "fresh@example.com"}]}]},
+        ])
+
+        def fake_fetch(token):
+            value = next(responses)
+            if isinstance(value, google_contacts.GoogleContactsError):
+                raise value
+            return value
+
+        with mock.patch.object(clients_router, "GOOGLE_CLIENT_ID", "cid"), \
+             mock.patch.object(clients_router, "GOOGLE_CLIENT_SECRET", "secret"), \
+             mock.patch.object(google_contacts, "fetch_contacts", side_effect=fake_fetch), \
+             mock.patch.object(google_contacts, "refresh_access_token",
+                               return_value={"access_token": "fresh-token"}):
+            r = self.client.post("/api/clients/import-google-contacts", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["created"], 1)
+        # The refreshed access token was persisted.
+        session = SessionLocal()
+        user = session.query(models.User).filter(models.User.email == "gcrefresh@acme.com").first()
+        self.assertEqual(user.google_access_token, "fresh-token")
+        session.close()
+
+    def test_google_contacts_callback_stores_tokens(self):
+        from unittest import mock
+
+        from app import models
+        from app.auth import ALGORITHM, SECRET_KEY
+        from app.database import SessionLocal
+        from app.services import google_contacts
+        from jose import jwt
+
+        import app.routers.auth as auth_router
+
+        auth = self.register("gccb@acme.com")
+        me = self.client.get("/api/auth/me", headers=auth).json()
+        state = jwt.encode({"uid": me["id"]}, SECRET_KEY, algorithm=ALGORITHM)
+        with mock.patch.object(auth_router, "GOOGLE_CLIENT_ID", "cid"), \
+             mock.patch.object(auth_router, "GOOGLE_CLIENT_SECRET", "secret"), \
+             mock.patch.object(google_contacts, "exchange_code",
+                               return_value={"access_token": "at-1", "refresh_token": "rt-1"}):
+            r = self.client.get(
+                f"/api/auth/google/contacts/callback?code=abc123&state={state}",
+                follow_redirects=False,
+            )
+        self.assertEqual(r.status_code, 307, r.text)
+        self.assertIn("/clients?google_import=1", r.headers["location"])
+        session = SessionLocal()
+        user = session.query(models.User).filter(models.User.email == "gccb@acme.com").first()
+        self.assertEqual(user.google_access_token, "at-1")
+        self.assertEqual(user.google_refresh_token, "rt-1")
+        session.close()
+
+    def test_google_contacts_callback_rejects_bad_state(self):
+        r = self.client.get(
+            "/api/auth/google/contacts/callback?code=x&state=garbage",
+            follow_redirects=False,
+        )
+        self.assertEqual(r.status_code, 307, r.text)
+        self.assertIn("google_error=", r.headers["location"])
+
     def test_org_profile_update_all_fields(self):
         auth = self.register("profile@acme.com", full_name="Glenn Westman")
         r = self.client.put("/api/organization/me", headers=auth, json={

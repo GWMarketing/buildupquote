@@ -1,13 +1,20 @@
-"""Registration, login, and the authenticated /me endpoint."""
+"""Registration, login, the authenticated /me endpoint, and the Google
+Contacts OAuth dance (People API)."""
 import secrets
+import urllib.parse
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.auth import (
+    ALGORITHM,
     GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET,
+    SECRET_KEY,
     create_access_token,
     get_current_user,
     get_password_hash,
@@ -15,6 +22,7 @@ from app.auth import (
     verify_password,
 )
 from app.database import get_db
+from app.services import google_contacts
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -152,3 +160,73 @@ def google_auth(payload: schemas.GoogleAuthRequest, db: Session = Depends(get_db
 def read_me(current_user: models.User = Depends(get_current_user)):
     """The authenticated user's own profile."""
     return current_user
+
+
+def _google_contacts_redirect_uri(request: Request) -> str:
+    """Must exactly match the Authorized redirect URI registered for the OAuth
+    client (Google is strict about this). Derived from the request's own base
+    URL so localhost and production both work."""
+    return str(request.base_url).rstrip("/") + "/api/auth/google/contacts/callback"
+
+
+@router.get("/google/contacts/auth")
+def google_contacts_auth(
+    request: Request,
+    current_user: models.User = Depends(get_current_user),
+):
+    """Start the Google Contacts OAuth dance: returns the consent-screen URL
+    the frontend navigates to. The `state` is a short-lived signed JWT binding
+    the session to this user (CSRF-safe)."""
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google Contacts sync is not configured",
+        )
+    state = jwt.encode(
+        {"uid": current_user.id},
+        SECRET_KEY, algorithm=ALGORITHM,
+    )
+    return {
+        "auth_url": google_contacts.build_auth_url(
+            GOOGLE_CLIENT_ID, _google_contacts_redirect_uri(request), state,
+        ),
+    }
+
+
+@router.get("/google/contacts/callback")
+def google_contacts_callback(
+    request: Request,
+    code: str = "",
+    state: str = "",
+    error: str = "",
+    db: Session = Depends(get_db),
+):
+    """Google redirects here after consent. Exchange the code for tokens,
+    store them on the user, and send the browser back to /clients to import."""
+    def bail(msg: str):
+        return RedirectResponse("/clients?google_error=" + urllib.parse.quote(msg))
+
+    if error:
+        return bail("access_denied")
+    if not code or not state:
+        return bail("invalid_state")
+    try:
+        claims = jwt.decode(state, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        return bail("invalid_state")
+    user = db.query(models.User).filter(models.User.id == claims.get("uid")).first()
+    if user is None:
+        return bail("no_user")
+    try:
+        tokens = google_contacts.exchange_code(
+            code, _google_contacts_redirect_uri(request),
+            GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+        )
+    except google_contacts.GoogleContactsError as exc:
+        return bail(str(exc))
+    if not tokens.get("access_token") or not tokens.get("refresh_token"):
+        return bail("missing_tokens")
+    user.google_access_token = tokens["access_token"]
+    user.google_refresh_token = tokens["refresh_token"]
+    db.commit()
+    return RedirectResponse("/clients?google_import=1")

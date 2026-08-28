@@ -10,9 +10,9 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models, schemas
-from app.auth import get_current_user
+from app.auth import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, get_current_user
 from app.database import get_db
-from app.services import contact_service
+from app.services import contact_service, google_contacts
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 
@@ -230,3 +230,56 @@ def quick_parse_lead(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Couldn't resolve that lead to a client",
     )
+
+
+@router.post("/import-google-contacts", response_model=schemas.ClientImportResult)
+def import_google_contacts(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Pull the user's Google Contacts (People API) and persist them through
+    the same dedupe as every other importer. Refreshes the OAuth access token
+    once when the People API reports it stale."""
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google Contacts sync is not configured",
+        )
+    if not (current_user.google_access_token and current_user.google_refresh_token):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Connect Google Contacts first — click Sync Google Contacts",
+        )
+    if current_user.organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You need an organization before importing clients",
+        )
+
+    access_token = current_user.google_access_token
+    data = None
+    for attempt in range(2):
+        try:
+            data = google_contacts.fetch_contacts(access_token)
+            break
+        except google_contacts.GoogleContactsError as exc:
+            if exc.status == 401 and attempt == 0:
+                refreshed = google_contacts.refresh_access_token(
+                    current_user.google_refresh_token,
+                    GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+                )
+                access_token = refreshed.get("access_token")
+                if not access_token:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Google Contacts session expired — reconnect from the Clients page",
+                    )
+                current_user.google_access_token = access_token
+                db.commit()
+                continue
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+    contacts = google_contacts.map_people_to_contacts(data.get("connections", []))
+    if not contacts:
+        return {"created": 0, "skipped": 0, "clients": []}
+    return _persist_contacts(db, current_user, contacts)

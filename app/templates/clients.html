@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<div x-data="clientManager()" x-init="fetchClients()" class="mx-auto max-w-7xl space-y-6 px-4 py-8">
+<div x-data="clientManager()" x-init="init()" class="mx-auto max-w-7xl space-y-6 px-4 py-8">
 
   <!-- Header Actions -->
   <div class="flex flex-col justify-between gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center dark:border-slate-700 dark:bg-slate-900">
@@ -9,6 +9,14 @@
       <p class="text-sm text-slate-500 dark:text-slate-400">Manage client details or import from phone, WhatsApp, CSV, or vCard.</p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
+      {% if google_contacts_enabled %}
+      <!-- Google Contacts sync (People API) -->
+      <button @click="importGoogleContacts()" :disabled="syncing"
+              class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+        <i data-lucide="address-book" class="h-4 w-4 text-red-500"></i>
+        <span x-text="syncing ? 'Syncing…' : 'Sync Google Contacts'"></span>
+      </button>
+      {% endif %}
       <!-- Native Phone Contact Picker (Works on Mobile/Supported Browsers) -->
       <button @click="pickNativeContacts()" :disabled="syncing"
               class="flex items-center gap-2 rounded-lg bg-slate-100 px-3.5 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-200 disabled:opacity-60 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
@@ -136,6 +144,40 @@ function clientManager() {
     openQuickPasteModal: false, openImportFileModal: false, openAddClientModal: false,
     quickPasteText: '',
     newClient: { name: '', site_address: '', phone: '', email: '' },
+
+    /* Page boot: handle a post-OAuth redirect from Google, then load. */
+    async init() {
+      const params = new URLSearchParams(location.search);
+      if (params.has('google_import')) {
+        history.replaceState({}, '', '/clients');
+        await this.importGoogleContacts(true);
+      } else if (params.has('google_error')) {
+        history.replaceState({}, '', '/clients');
+        BQ.toast('Google Contacts: ' + (params.get('google_error') || 'something went wrong'));
+      }
+      await this.fetchClients();
+    },
+
+    /* Google Contacts (People API): imports directly when connected, or
+       starts the OAuth consent flow the first time. */
+    async importGoogleContacts(auto) {
+      this.syncing = true;
+      try {
+        const res = await BQ.api('/api/clients/import-google-contacts', { method: 'POST' });
+        BQ.toast('Google Contacts: added ' + res.created + (res.skipped ? ', skipped ' + res.skipped : ''), 'success');
+        await this.fetchClients();
+      } catch (e) {
+        if (!auto && /connect|not configured/i.test(e.message)) {
+          try {
+            const res = await BQ.api('/api/auth/google/contacts/auth');
+            location.href = res.auth_url;   // full-page trip to Google consent
+          } catch (e2) { BQ.toast(e2.message); }
+        } else {
+          BQ.toast('Google Contacts: ' + e.message);
+        }
+      }
+      this.syncing = false;
+    },
 
     async fetchClients() {
       try {
