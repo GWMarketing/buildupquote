@@ -49,6 +49,10 @@ class Organization(Base):
     default_payment_terms = Column(Text, nullable=True)
     currency_symbol = Column(String, nullable=True)
     logo_url = Column(String, nullable=True)
+    # Master contract / terms of service used on quoted work. Contractors draft
+    # it in Settings; a PDF (or DOCX) version can also be attached.
+    master_contract_text = Column(Text, nullable=True)
+    master_contract_pdf_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users = relationship("User", back_populates="organization")
@@ -206,6 +210,10 @@ class Quote(Base):
     signer_ip = Column(String, nullable=True)
     signer_user_agent = Column(Text, nullable=True)
     accepted_at = Column(DateTime(timezone=True), nullable=True)
+    # Master contract attachment: whether to append the contract terms to this
+    # quote's PDF/public link, plus an optional project-specific override.
+    include_contract = Column(Boolean, nullable=False, default=True)
+    custom_contract_override = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("Client", back_populates="quotes")

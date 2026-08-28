@@ -54,6 +54,38 @@
         </select>
       </div>
     </div>
+
+    <!-- Master contract attachment -->
+    <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">Attach Master Contract</label>
+          <p class="text-xs text-slate-400">Append your standard terms &amp; conditions to the PDF and the client's public approval link.</p>
+        </div>
+        <button type="button" role="switch" :aria-checked="quote.include_contract"
+                @click="toggleContract()" :disabled="!lines.length"
+                class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50"
+                :class="quote.include_contract ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'">
+          <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform"
+                :class="quote.include_contract ? 'translate-x-5' : 'translate-x-0.5'"></span>
+        </button>
+      </div>
+      <div class="mt-3" x-show="quote.include_contract" x-cloak>
+        <button class="bq-btn-secondary text-xs" @click="contractOpen = !contractOpen">
+          <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+          <span x-text="contractOpen ? 'Hide' : 'View'"></span> Contract &amp; Legal Terms
+        </button>
+        <div class="mt-2" x-show="contractOpen" x-cloak>
+          <textarea class="bq-input w-full" rows="8" x-model="quote.custom_contract_override"
+                    placeholder="Override the master contract for this job (optional). Leave blank to use your standard master contract from Settings."></textarea>
+          <p class="mt-1 text-xs text-slate-400">Supports {{'{{client_name}}'}}, {{'{{project_total}}'}}, {{'{{site_address}}'}}, {{'{{date}}'}} — they fill in per quote.</p>
+          <div class="mt-2 flex justify-end">
+            <button class="bq-btn-secondary text-xs" :disabled="savingContract" @click="saveContract()"
+                    x-text="savingContract ? 'Saving…' : 'Save Contract Terms'"></button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Line items table -->
@@ -232,10 +264,12 @@
 function quoteBuilder(quoteId) {
   return {
     quoteId: quoteId,
-    quote: { title: 'Untitled quote', status: 'draft', client_id: null, site_address: '' },
+    quote: { title: 'Untitled quote', status: 'draft', client_id: null, site_address: '',
+             include_contract: true, custom_contract_override: '' },
     clients: [], assemblies: [], selectedCode: '', dims: {}, lines: [],
     currencySymbol: '$',
     margin: 20, taxRate: 0, saving: false, exporting: false, savedAt: '',
+    contractOpen: false, savingContract: false,
     pdfUrl: '', downloads: JSON.parse(localStorage.getItem('bq_downloads') || '[]'),
     openAssemblyDrawer: false, clientModalOpen: false, savingClient: false,
     clientForm: { name: '', site_address: '', phone: '', email: '' },
@@ -295,6 +329,19 @@ function quoteBuilder(quoteId) {
           method: 'PATCH', body: fields,
         });
       } catch (e) { BQ.toast('Could not save: ' + e.message); }
+    },
+
+    toggleContract() {
+      this.quote.include_contract = !this.quote.include_contract;
+      this.patch({ include_contract: this.quote.include_contract });
+    },
+
+    async saveContract() {
+      this.savingContract = true;
+      try {
+        await this.patch({ custom_contract_override: this.quote.custom_contract_override || '' });
+        BQ.toast('Contract terms saved', 'success');
+      } finally { this.savingContract = false; }
     },
 
     async insertAssembly() {

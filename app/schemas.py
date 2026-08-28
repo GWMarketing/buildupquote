@@ -25,6 +25,8 @@ class OrganizationUpdate(BaseModel):
     tax_id: Optional[str] = None
     default_payment_terms: Optional[str] = None
     currency_symbol: Optional[str] = None
+    # Master contract / terms of service for quoted work.
+    master_contract_text: Optional[str] = None
     # The representative attached to this business.
     full_name: Optional[str] = None
     job_title: Optional[str] = None
@@ -44,6 +46,8 @@ class OrganizationOut(BaseModel):
     default_payment_terms: Optional[str] = None
     currency_symbol: Optional[str] = None
     logo_url: Optional[str] = None
+    master_contract_text: Optional[str] = None
+    master_contract_pdf_url: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -246,6 +250,9 @@ class QuoteUpdate(BaseModel):
     status: Optional[str] = None  # draft / sent / accepted
     client_id: Optional[int] = None
     tax_rate_percent: Optional[float] = None  # flat rate persisted for the PDF
+    # Master contract attachment for this quote.
+    include_contract: Optional[bool] = None
+    custom_contract_override: Optional[str] = None
 
 
 class QuoteLineWrite(BaseModel):
@@ -285,6 +292,8 @@ class QuoteOut(BaseModel):
     tax_amount: float = 0
     tax_rate_percent: Optional[float] = None
     total: float
+    include_contract: bool = True
+    custom_contract_override: Optional[str] = None
     created_at: datetime
     line_count: int = 0
 

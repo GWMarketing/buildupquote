@@ -56,6 +56,45 @@ def signature_uri(client_signature):
     return f"data:image/png;base64,{sig}"
 
 
+# Placeholder tokens contractors can use inside their master contract text.
+CONTRACT_TOKENS = ("client_name", "project_total", "site_address", "date", "quote_ref", "contractor")
+
+
+def process_contract_text(text: str, values: dict) -> str:
+    """Replace {{token}} placeholders in the contract text with the actual
+    values for this quote. Plain string replacement (never runs Jinja on the
+    contractor's text)."""
+    out = text or ""
+    for key, value in values.items():
+        out = out.replace("{{" + key + "}}", str(value or ""))
+    return out
+
+
+def contract_for_quote(quote, organization, currency: str, date_str: str):
+    """(include_contract, processed_text) for a quote's master contract.
+
+    An override set on the quote wins over the organization's master text; an
+    empty result means no contract page is rendered even if the toggle is on.
+    """
+    include = bool(quote.include_contract) if quote.include_contract is not None else True
+    if not include:
+        return False, None
+    raw = quote.custom_contract_override
+    if not raw and organization is not None:
+        raw = organization.master_contract_text
+    if not raw:
+        return True, None
+    values = {
+        "client_name": quote.client.name if quote.client else "",
+        "project_total": f"{currency}{float(quote.total or 0):.2f}",
+        "site_address": quote.site_address or "",
+        "date": date_str,
+        "quote_ref": f"#Q-{quote.id}",
+        "contractor": organization.name if organization else "",
+    }
+    return True, process_contract_text(raw, values)
+
+
 def render_quote_pdf(context: dict, output_path: str) -> str:
     organization = context.get("organization")
     render_context = dict(context)

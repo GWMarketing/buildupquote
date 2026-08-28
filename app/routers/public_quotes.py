@@ -67,6 +67,10 @@ def public_quote_view(
             request, "public_quote_view.html", {"not_found": True}
         )
     organization = _organization_for(db, quote)
+    _currency = (organization.currency_symbol if organization and organization.currency_symbol else "£")
+    _include, _contract = quote_pdf.contract_for_quote(
+        quote, organization, _currency, time.strftime("%d %b %Y"),
+    )
     return templates.TemplateResponse(request, "public_quote_view.html", {
         "quote": quote,
         "organization": organization,
@@ -74,8 +78,9 @@ def public_quote_view(
         "lines": sorted(quote.items, key=lambda i: i.position or 0),
         "public_uuid": quote.public_uuid,
         "signature_uri": quote_pdf.signature_uri(quote.client_signature),
-        "currency": (organization.currency_symbol
-                     if organization and organization.currency_symbol else "£"),
+        "currency": _currency,
+        "include_contract": _include,
+        "contract_text": _contract,
     })
 
 
@@ -132,6 +137,10 @@ def public_quote_download_pdf(
     organization = _organization_for(db, quote)
     fd, out_path = tempfile.mkstemp(prefix=f"public-quote-{quote.id}-", suffix=".pdf")
     os.close(fd)
+    _currency = (organization.currency_symbol if organization and organization.currency_symbol else "£")
+    _include, _contract = quote_pdf.contract_for_quote(
+        quote, organization, _currency, time.strftime("%d %b %Y"),
+    )
     context = {
         "quote": quote,
         "client": quote.client,
@@ -143,6 +152,8 @@ def public_quote_download_pdf(
         "signed_by": quote.signed_by,
         "signer_ip": quote.signer_ip,
         "accepted_at": quote.accepted_at,
+        "include_contract": _include,
+        "contract_text": _contract,
     }
     quote_pdf.render_quote_pdf(context, out_path)
     return FileResponse(

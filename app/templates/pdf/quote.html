@@ -223,7 +223,9 @@
         </tr>
     </table>
 
-    <!-- Acceptance Sign-off -->
+    <!-- Acceptance Sign-off (rendered on the contract page when terms are
+         attached, so the signature legally binds scope + pricing + terms) -->
+    {% macro signoff() %}
     <table class="signoff-section">
         <tr>
             <td class="signoff-box">
@@ -245,6 +247,19 @@
             </td>
         </tr>
     </table>
+    {% endmacro %}
+
+    {% if contract_text %}
+    <div style="page-break-before: always;"></div>
+    <h2 style="font-size: 13pt; font-weight: 800; color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin: 0 0 10px 0;">Contract Agreement &amp; Terms of Service</h2>
+    <p style="font-size: 8pt; color: #64748b; margin: 0 0 14px 0;">
+        Proposal Ref: {{ quote.title or ('#Q-' ~ quote.id) }} &nbsp;·&nbsp; {{ quote.created_at.strftime('%d %b %Y') if quote.created_at }}
+    </p>
+    <div style="font-size: 9pt; line-height: 1.5; color: #0f172a;">{{ contract_text }}</div>
+    {{ signoff() }}
+    {% else %}
+    {{ signoff() }}
+    {% endif %}
 
 </body>
 </html>

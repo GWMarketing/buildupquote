@@ -31,6 +31,10 @@
             class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
             :class="tab === 'legal' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'">
       Contact, Legal & Defaults</button>
+    <button @click="tab = 'contracts'"
+            class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            :class="tab === 'contracts' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'">
+      Master Contract</button>
   </div>
 
   <!-- Card 1: Company Branding & Identity -->
@@ -152,17 +156,65 @@
       </div>
     </div>
   </div>
+
+  <!-- Card 3: Master Contract & Terms of Service -->
+  <div class="bq-card p-6" x-show="tab === 'contracts'" x-cloak>
+    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Master Contract &amp; Terms of Service</h2>
+    <p class="mb-4 text-xs text-slate-400">Your standard agreement (liability limits, payment schedule, warranty, cancellation policy). Attach it to individual quotes from the quote builder — it's appended to the PDF and the public approval link.</p>
+
+    <!-- Variables reference helper -->
+    <div class="mb-3">
+      <label class="mb-1 block text-xs font-medium text-slate-500">Quick tags</label>
+      <p class="mb-1.5 text-xs text-slate-400">Click a tag to insert it — it fills in per quote.</p>
+      <div class="flex flex-wrap gap-1.5">
+        <template x-for="tok in contractTokens" :key="tok.tag">
+          <button type="button" @click="insertToken(tok.tag)"
+                  class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-xs text-amber-600 transition hover:border-amber-400 hover:bg-amber-50 dark:border-slate-700 dark:bg-slate-800 dark:text-amber-400">
+            {{ '{' }}{{ '{' }}<span x-text="tok.tag"></span>{{ '}' }}{{ '}' }}
+          </button>
+        </template>
+      </div>
+    </div>
+
+    <!-- Contract text editor -->
+    <div>
+      <label class="mb-1 block text-xs font-medium text-slate-500">Contract text (clauses, terms, warranty…)</label>
+      <textarea x-ref="contractTextarea" class="bq-input w-full" rows="12" x-model="profile.master_contract_text"
+                placeholder="e.g. 1. Scope of Work — Contractor agrees to perform the work described in the attached proposal...&#10;&#10;2. Payment — {{'{'}}{{'{'}}project_total{{'}'}}{{'}'}} due on the agreed schedule...&#10;&#10;3. Warranty...&#10;4. Cancellation..."></textarea>
+    </div>
+
+    <!-- Upload existing contract file -->
+    <div class="mt-4">
+      <label class="mb-1 block text-xs font-medium text-slate-500">Upload existing contract file (PDF / DOCX)</label>
+      <div @click="$refs.contractInput.click()" @dragover.prevent @drop.prevent="onContractDrop($event)"
+           class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-6 text-center transition hover:border-amber-400 dark:border-slate-600 dark:bg-slate-800">
+        <i data-lucide="file-up" class="h-6 w-6 text-slate-400"></i>
+        <p class="mt-2 text-sm font-medium text-slate-500">Drop a PDF/DOCX here, or click to browse</p>
+        <p class="mt-1 text-xs text-slate-400">Max 20MB · the file is linked from Settings, not rendered into the PDF</p>
+      </div>
+      <input type="file" x-ref="contractInput" accept=".pdf,.docx" class="hidden" @change="onContractFile($event)">
+      <div class="mt-2 flex flex-wrap items-center gap-2 text-xs" x-show="masterContractUrl" x-cloak>
+        <span class="text-emerald-600">Contract file attached:</span>
+        <a :href="masterContractUrl" target="_blank" class="font-medium text-amber-600 underline" x-text="contractFileName"></a>
+      </div>
+      <p class="mt-1 text-xs text-emerald-600" x-show="contractSaved" x-cloak>Uploaded ✓</p>
+    </div>
+  </div>
 </div>
 
 
 <script>
 function settingsPage() {
   return {
-    tab: 'brand', hasOrg: false, saving: false, saved: false, logoSaved: false, error: '',
-    logoPreview: '',
+    tab: 'brand', hasOrg: false, saving: false, saved: false, logoSaved: false, contractSaved: false, error: '',
+    logoPreview: '', masterContractUrl: '', contractFileName: '',
+    contractTokens: [
+      { tag: 'client_name' }, { tag: 'project_total' }, { tag: 'site_address' },
+      { tag: 'date' }, { tag: 'quote_ref' }, { tag: 'contractor' },
+    ],
     profile: { name: '', bio: '', website: '', email: '', phone: '', address: '',
                license_number: '', tax_id: '', default_payment_terms: '', currency_symbol: '$',
-               full_name: '', job_title: '' },
+               master_contract_text: '', full_name: '', job_title: '' },
     async init() {
       try {
         const org = await BQ.api('/api/organization/me');
@@ -178,10 +230,13 @@ function settingsPage() {
           tax_id: org.tax_id || '',
           default_payment_terms: org.default_payment_terms || '',
           currency_symbol: org.currency_symbol || '$',
+          master_contract_text: org.master_contract_text || '',
           full_name: org.full_name || '',
           job_title: org.job_title || '',
         };
         this.logoPreview = org.logo_url || '';
+        this.masterContractUrl = org.master_contract_pdf_url || '';
+        this.contractFileName = this.masterContractUrl ? this.masterContractUrl.split('/').pop() : '';
       } catch (e) { this.error = e.message; this.hasOrg = false; }
     },
     async save() {
@@ -220,6 +275,38 @@ function settingsPage() {
         BQ.toast('Logo updated', 'success');
         setTimeout(() => this.logoSaved = false, 1500);
       } catch (ex) { this.error = ex.message; BQ.toast('Logo upload failed: ' + ex.message); }
+    },
+    insertToken(tag) {
+      const ta = this.$refs.contractTextarea;
+      const start = ta.selectionStart != null ? ta.selectionStart : ta.value.length;
+      const end = ta.selectionEnd != null ? ta.selectionEnd : ta.value.length;
+      const token = '{{' + tag + '}}';
+      ta.value = ta.value.slice(0, start) + token + ta.value.slice(end);
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = start + token.length;
+      this.profile.master_contract_text = ta.value;
+    },
+    async uploadContract(file) {
+      const form = new FormData();
+      form.append('file', file);
+      this.contractSaved = false;
+      try {
+        const org = await BQ.api('/api/organization/contract-file', { method: 'POST', body: form });
+        this.masterContractUrl = org.master_contract_pdf_url || '';
+        this.contractFileName = this.masterContractUrl ? this.masterContractUrl.split('/').pop() : '';
+        this.contractSaved = true;
+        BQ.toast('Contract file uploaded', 'success');
+        setTimeout(() => this.contractSaved = false, 1500);
+      } catch (ex) { this.error = ex.message; BQ.toast('Upload failed: ' + ex.message); }
+    },
+    async onContractFile(e) {
+      const file = e.target.files[0];
+      if (file) await this.uploadContract(file);
+      e.target.value = '';
+    },
+    async onContractDrop(e) {
+      const file = e.dataTransfer && e.dataTransfer.files[0];
+      if (file) await this.uploadContract(file);
     },
   };
 }

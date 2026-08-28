@@ -66,6 +66,8 @@ def _profile_out(org: models.Organization, user: models.User) -> dict:
         "default_payment_terms": org.default_payment_terms,
         "currency_symbol": org.currency_symbol,
         "logo_url": org.logo_url,
+        "master_contract_text": org.master_contract_text,
+        "master_contract_pdf_url": org.master_contract_pdf_url,
         "created_at": org.created_at,
         "full_name": user.full_name,
         "job_title": user.job_title,
@@ -99,7 +101,8 @@ def update_organization_me(
             raise HTTPException(status_code=400, detail="Business name cannot be blank")
         org.name = name
     for field in ("bio", "website", "email", "phone", "address",
-                  "license_number", "tax_id", "default_payment_terms", "currency_symbol"):
+                  "license_number", "tax_id", "default_payment_terms", "currency_symbol",
+                  "master_contract_text"):
         value = getattr(payload, field, None)
         if value is not None:
             setattr(org, field, value.strip() if isinstance(value, str) else value)
@@ -143,4 +146,38 @@ async def upload_organization_logo(
     db.commit()
     db.refresh(org)
     return org
+
+
+_CONTRACT_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "uploads", "contracts"
+)
+_ALLOWED_CONTRACT_EXTS = {".pdf", ".docx"}
+_MAX_CONTRACT_BYTES = 20 * 1024 * 1024  # 20 MB
+
+
+@router.post("/contract-file", response_model=schemas.OrganizationProfileOut)
+async def upload_organization_contract(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Upload a master contract file (PDF or DOCX, max 20MB). Saves it under
+    /static/uploads/contracts and records the URL on the organization."""
+    org = _get_or_provision_org(db, current_user)
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in _ALLOWED_CONTRACT_EXTS:
+        raise HTTPException(status_code=400, detail="Contract file must be a PDF or DOCX")
+    raw = await file.read()
+    if len(raw) > _MAX_CONTRACT_BYTES:
+        raise HTTPException(status_code=400, detail="Contract file too large (max 20MB)")
+
+    os.makedirs(_CONTRACT_DIR, exist_ok=True)
+    filename = f"contract-{org.id}-{int(time.time())}{ext}"
+    with open(os.path.join(_CONTRACT_DIR, filename), "wb") as fh:
+        fh.write(raw)
+    org.master_contract_pdf_url = f"/static/uploads/contracts/{filename}"
+    db.add(org)
+    db.commit()
+    db.refresh(org)
+    return _profile_out(org, current_user)
 

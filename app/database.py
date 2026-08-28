@@ -91,6 +91,10 @@ def ensure_legacy_columns(bind):
             statements.append("ALTER TABLE quotes ADD COLUMN signer_user_agent TEXT")
         if "accepted_at" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN accepted_at TIMESTAMP WITH TIME ZONE")
+        if "include_contract" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN include_contract BOOLEAN DEFAULT TRUE")
+        if "custom_contract_override" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN custom_contract_override TEXT")
     # Organization profile fields landed after the first organizations
     # table was created -- same idempotent in-place upgrade. `bio` superseded
     # the old `description` column, so existing databases get an in-place
@@ -112,6 +116,8 @@ def ensure_legacy_columns(bind):
             ("website", "ALTER TABLE organizations ADD COLUMN website VARCHAR"),
             ("email", "ALTER TABLE organizations ADD COLUMN email VARCHAR"),
             ("license_number", "ALTER TABLE organizations ADD COLUMN license_number VARCHAR"),
+            ("master_contract_text", "ALTER TABLE organizations ADD COLUMN master_contract_text TEXT"),
+            ("master_contract_pdf_url", "ALTER TABLE organizations ADD COLUMN master_contract_pdf_url VARCHAR"),
         ):
             if col not in org_cols:
                 statements.append(ddl)

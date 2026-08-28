@@ -645,6 +645,119 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertIn("Jane Doe", text)
         self.assertIn("203.0.113.7", text)
 
+    # ------------------------------------------------------------------
+    # Master contract management
+    # ------------------------------------------------------------------
+    def test_organization_master_contract_save_and_upload(self):
+        auth = self.register("contract@acme.com")
+        # Save the master contract text via the profile endpoint.
+        r = self.client.put("/api/organization/me", headers=auth, json={
+            "name": "Contract Co",
+            "master_contract_text": "1. Scope\n2. Payment {{project_total}}\n3. Warranty\n4. Cancellation",
+        })
+        self.assertEqual(r.status_code, 200, r.text)
+        body = r.json()
+        self.assertIn("1. Scope", body["master_contract_text"])
+        # Upload a master contract file.
+        r = self.client.post("/api/organization/contract-file", headers=auth,
+                             files={"file": ("terms.pdf", b"%PDF-1.4 fake contract", "application/pdf")})
+        self.assertEqual(r.status_code, 200, r.text)
+        url = r.json()["master_contract_pdf_url"]
+        self.assertTrue(url.startswith("/static/uploads/contracts/"), url)
+        # A DOCX is accepted too; a .txt is not.
+        r = self.client.post("/api/organization/contract-file", headers=auth,
+                             files={"file": ("terms.txt", b"no", "text/plain")})
+        self.assertEqual(r.status_code, 400, r.text)
+
+    def test_quote_contract_fields_persist(self):
+        auth = self.register("qcontract@acme.com")
+        qid = self.make_quote(auth)
+        r = self.client.patch(f"/api/quotes/{qid}", headers=auth, json={
+            "include_contract": False,
+            "custom_contract_override": "Project-specific clauses for this job.",
+        })
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertFalse(r.json()["include_contract"])
+        self.assertEqual(r.json()["custom_contract_override"],
+                         "Project-specific clauses for this job.")
+        detail = self.client.get(f"/api/quotes/{qid}", headers=auth).json()
+        self.assertFalse(detail["include_contract"])
+        self.assertEqual(detail["custom_contract_override"],
+                         "Project-specific clauses for this job.")
+
+    def test_quote_pdf_contains_contract_page(self):
+        import io
+
+        import pdfplumber
+
+        auth = self.register("pdfcontract@acme.com")
+        # Create a client and attach them so {{client_name}} substitutes.
+        client = self.client.post("/api/clients", headers=auth, json={
+            "name": "Contract Client", "site_address": "7 Contract Ave",
+        }).json()
+        self.client.put("/api/organization/me", headers=auth, json={
+            "name": "Pdf Contract Co",
+            "master_contract_text": (
+                "Standard terms. Client: {{client_name}} | Total: {{project_total}} "
+                "| Site: {{site_address}} | Date: {{date}}"
+            ),
+        })
+        qid = self.make_quote(auth, "Contract proposal")
+        self.client.patch(f"/api/quotes/{qid}", headers=auth, json={"client_id": client["id"]})
+        self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
+            {"description": "Shingles", "item_type": "material", "quantity": 10,
+             "unit": "m2", "unit_cost": 20, "markup_percent": 20},
+        ])
+        r = self.client.get(f"/api/quotes/{qid}/export-pdf", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        with pdfplumber.open(io.BytesIO(r.content)) as pdf:
+            text = "\n".join((p.extract_text() or "") for p in pdf.pages)
+        self.assertIn("Contract Agreement & Terms of Service", text)
+        self.assertIn("Contract Client", text)
+        self.assertIn("$240.00", text)          # {{project_total}} substituted
+        self.assertIn("7 Contract Ave", text)   # {{site_address}} substituted
+        # Toggling include_contract off removes the contract page.
+        self.client.patch(f"/api/quotes/{qid}", headers=auth, json={"include_contract": False})
+        r = self.client.get(f"/api/quotes/{qid}/export-pdf", headers=auth)
+        with pdfplumber.open(io.BytesIO(r.content)) as pdf:
+            text2 = "\n".join((p.extract_text() or "") for p in pdf.pages)
+        self.assertNotIn("Contract Agreement & Terms of Service", text2)
+
+    def test_public_view_contract_accordion(self):
+        from app import models
+        from app.database import SessionLocal
+
+        auth = self.register("pubcontract@acme.com")
+        self.client.put("/api/organization/me", headers=auth, json={
+            "name": "Pub Contract Co",
+            "master_contract_text": "Binding terms for {{client_name}} — total {{project_total}}.",
+        })
+        qid = self.make_quote(auth)
+        self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
+            {"description": "Shingles", "item_type": "material", "quantity": 10,
+             "unit": "m2", "unit_cost": 20, "markup_percent": 20},
+        ])
+        session = SessionLocal()
+        pub = session.query(models.Quote).filter(models.Quote.id == qid).first().public_uuid
+        session.close()
+        r = self.client.get(f"/view/quote/{pub}")
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertIn("Contract Agreement &amp; Terms of Service", r.text)
+        self.assertIn("Binding terms for", r.text)
+        self.assertIn("£240.00", r.text)  # public view defaults to £
+
+    def test_settings_and_builder_contract_ui(self):
+        r = self.client.get("/settings")
+        self.assertEqual(r.status_code, 200, r.text)
+        for needle in ("Master Contract", "contractTokens", "insertToken",
+                       "contract-file", "master_contract_text"):
+            self.assertIn(needle, r.text)
+        r = self.client.get("/quotes/new")
+        self.assertEqual(r.status_code, 200, r.text)
+        for needle in ("Attach Master Contract", "toggleContract", "include_contract",
+                       "custom_contract_override", "saveContract"):
+            self.assertIn(needle, r.text)
+
     def test_org_profile_update_all_fields(self):
         auth = self.register("profile@acme.com", full_name="Glenn Westman")
         r = self.client.put("/api/organization/me", headers=auth, json={

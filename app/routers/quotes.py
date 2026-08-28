@@ -55,6 +55,8 @@ def _quote_out(quote: models.Quote) -> dict:
         "tax_amount": float(quote.tax_amount or 0),
         "tax_rate_percent": float(quote.tax_rate_percent) if quote.tax_rate_percent is not None else None,
         "total": float(quote.total or 0),
+        "include_contract": quote.include_contract if quote.include_contract is not None else True,
+        "custom_contract_override": quote.custom_contract_override,
         "created_at": quote.created_at,
         "line_count": len(quote.items or []),
     }
@@ -261,7 +263,8 @@ def update_quote(
 ):
     quote = _get_owned_quote(db, current_user, quote_id)
     _ensure_editable(quote)
-    for field in ("title", "site_address", "status", "client_id", "tax_rate_percent"):
+    for field in ("title", "site_address", "status", "client_id", "tax_rate_percent",
+                  "include_contract", "custom_contract_override"):
         value = getattr(payload, field, None)
         if value is not None:
             setattr(quote, field, value)
@@ -377,6 +380,11 @@ def export_quote_pdf(
     os.makedirs(_EXPORT_DIR, exist_ok=True)
     filename = f"quote-{quote.id}-{int(time.time())}.pdf"
     out_path = os.path.join(_EXPORT_DIR, filename)
+    _currency = (current_user.organization.currency_symbol
+                 if current_user.organization and current_user.organization.currency_symbol else "$")
+    _include, _contract = quote_pdf.contract_for_quote(
+        quote, current_user.organization, _currency, time.strftime("%d %b %Y"),
+    )
     context = {
         "quote": quote,
         "client": quote.client,
@@ -388,6 +396,8 @@ def export_quote_pdf(
         "signed_by": quote.signed_by,
         "signer_ip": quote.signer_ip,
         "accepted_at": quote.accepted_at,
+        "include_contract": _include,
+        "contract_text": _contract,
     }
     quote_pdf.render_quote_pdf(context, out_path)
     return {"url": f"/static/exports/pdf/{filename}", "filename": filename}
@@ -408,6 +418,11 @@ def export_quote_pdf_download(
     os.makedirs(_EXPORT_DIR, exist_ok=True)
     filename = f"quote-{quote.id}-{int(time.time())}.pdf"
     out_path = os.path.join(_EXPORT_DIR, filename)
+    _currency = (current_user.organization.currency_symbol
+                 if current_user.organization and current_user.organization.currency_symbol else "$")
+    _include, _contract = quote_pdf.contract_for_quote(
+        quote, current_user.organization, _currency, time.strftime("%d %b %Y"),
+    )
     context = {
         "quote": quote,
         "client": quote.client,
@@ -419,6 +434,8 @@ def export_quote_pdf_download(
         "signed_by": quote.signed_by,
         "signer_ip": quote.signer_ip,
         "accepted_at": quote.accepted_at,
+        "include_contract": _include,
+        "contract_text": _contract,
     }
     quote_pdf.render_quote_pdf(context, out_path)
     return FileResponse(

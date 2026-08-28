@@ -127,6 +127,18 @@
     </div>
 
 
+    <!-- Contract terms accordion (above the signature box so acceptance binds
+         scope + pricing + terms together) -->
+    {% if include_contract and contract_text %}
+    <details class="group mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <summary class="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-bold text-slate-900 [&::-webkit-details-marker]:hidden">
+        <span class="flex items-center gap-2"><i data-lucide="file-check-2" class="h-4 w-4 text-amber-500"></i> Contract Agreement &amp; Terms of Service</span>
+        <i data-lucide="chevron-down" class="h-4 w-4 text-slate-400 transition group-open:rotate-180"></i>
+      </summary>
+      <div class="border-t border-slate-100 px-5 py-4 text-sm leading-relaxed whitespace-pre-line text-slate-700">{{ contract_text }}</div>
+    </details>
+    {% endif %}
+
     <!-- Sign-off -->
     {% if quote.status == 'accepted' %}
     <div class="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
