@@ -12,7 +12,7 @@ services:
       # Cloud Console, add https://<your-domain> as an Authorized JavaScript
       # origin, and paste its client ID below (ends with
       # .apps.googleusercontent.com). Leave empty/unset to hide the button.
-      GOOGLE_CLIENT_ID: ""
+      GOOGLE_CLIENT_ID: "774097660308-37rbr63bv9ec5bu9ma0bfa88220b1nt0.apps.googleusercontent.com"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
