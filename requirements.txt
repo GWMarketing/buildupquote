@@ -31,6 +31,12 @@ python-jose[cryptography]
 pwdlib[argon2]
 pydantic[email]
 
+# Step 2d -- contact import (clients importer)
+# vobject parses real-world Apple/Android .vcf exports robustly (structured
+# ADR, multi-valued fields). The pure-Python fallback in
+# app/services/contact_import.py keeps import working even if it's missing.
+vobject>=0.9.9
+
 # Step 3 -- branded proposal PDF export (proposal/)
 jinja2>=3.1
 weasyprint>=60
