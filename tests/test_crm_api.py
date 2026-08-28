@@ -143,6 +143,35 @@ class CrmApiTestCase(unittest.TestCase):
             self.assertEqual(r.status_code, 401, r.text)
             self.assertEqual(r.json()["detail"], "Invalid Google credential")
 
+    def test_auth_pages_google_block_is_well_formed(self):
+        """Regression: the Google button block must sit OUTSIDE the form-submit
+        script. An earlier version nested it inside, which closed the form
+        script at the first `</script>` and turned the swallowed GIS `<script
+        src>` tag into a JS SyntaxError -- killing both login and register."""
+        from unittest import mock
+
+        import app.routers.pages as pages_router
+
+        cid = "test.apps.googleusercontent.com"
+        with mock.patch.object(pages_router, "GOOGLE_CLIENT_ID", cid):
+            for path, form_id in (("/login", "loginForm"), ("/register", "registerForm")):
+                r = self.client.get(path)
+                self.assertEqual(r.status_code, 200, r.text)
+                html = r.text
+                # Locate the form handler script and confirm it is closed
+                # before any injected Google script tag appears.
+                handler_at = html.index(f"getElementById('{form_id}').addEventListener")
+                block_open = html.rindex("<script>", 0, handler_at)
+                block_close = html.index("</script>", handler_at)
+                # Everything between the opening and closing tags of the form
+                # handler script must be plain JS -- no swallowed HTML tags.
+                self.assertNotIn("<script", html[block_open + len("<script>"):block_close])
+                gis = '<script src="https://accounts.google.com/gsi/client"'
+                self.assertIn(gis, html)
+                self.assertGreater(html.index(gis), block_close)
+                self.assertIn("initGoogleButton", html)
+                self.assertIn(cid, html)
+
     def test_org_profile_update_all_fields(self):
         auth = self.register("profile@acme.com", full_name="Glenn Westman")
         r = self.client.put("/api/organization/me", headers=auth, json={

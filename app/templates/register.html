@@ -93,6 +93,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     err.classList.remove('hidden');
   }
 });
+</script>
 {% if google_client_id %}
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
@@ -116,19 +117,18 @@ function handleGoogleCredential(response) {
     }
   })();
 }
-window.addEventListener('load', function () {
+(function initGoogleButton() {
+  // Retry until the async GIS library is ready (cached fast-path first).
   if (window.google && google.accounts) {
-    google.accounts.id.initialize({
-      client_id: {{ google_client_id | tojson }},
-      callback: handleGoogleCredential,
-    });
+    google.accounts.id.initialize({ client_id: {{ google_client_id | tojson }}, callback: handleGoogleCredential });
     google.accounts.id.renderButton(document.getElementById('google-signin'), {
       theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', width: 320,
     });
+  } else if ((initGoogleButton._tries = (initGoogleButton._tries || 0) + 1) < 40) {
+    setTimeout(initGoogleButton, 250);
   }
-});
+})();
 </script>
 {% endif %}
-</script>
 {% endblock %}
 
