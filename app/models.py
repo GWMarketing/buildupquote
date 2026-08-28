@@ -197,10 +197,14 @@ class Quote(Base):
     tax_amount = Column(Numeric(12, 2), default=0)
     total = Column(Numeric(12, 2), default=0)
     # Public 1-click approval: an unguessable shareable link plus the digital
-    # sign-off record (signature image, signer name, accepted timestamp).
+    # sign-off record (signature image, signer name, accepted timestamp) and
+    # the audit trail that makes it legally defensible (IP, user agent, email).
     public_uuid = Column(String(36), unique=True, index=True, default=lambda: str(uuid.uuid4()))
     client_signature = Column(Text, nullable=True)  # base64 PNG / data-URI from the signature pad
     signed_by = Column(String, nullable=True)       # name the signer typed
+    signer_email = Column(String, nullable=True)
+    signer_ip = Column(String, nullable=True)
+    signer_user_agent = Column(Text, nullable=True)
     accepted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

@@ -83,6 +83,12 @@ def ensure_legacy_columns(bind):
             statements.append("ALTER TABLE quotes ADD COLUMN client_signature TEXT")
         if "signed_by" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN signed_by VARCHAR")
+        if "signer_email" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN signer_email VARCHAR")
+        if "signer_ip" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN signer_ip VARCHAR")
+        if "signer_user_agent" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN signer_user_agent TEXT")
         if "accepted_at" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN accepted_at TIMESTAMP WITH TIME ZONE")
     # Organization profile fields landed after the first organizations

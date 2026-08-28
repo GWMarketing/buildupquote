@@ -154,6 +154,10 @@
         <label class="mb-1 block text-xs font-bold text-slate-600">Your full name</label>
         <input id="signerName" type="text" placeholder="e.g. Jane Doe" class="w-full rounded-lg border border-slate-300 p-2.5 text-sm">
       </div>
+      <div class="mt-3">
+        <label class="mb-1 block text-xs font-bold text-slate-600">Email <span class="font-normal text-slate-400">(optional, for the record)</span></label>
+        <input id="signerEmail" type="email" placeholder="e.g. jane@example.com" class="w-full rounded-lg border border-slate-300 p-2.5 text-sm">
+      </div>
       <div class="mt-4">
         <label class="mb-1 block text-xs font-bold text-slate-600">Signature</label>
         <div class="relative overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-slate-50">
@@ -200,6 +204,7 @@
   var successPanel = document.getElementById('acceptSuccess');
   var acceptMsg = document.getElementById('acceptMsg');
   var signerName = document.getElementById('signerName');
+  var signerEmail = document.getElementById('signerEmail');
   if (!pad || !acceptBtn) return;  // already accepted / not found: nothing to do
 
   var ctx = pad.getContext('2d');
@@ -251,7 +256,11 @@
       var res = await fetch('/api/public/quotes/' + encodeURIComponent(PUBLIC_UUID) + '/accept', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signature_data: pad.toDataURL('image/png'), client_name: name }),
+        body: JSON.stringify({
+          signature_data: pad.toDataURL('image/png'),
+          client_name: name,
+          signer_email: (signerEmail ? signerEmail.value : '').trim(),
+        }),
       });
       var data = await res.json();
       if (!res.ok) throw new Error((typeof data.detail === 'string' ? data.detail : 'Could not accept') || 'Could not accept');

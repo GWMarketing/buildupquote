@@ -84,6 +84,17 @@ def _recalculate_quote_totals(db: Session, quote: models.Quote) -> None:
     quote.total = round(quote.subtotal + quote.tax_amount, 2)
     db.add(quote)
 
+
+def _ensure_editable(quote: models.Quote) -> None:
+    """Accepted quotes are a signed, locked record: the audit trail is only
+    defensible if the quoted scope can't be rewritten after the client signs.
+    Every mutation endpoint calls this before changing anything."""
+    if quote.status == "accepted":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This quote has been accepted and signed — it can no longer be edited",
+        )
+
 @router.get("", response_model=list[schemas.QuoteOut])
 def list_quotes(
     db: Session = Depends(get_db),
@@ -249,6 +260,7 @@ def update_quote(
     current_user: models.User = Depends(get_current_user),
 ):
     quote = _get_owned_quote(db, current_user, quote_id)
+    _ensure_editable(quote)
     for field in ("title", "site_address", "status", "client_id", "tax_rate_percent"):
         value = getattr(payload, field, None)
         if value is not None:
@@ -269,6 +281,7 @@ def save_lines(
 ):
     """Replace the quote's line grid wholesale and refresh totals."""
     quote = _get_owned_quote(db, current_user, quote_id)
+    _ensure_editable(quote)
     quote.items.clear()
     db.flush()
     for position, line in enumerate(payload, start=1):
@@ -305,6 +318,7 @@ def delete_quote(
     """Delete a quote: cascade its line items (ORM + ON DELETE CASCADE)
     and clean up any exported PDFs for it. 403 for another org's quote."""
     quote = _get_owned_quote(db, current_user, quote_id)
+    _ensure_editable(quote)
     # Remove exported PDFs for this quote (static/exports/pdf/quote-{id}-*.pdf).
     if os.path.isdir(_EXPORT_DIR):
         for name in os.listdir(_EXPORT_DIR):
@@ -327,6 +341,7 @@ def delete_quote_line(
 ):
     """Remove one line item, then recalculate the quote totals."""
     quote = _get_owned_quote(db, current_user, quote_id)
+    _ensure_editable(quote)
     line = (
         db.query(models.QuoteLineItem)
         .filter(
@@ -371,6 +386,7 @@ def export_quote_pdf(
         "today": time.strftime("%B %d, %Y"),
         "signature_uri": quote_pdf.signature_uri(quote.client_signature),
         "signed_by": quote.signed_by,
+        "signer_ip": quote.signer_ip,
         "accepted_at": quote.accepted_at,
     }
     quote_pdf.render_quote_pdf(context, out_path)
@@ -401,6 +417,7 @@ def export_quote_pdf_download(
         "today": time.strftime("%B %d, %Y"),
         "signature_uri": quote_pdf.signature_uri(quote.client_signature),
         "signed_by": quote.signed_by,
+        "signer_ip": quote.signer_ip,
         "accepted_at": quote.accepted_at,
     }
     quote_pdf.render_quote_pdf(context, out_path)

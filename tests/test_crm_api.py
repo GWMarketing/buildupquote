@@ -545,18 +545,25 @@ class CrmApiTestCase(unittest.TestCase):
         r = self.client.post(f"/api/public/quotes/{public_uuid}/accept",
                              json={"signature_data": "", "client_name": "Jane"})
         self.assertEqual(r.status_code, 400, r.text)
-        # Accept with signature + name.
-        r = self.client.post(f"/api/public/quotes/{public_uuid}/accept",
-                             json={"signature_data": "data:image/png;base64,AAAA",
-                                   "client_name": "Jane Doe"})
+        # Accept with signature + name + email and audit headers.
+        r = self.client.post(
+            f"/api/public/quotes/{public_uuid}/accept",
+            json={"signature_data": "data:image/png;base64,AAAA",
+                  "client_name": "Jane Doe", "signer_email": "jane@example.com"},
+            headers={"X-Forwarded-For": "203.0.113.7", "User-Agent": "AuditTest/1.0"},
+        )
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json()["status"], "accepted")
-        # Persisted.
+        self.assertEqual(r.json()["signer_ip"], "203.0.113.7")
+        # Persisted (full audit trail).
         session = SessionLocal()
         quote = session.query(models.Quote).filter(
             models.Quote.public_uuid == public_uuid).first()
         self.assertEqual(quote.status, "accepted")
         self.assertEqual(quote.signed_by, "Jane Doe")
+        self.assertEqual(quote.signer_email, "jane@example.com")
+        self.assertEqual(quote.signer_ip, "203.0.113.7")
+        self.assertEqual(quote.signer_user_agent, "AuditTest/1.0")
         self.assertEqual(quote.client_signature, "data:image/png;base64,AAAA")
         self.assertIsNotNone(quote.accepted_at)
         session.close()
@@ -571,15 +578,72 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         self.assertTrue(r.json()["already"])
 
+    def test_public_quote_accept_locks_edits(self):
+        from app import models
+        from app.database import SessionLocal
+
+        auth = self.register(f"lock{id(self)}@acme.com")
+        qid = self.make_quote(auth, "Locked proposal")
+        self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
+            {"description": "Shingles", "item_type": "material", "quantity": 10,
+             "unit": "m2", "unit_cost": 20, "markup_percent": 20},
+        ])
+        session = SessionLocal()
+        pub = session.query(models.Quote).filter(models.Quote.id == qid).first().public_uuid
+        line_id = session.query(models.QuoteLineItem).filter(
+            models.QuoteLineItem.quote_id == qid).first().id
+        session.close()
+
+        r = self.client.post(f"/api/public/quotes/{pub}/accept",
+                             json={"signature_data": "data:image/png;base64,AAAA",
+                                   "client_name": "Jane Doe"})
+        self.assertEqual(r.status_code, 200, r.text)
+
+        # Every mutation is rejected once accepted.
+        r = self.client.patch(f"/api/quotes/{qid}", headers=auth, json={"title": "Changed"})
+        self.assertEqual(r.status_code, 400, r.text)
+        r = self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
+            {"description": "New", "item_type": "labor", "quantity": 1, "unit": "hr",
+             "unit_cost": 1, "markup_percent": 0}])
+        self.assertEqual(r.status_code, 400, r.text)
+        r = self.client.delete(f"/api/quotes/{qid}/lines/{line_id}", headers=auth)
+        self.assertEqual(r.status_code, 400, r.text)
+        r = self.client.delete(f"/api/quotes/{qid}", headers=auth)
+        self.assertEqual(r.status_code, 400, r.text)
+        r = self.client.post(f"/api/quotes/{qid}/apply-assembly", headers=auth, json={
+            "code": "WALL_STUD_PARTITION", "dimensions": {"length": 10, "height": 3}})
+        self.assertEqual(r.status_code, 400, r.text)
+
+        # The signed scope is untouched.
+        r = self.client.get(f"/api/quotes/{qid}", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        lines = r.json()["lines"]
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(lines[0]["description"], "Shingles")
+        self.assertEqual(r.json()["title"], "Locked proposal")
+
     def test_public_quote_download_pdf(self):
+        import io
+
+        import pdfplumber
+
         public_uuid = self._public_quote_fixture()
-        self.client.post(f"/api/public/quotes/{public_uuid}/accept",
-                         json={"signature_data": "data:image/png;base64,AAAA",
-                               "client_name": "Jane Doe"})
+        self.client.post(
+            f"/api/public/quotes/{public_uuid}/accept",
+            json={"signature_data": "data:image/png;base64,AAAA",
+                  "client_name": "Jane Doe"},
+            headers={"X-Forwarded-For": "203.0.113.7", "User-Agent": "AuditTest/1.0"},
+        )
         r = self.client.get(f"/view/quote/{public_uuid}/download-pdf")
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.headers["content-type"], "application/pdf")
         self.assertTrue(r.content.startswith(b"%PDF"))
+        # The audit stamp is rendered in the signed PDF.
+        with pdfplumber.open(io.BytesIO(r.content)) as pdf:
+            text = "\n".join((p.extract_text() or "") for p in pdf.pages)
+        self.assertIn("Digitally Accepted", text)
+        self.assertIn("Jane Doe", text)
+        self.assertIn("203.0.113.7", text)
 
     def test_org_profile_update_all_fields(self):
         auth = self.register("profile@acme.com", full_name="Glenn Westman")

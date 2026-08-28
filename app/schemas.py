@@ -227,10 +227,12 @@ class ClientImportResult(BaseModel):
 
 class PublicQuoteAcceptRequest(BaseModel):
     """POST /api/public/quotes/{public_uuid}/accept -- the client's digital
-    sign-off. signature_data is the canvas PNG (data-URI or raw base64)."""
+    sign-off. signature_data is the canvas PNG (data-URI or raw base64);
+    client_name and signer_email are captured for the audit trail."""
 
     signature_data: str
     client_name: str = ""
+    signer_email: str = ""
 
 
 class QuoteCreate(BaseModel):

@@ -83,21 +83,41 @@ def public_quote_view(
 def public_quote_accept(
     public_uuid: str,
     payload: schemas.PublicQuoteAcceptRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """The client's digital sign-off: persists the signature image, the signer
-    name, and the acceptance timestamp; flips the quote to accepted."""
+    name/email, the acceptance timestamp, and the audit trail (IP + user agent
+    from the request). Flips the quote to accepted; accepted quotes are then
+    locked against any edits."""
     quote = _get_quote_by_uuid(db, public_uuid)
     if quote.status == "accepted":
         return {"accepted": True, "already": True, "status": quote.status}
     if not (payload.signature_data or "").strip():
         raise HTTPException(status_code=400, detail="A signature is required")
+
+    # Audit trail: trust the proxy's X-Forwarded-For when present (Caddy), else
+    # the direct socket peer; take the first entry of a comma-separated list.
+    forwarded = request.headers.get("x-forwarded-for", "")
+    client_ip = (forwarded.split(",")[0].strip()
+                 if forwarded and forwarded.strip() else
+                 (request.client.host if request.client else None))
+    user_agent = request.headers.get("user-agent")
+
     quote.status = "accepted"
     quote.client_signature = payload.signature_data.strip()
     quote.signed_by = (payload.client_name or "").strip() or None
+    quote.signer_email = (payload.signer_email or "").strip() or None
+    quote.signer_ip = client_ip
+    quote.signer_user_agent = user_agent
     quote.accepted_at = func.now()
     db.commit()
-    return {"accepted": True, "status": quote.status, "signed_by": quote.signed_by}
+    return {
+        "accepted": True,
+        "status": quote.status,
+        "signed_by": quote.signed_by,
+        "signer_ip": client_ip,
+    }
 
 
 @router.get("/view/quote/{public_uuid}/download-pdf")
@@ -121,6 +141,7 @@ def public_quote_download_pdf(
         "today": time.strftime("%B %d, %Y"),
         "signature_uri": quote_pdf.signature_uri(quote.client_signature),
         "signed_by": quote.signed_by,
+        "signer_ip": quote.signer_ip,
         "accepted_at": quote.accepted_at,
     }
     quote_pdf.render_quote_pdf(context, out_path)
