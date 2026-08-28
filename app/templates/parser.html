@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block content %}
+<div x-data="parserPage()" x-init="init()" class="space-y-5">
+  <!-- Upload + claim info -->
+  <div class="bq-card p-5">
+    <h2 class="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Carrier estimate</h2>
+    <div class="flex flex-wrap items-center gap-3">
+      <input type="file" accept="application/pdf" @change="upload($event)" class="text-sm">
+      <span class="text-xs text-slate-400" x-show="uploading" x-cloak>Reading PDF…</span>
+      <span class="text-sm text-red-600" x-show="error" x-cloak x-text="error"></span>
+    </div>
+
+    <div x-show="parsed" x-cloak class="mt-4 border-t border-slate-100 pt-4 dark:border-slate-700">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="badge" :class="needsReviewCount ? 'badge-sent' : 'badge-accepted'"
+              x-text="needsReviewCount ? needsReviewCount + ' need review' : 'no review flags'"></span>
+        <span class="text-xs text-slate-400" x-text="documentType"></span>
+      </div>
+      <div class="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3 lg:grid-cols-4">
+        <template x-for="(v, k) in claim" :key="k">
+          <div x-show="v && String(v).trim() && String(v).trim() !== '--'">
+            <span class="text-slate-500" x-text="k + ':'"></span>
+            <span class="font-medium" x-text="v"></span>
+          </div>
+        </template>
+      </div>
+      <ul x-show="warnings.length" x-cloak class="mt-3 space-y-1">
+        <template x-for="(w, i) in warnings" :key="i">
+          <li class="text-xs text-amber-700 dark:text-amber-300">⚠ <span x-text="w"></span></li>
+        </template>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Editable scope table -->
+  <div class="bq-card overflow-x-auto" x-show="parsed" x-cloak>
+    <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-slate-700">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Scope of work</h2>
+      <button class="bq-btn-secondary" @click="addRow()">＋ Add a line item</button>
+    </div>
+    <table class="w-full min-w-200 grid-table">
+      <thead>
+        <tr>
+          <th>On</th><th>#</th><th>Trade</th><th>Description</th><th class="text-right">Qty</th><th>Unit</th>
+          <th class="text-right">Unit Cost</th><th class="text-right">Margin %</th><th>Mat</th>
+          <th class="text-right">Your Price</th><th>Review</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="(row, i) in rows" :key="i">
+          <tr>
+            <td><input type="checkbox" x-model="row['Include']" @change="totals()"></td>
+            <td class="text-xs text-slate-400" x-text="row['#']"></td>
+            <td>
+              <select class="bq-input" x-model="row['Trade']">
+                <option value="">—</option>
+                <template x-for="t in tradeOptions" :key="t"><option :value="t" x-text="t"></option></template>
+              </select>
+            </td>
+            <td><input class="bq-input" x-model="row['Description']" placeholder="Description"></td>
+            <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" step="0.001" x-model.number="row['Qty']" @change="totals()"></td>
+            <td><input class="bq-input w-16" x-model="row['Unit']"></td>
+            <td class="text-right"><input class="bq-input w-24 text-right" type="number" min="0" step="0.01" x-model.number="row['Unit Cost']" @change="totals()"></td>
+            <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" max="100" step="0.5" x-model.number="row['Margin %']" @change="totals()"></td>
+            <td><input type="checkbox" x-model="row['Material']" @change="totals()"></td>
+            <td class="text-right font-semibold text-slate-900 dark:text-slate-100" x-text="fmt(lineTotal(row))"></td>
+            <td><input type="checkbox" x-model="row['Needs Review']"></td>
+            <td><button class="text-slate-400 hover:text-red-600" @click="removeRow(i)">✕</button></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Totals + tax -->
+  <div class="grid gap-5 lg:grid-cols-3" x-show="parsed" x-cloak>
+    <div class="bq-card p-5 lg:col-span-1">
+      <h2 class="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Contract & tax</h2>
+      <label class="mb-1 block text-xs font-medium text-slate-500">Contract type</label>
+      <select class="bq-input" x-model="taxRule" @change="totals()">
+        <template x-for="(label, key) in taxOptions" :key="key">
+          <option :value="key" x-text="label"></option>
+        </template>
+      </select>
+      <label class="mb-1 mt-3 block text-xs font-medium text-slate-500">Tax rate (%)</label>
+      <input class="bq-input" type="number" min="0" step="0.05" x-model.number="taxRate" @change="totals()">
+      <label class="mb-1 mt-3 block text-xs font-medium text-slate-500">Deductible ($)</label>
+      <input class="bq-input" type="number" min="0" step="100" x-model.number="deductible">
+    </div>
+
+    <div class="bq-card p-5 lg:col-span-2">
+      <h2 class="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Your price</h2>
+      <dl class="space-y-1.5 text-sm">
+        <div class="flex justify-between"><dt class="text-slate-500">Subtotal</dt><dd class="font-medium" x-text="BQ.money(totals.subtotal)"></dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Sales tax</dt><dd class="font-medium" x-text="BQ.money(totals.tax)"></dd></div>
+        <div class="flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900 dark:border-slate-700 dark:text-white">
+          <dt>Contract price</dt><dd x-text="BQ.money(totals.total)"></dd>
+        </div>
+      </dl>
+      <div class="mt-4 border-t border-slate-100 pt-3 dark:border-slate-700" x-show="totals.trades && totals.trades.length">
+        <p class="mb-1 text-xs font-medium text-slate-500">By trade</p>
+        <template x-for="t in totals.trades" :key="t.Trade">
+          <div class="flex justify-between text-sm"><span class="text-slate-600" x-text="t.Trade"></span><span x-text="BQ.money(t.Subtotal)"></span></div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export -->
+  <div class="bq-card p-5" x-show="parsed" x-cloak>
+    <h2 class="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Export</h2>
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div><label class="mb-1 block text-xs font-medium text-slate-500">Business name</label>
+        <input class="bq-input" x-model="biz.name"></div>
+      <div><label class="mb-1 block text-xs font-medium text-slate-500">Address</label>
+        <input class="bq-input" x-model="biz.address"></div>
+      <div><label class="mb-1 block text-xs font-medium text-slate-500">Phone</label>
+        <input class="bq-input" x-model="biz.phone"></div>
+      <div><label class="mb-1 block text-xs font-medium text-slate-500">Email</label>
+        <input class="bq-input" x-model="biz.email"></div>
+      <div><label class="mb-1 block text-xs font-medium text-slate-500">License #</label>
+        <input class="bq-input" x-model="biz.license_number"></div>
+    </div>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <button class="bq-btn" :disabled="!rows.length || exporting" @click="exportPdf()" x-text="exporting ? 'Building…' : 'Branded proposal PDF'"></button>
+      <button class="bq-btn-secondary" :disabled="!rows.length || exporting" @click="exportCsv()">Scope as CSV</button>
+      <span class="text-sm text-red-600" x-show="error" x-cloak x-text="error"></span>
+      <span class="text-xs text-slate-400" x-show="businessFromOrg" x-cloak>Business info loaded from Settings — edit here just for this export.</span>
+    </div>
+  </div>
+</div>
+
+
+<script>
+function parserPage() {
+  return {
+    biz: { name: '', address: '', phone: '', email: '', license_number: '', logo_data_url: '' },
+    businessFromOrg: false,
+    taxRule: 'none', taxRate: 8.25, taxOptions: {}, tradeOptions: [],
+    parsed: null, claim: {}, warnings: [], documentType: '', needsReviewCount: 0, deductible: null,
+    rows: [], uploading: false, exporting: false, error: '',
+    totals: { subtotal: 0, tax: 0, total: 0, count: 0, trades: [] },
+
+    async init() {
+      try {
+        const meta = await BQ.api('/api/meta');
+        this.taxOptions = meta.tax_rules;
+        this.tradeOptions = meta.trade_options;
+        this.taxRate = meta.default_tax_rate_pct || 8.25;
+        this.taxRule = 'none';
+      } catch (e) { console.error(e); }
+      // Prefill business info from the organization profile.
+      try {
+        const org = await BQ.api('/api/organization/me');
+        this.biz.name = org.name || '';
+        this.biz.address = org.address || '';
+        this.biz.phone = org.phone || '';
+        if (org.logo_url) {
+          try {
+            const res = await fetch(org.logo_url);
+            const blob = await res.blob();
+            this.biz.logo_data_url = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.readAsDataURL(blob);
+            });
+          } catch (e) { /* no logo */ }
+        }
+        this.businessFromOrg = true;
+      } catch (e) { /* org-less user */ }
+    },
+
+    async upload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      this.uploading = true; this.error = '';
+      try {
+        const form = new FormData();
+        form.append('file', file);
+        const data = await BQ.api('/api/parse', { method: 'POST', body: form });
+        this.parsed = data;
+        this.claim = data.claim_fields || {};
+        this.warnings = data.warnings || [];
+        this.documentType = data.document_type || '';
+        this.needsReviewCount = data.needs_review_count || 0;
+        this.deductible = data.deductible;
+        this.rows = data.rows || [];
+        await this.totals();
+      } catch (e) { this.error = e.message; }
+      this.uploading = false;
+    },
+
+    async totals() {
+      try {
+        this.totals = await BQ.api('/api/totals', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows: this.rows, tax_rule: this.taxRule, tax_rate_pct: this.taxRate }),
+        });
+      } catch (e) { console.error(e); }
+    },
+
+    addRow() {
+      this.rows.push({
+        '#': 'A' + (this.rows.length + 1), Include: true, Trade: '', Section: 'Added by you',
+        Description: '', Qty: 0, Unit: '', 'Unit Cost': 0, 'Margin %': 20, Material: true,
+        'Insurance RCV': null, 'Insurance O&P': null, 'Code Cite': false,
+        'Needs Review': false, 'Review Note': '', 'Recoverable Depreciation': 0,
+      });
+      this.totals();
+    },
+    removeRow(i) { this.rows.splice(i, 1); this.totals(); },
+    lineTotal(r) { return Number(r['Qty'] || 0) * Number(r['Unit Cost'] || 0) * (1 + Number(r['Margin %'] || 0) / 100); },
+    fmt(n) { return BQ.money(n); },
+
+    async download(path, fallbackName) {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + BQ.token() },
+        body: JSON.stringify({
+          rows: this.rows, business: this.biz, claim_fields: this.claim,
+          tax_rule: this.taxRule, tax_rate_pct: this.taxRate, deductible: this.deductible,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error((typeof d.detail === 'string' ? d.detail : 'Export failed') || 'Export failed');
+      }
+      let name = fallbackName;
+      const cd = res.headers.get('Content-Disposition') || '';
+      const m = cd.match(/filename="?([^";]+)"?/);
+      if (m) name = m[1];
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    },
+
+    async exportPdf() {
+      this.exporting = true; this.error = '';
+      try { await this.download('/api/proposal', 'proposal.pdf'); }
+      catch (e) { this.error = e.message; }
+      this.exporting = false;
+    },
+    async exportCsv() {
+      this.exporting = true; this.error = '';
+      try { await this.download('/api/csv', 'scope.csv'); }
+      catch (e) { this.error = e.message; }
+      this.exporting = false;
+    },
+  };
+}
+</script>
+{% endblock %}
+

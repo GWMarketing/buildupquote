@@ -39,6 +39,11 @@ def dashboard(request: Request):
     return templates.TemplateResponse(request, "dashboard.html", {"active": "dashboard"})
 
 
+@router.get("/parser")
+def parser(request: Request):
+    return templates.TemplateResponse(request, "parser.html", {"active": "parser"})
+
+
 @router.get("/quotes")
 def quotes_list(request: Request):
     return templates.TemplateResponse(request, "quotes.html", {"active": "quotes"})
