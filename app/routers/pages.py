@@ -7,7 +7,6 @@ redirects to /login when no token is present.
 import os
 
 from fastapi import APIRouter, Request
-from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 router = APIRouter(include_in_schema=False)
@@ -19,8 +18,10 @@ templates = Jinja2Templates(directory=_TEMPLATES_DIR)
 
 
 @router.get("/")
-def home():
-    return RedirectResponse("/dashboard")
+def home(request: Request):
+    """Serve the dashboard directly on the root URL -- always 200, with no
+    307 hop that clients, health checks, or proxies must follow."""
+    return templates.TemplateResponse(request, "dashboard.html", {"active": "dashboard"})
 
 
 @router.get("/login")
