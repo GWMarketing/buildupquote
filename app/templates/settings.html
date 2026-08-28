@@ -1,53 +1,82 @@
 {% extends "base.html" %}
 {% block content %}
-<div x-data="settingsPage()" x-init="init()" class="max-w-2xl space-y-5">
+<div x-data="settingsPage()" x-init="init()" class="mx-auto max-w-3xl space-y-5">
   <h1 class="text-xl font-bold text-slate-900 dark:text-white">Settings</h1>
 
   <div class="bq-card p-6" x-show="!hasOrg" x-cloak>
     <p class="text-sm text-slate-500">No organization yet — create one from your account (register with a company name) before saving company settings.</p>
   </div>
 
+  <!-- Branding & Identity -->
   <div class="bq-card p-6" x-show="hasOrg" x-cloak>
-    <h2 class="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Company profile</h2>
-    <div class="grid gap-4 sm:grid-cols-2">
-      <div class="sm:col-span-2"><label class="mb-1 block text-xs font-medium text-slate-500">Business name</label>
-        <input class="bq-input" x-model="profile.name"></div>
-      <div class="sm:col-span-2"><label class="mb-1 block text-xs font-medium text-slate-500">Address</label>
-        <input class="bq-input" x-model="profile.address"></div>
-      <div><label class="mb-1 block text-xs font-medium text-slate-500">Phone</label>
-        <input class="bq-input" x-model="profile.phone"></div>
-      <div><label class="mb-1 block text-xs font-medium text-slate-500">VAT / Tax ID</label>
-        <input class="bq-input" x-model="profile.tax_id"></div>
-      <div><label class="mb-1 block text-xs font-medium text-slate-500">Default payment terms</label>
-        <select class="bq-input" x-model="profile.default_payment_terms">
-          <option value="">—</option>
-          <option>Due on receipt</option><option>Net 7</option><option>Net 14</option><option>Net 30</option>
-        </select></div>
-      <div><label class="mb-1 block text-xs font-medium text-slate-500">Currency</label>
-        <select class="bq-input" x-model="profile.currency_symbol">
-          <option value="$">$ — US Dollar</option>
-          <option value="A$">A$ — Australian Dollar</option>
-          <option value="£">£ — British Pound</option>
-          <option value="€">€ — Euro</option>
-        </select></div>
-    </div>
-    <div class="mt-5 flex items-center gap-3">
-      <button class="bq-btn" :disabled="saving" @click="save()" x-text="saving ? 'Saving…' : 'Save profile'"></button>
-      <span class="text-sm text-emerald-600" x-show="saved" x-cloak>Saved ✓</span>
-      <span class="text-sm text-red-600" x-show="error" x-cloak x-text="error"></span>
-    </div>
-  </div>
-
-  <div class="bq-card p-6" x-show="hasOrg" x-cloak>
-    <h2 class="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Logo</h2>
+    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Branding & Identity</h2>
+    <p class="mb-4 text-xs text-slate-400">How your business appears on exported quotes.</p>
     <div class="flex items-center gap-5">
       <img :src="logoPreview" x-show="logoPreview" x-cloak
            class="h-20 w-20 rounded-lg border border-slate-200 bg-white object-contain">
       <div>
         <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" @change="onLogo($event)" class="text-sm">
-        <p class="mt-1 text-xs text-slate-400">PNG, JPG, SVG, GIF or WebP (max 2MB) — uploaded to the server and shown on exported PDFs.</p>
+        <p class="mt-1 text-xs text-slate-400">PNG, JPG, SVG, GIF or WebP (max 2MB) — shown in the PDF header.</p>
         <p class="mt-1 text-xs text-emerald-600" x-show="logoSaved" x-cloak>Logo updated ✓</p>
       </div>
+    </div>
+    <div class="mt-5 grid gap-4 sm:grid-cols-2">
+      <div class="sm:col-span-2"><label class="mb-1 block text-xs font-medium text-slate-500">Business name</label>
+        <input class="bq-input" x-model="profile.name"></div>
+      <div class="sm:col-span-2"><label class="mb-1 block text-xs font-medium text-slate-500">Company description / tagline</label>
+        <textarea class="bq-input" rows="2" x-model="profile.description" placeholder="e.g. Licensed roof repair & restoration specialists since 2009"></textarea></div>
+      <div class="sm:col-span-2"><label class="mb-1 block text-xs font-medium text-slate-500">Website URL</label>
+        <input class="bq-input" type="url" x-model="profile.website" placeholder="https://www.example.com"></div>
+    </div>
+  </div>
+
+  <!-- Contact Information -->
+  <div class="bq-card p-6" x-show="hasOrg" x-cloak>
+    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Contact Information</h2>
+    <p class="mb-4 text-xs text-slate-400">Public contact details shown on your quotes.</p>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div><label class="mb-1 block text-xs font-medium text-slate-500">Business email</label>
+        <input class="bq-input" type="email" x-model="profile.email" placeholder="office@example.com"></div>
+      <div><label class="mb-1 block text-xs font-medium text-slate-500">Phone number</label>
+        <input class="bq-input" x-model="profile.phone" placeholder="(555) 010-1234"></div>
+      <div class="sm:col-span-2"><label class="mb-1 block text-xs font-medium text-slate-500">Physical / mailing address</label>
+        <textarea class="bq-input" rows="2" x-model="profile.address" placeholder="123 Main St, Anytown, CA 90210"></textarea></div>
+    </div>
+  </div>
+
+  <!-- Legal & Tax Info -->
+  <div class="bq-card p-6" x-show="hasOrg" x-cloak>
+    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Legal & Tax Info</h2>
+    <p class="mb-4 text-xs text-slate-400">Licenses and tax identifiers printed on your quotes.</p>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div><label class="mb-1 block text-xs font-medium text-slate-500">Tax ID / VAT number</label>
+        <input class="bq-input" x-model="profile.tax_id" placeholder="EIN / VAT / GST"></div>
+      <div><label class="mb-1 block text-xs font-medium text-slate-500">Trade / contractor license number</label>
+        <input class="bq-input" x-model="profile.license_number" placeholder="e.g. CSLB #123456"></div>
+    </div>
+  </div>
+
+  <!-- Quote Defaults -->
+  <div class="bq-card p-6" x-show="hasOrg" x-cloak>
+    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Quote Defaults</h2>
+    <p class="mb-4 text-xs text-slate-400">Defaults applied to new quotes and exports.</p>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div><label class="mb-1 block text-xs font-medium text-slate-500">Default currency</label>
+        <select class="bq-input" x-model="profile.currency_symbol">
+          <option value="$">$ — US Dollar</option>
+          <option value="£">£ — British Pound</option>
+          <option value="€">€ — Euro</option>
+          <option value="CAD">CAD — Canadian Dollar</option>
+          <option value="AUD">AUD — Australian Dollar</option>
+        </select></div>
+      <div class="sm:col-span-2"><label class="mb-1 block text-xs font-medium text-slate-500">Payment terms / notes boilerplate</label>
+        <textarea class="bq-input" rows="3" x-model="profile.default_payment_terms"
+                  placeholder="e.g. Due on receipt · Net 7 · Net 14 · Net 30 — or any custom payment notes"></textarea></div>
+    </div>
+    <div class="mt-5 flex items-center gap-3">
+      <button class="bq-btn" :disabled="saving" @click="save()" x-text="saving ? 'Saving…' : 'Save changes'"></button>
+      <span class="text-sm text-emerald-600" x-show="saved" x-cloak>Saved ✓</span>
+      <span class="text-sm text-red-600" x-show="error" x-cloak x-text="error"></span>
     </div>
   </div>
 </div>
@@ -57,15 +86,20 @@ function settingsPage() {
   return {
     hasOrg: false, saving: false, saved: false, logoSaved: false, error: '',
     logoPreview: '',
-    profile: { name: '', address: '', phone: '', tax_id: '', default_payment_terms: '', currency_symbol: '$' },
+    profile: { name: '', description: '', website: '', email: '', phone: '', address: '',
+               license_number: '', tax_id: '', default_payment_terms: '', currency_symbol: '$' },
     async init() {
       try {
         const org = await BQ.api('/api/organization/me');
         this.hasOrg = true;
         this.profile = {
           name: org.name || '',
-          address: org.address || '',
+          description: org.description || '',
+          website: org.website || '',
+          email: org.email || '',
           phone: org.phone || '',
+          address: org.address || '',
+          license_number: org.license_number || '',
           tax_id: org.tax_id || '',
           default_payment_terms: org.default_payment_terms || '',
           currency_symbol: org.currency_symbol || '$',

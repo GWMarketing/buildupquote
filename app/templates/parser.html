@@ -169,6 +169,8 @@ function parserPage() {
         this.biz.name = org.name || '';
         this.biz.address = org.address || '';
         this.biz.phone = org.phone || '';
+        this.biz.email = org.email || '';
+        this.biz.license_number = org.license_number || '';
         if (org.logo_url) {
           try {
             const res = await fetch(org.logo_url);

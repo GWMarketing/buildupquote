@@ -77,6 +77,10 @@ def ensure_legacy_columns(bind):
             ("default_payment_terms", "ALTER TABLE organizations ADD COLUMN default_payment_terms VARCHAR"),
             ("currency_symbol", "ALTER TABLE organizations ADD COLUMN currency_symbol VARCHAR"),
             ("logo_url", "ALTER TABLE organizations ADD COLUMN logo_url VARCHAR"),
+            ("description", "ALTER TABLE organizations ADD COLUMN description TEXT"),
+            ("website", "ALTER TABLE organizations ADD COLUMN website VARCHAR"),
+            ("email", "ALTER TABLE organizations ADD COLUMN email VARCHAR"),
+            ("license_number", "ALTER TABLE organizations ADD COLUMN license_number VARCHAR"),
         ):
             if col not in org_cols:
                 statements.append(ddl)

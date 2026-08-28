@@ -37,10 +37,14 @@ class Organization(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     slug = Column(String, unique=True, index=True, nullable=False)
+    description = Column(Text, nullable=True)  # bio / company description / tagline
     phone = Column(String, nullable=True)
-    address = Column(String, nullable=True)
-    tax_id = Column(String, nullable=True)
-    default_payment_terms = Column(String, nullable=True)
+    website = Column(String, nullable=True)
+    email = Column(String, nullable=True)  # public business contact email
+    address = Column(Text, nullable=True)
+    license_number = Column(String, nullable=True)  # contractor / trade license
+    tax_id = Column(String, nullable=True)  # VAT / EIN / Tax ID
+    default_payment_terms = Column(Text, nullable=True)
     currency_symbol = Column(String, nullable=True)
     logo_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

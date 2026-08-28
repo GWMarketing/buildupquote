@@ -16,8 +16,12 @@ class OrganizationCreate(BaseModel):
 
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = None
+    description: Optional[str] = None
+    website: Optional[str] = None
+    email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+    license_number: Optional[str] = None
     tax_id: Optional[str] = None
     default_payment_terms: Optional[str] = None
     currency_symbol: Optional[str] = None
@@ -27,8 +31,12 @@ class OrganizationOut(BaseModel):
     id: int
     name: str
     slug: str
+    description: Optional[str] = None
+    website: Optional[str] = None
+    email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+    license_number: Optional[str] = None
     tax_id: Optional[str] = None
     default_payment_terms: Optional[str] = None
     currency_symbol: Optional[str] = None

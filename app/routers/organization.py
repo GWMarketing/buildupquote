@@ -18,20 +18,47 @@ _ALLOWED_LOGO_EXTS = {".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp"}
 _MAX_LOGO_BYTES = 2 * 1024 * 1024  # 2 MB
 
 
-def _get_org(current_user: models.User) -> models.Organization:
-    if current_user.organization is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No organization",
-        )
-    return current_user.organization
+def _unique_slug(db: Session, base: str) -> str:
+    """'acme-roofing', 'acme-roofing-2', 'acme-roofing-3' ... -- the first
+    candidate that isn't already taken (mirrors auth.register)."""
+    candidate, n = base, 2
+    exists = db.query(models.Organization).filter(models.Organization.slug == candidate).first()
+    while exists:
+        candidate = f"{base}-{n}"
+        n += 1
+        exists = db.query(models.Organization).filter(models.Organization.slug == candidate).first()
+    return candidate
+
+
+def _get_or_provision_org(db: Session, current_user: models.User) -> models.Organization:
+    """The user's organization, auto-created on first access so an org-less
+    account (registered without a company name) can still manage a profile.
+    The name falls back to the user's full name, then 'My Business'."""
+    if current_user.organization is not None:
+        return current_user.organization
+    base_name = (current_user.full_name or "").strip() or "My Business"
+    org = models.Organization(
+        name=base_name,
+        slug=_unique_slug(db, models.slugify(base_name)),
+    )
+    db.add(org)
+    db.flush()
+    current_user.organization_id = org.id
+    db.add(current_user)
+    db.commit()
+    db.refresh(org)
+    return org
 
 
 @router.get("/me", response_model=schemas.OrganizationOut)
-def organization_me(current_user: models.User = Depends(get_current_user)):
-    """The authenticated user's own organization. 404 when they don't
-    belong to one yet (they registered without an organization name)."""
-    return _get_org(current_user)
+def organization_me(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """The authenticated user's own organization profile. Auto-provisions an
+    organization for accounts that registered without one, so every user has
+    a profile to manage."""
+    return _get_or_provision_org(db, current_user)
 
 
 @router.put("/me", response_model=schemas.OrganizationOut)
@@ -40,18 +67,19 @@ def update_organization_me(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """Partial update of the organization profile. Only the fields sent
-    are touched; a blank name is rejected."""
-    org = _get_org(current_user)
+    """Partial update of the organization profile. Only the fields sent are
+    touched; a blank name is rejected."""
+    org = _get_or_provision_org(db, current_user)
     if payload.name is not None:
         name = payload.name.strip()
         if not name:
             raise HTTPException(status_code=400, detail="Business name cannot be blank")
         org.name = name
-    for field in ("phone", "address", "tax_id", "default_payment_terms", "currency_symbol"):
+    for field in ("description", "website", "email", "phone", "address",
+                  "license_number", "tax_id", "default_payment_terms", "currency_symbol"):
         value = getattr(payload, field, None)
         if value is not None:
-            setattr(org, field, value)
+            setattr(org, field, value.strip() if isinstance(value, str) else value)
     db.add(org)
     db.commit()
     db.refresh(org)
@@ -66,7 +94,7 @@ async def upload_organization_logo(
 ):
     """Upload a new logo (PNG/JPG/SVG/GIF/WebP, max 2MB). Saves it under
     /static/uploads/logos and updates logo_url on the organization."""
-    org = _get_org(current_user)
+    org = _get_or_provision_org(db, current_user)
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in _ALLOWED_LOGO_EXTS:
         raise HTTPException(

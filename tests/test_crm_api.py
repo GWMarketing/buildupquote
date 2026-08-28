@@ -34,10 +34,13 @@ class CrmApiTestCase(unittest.TestCase):
     def tearDownClass(cls):
         cls.client.__exit__(None, None, None)
 
-    def register(self, email, org="Acme Roofing"):
-        r = self.client.post("/api/auth/register", json={
+    def register(self, email, org="Acme Roofing", full_name=None):
+        payload = {
             "email": email, "password": "pw12345678", "organization_name": org,
-        })
+        }
+        if full_name:
+            payload["full_name"] = full_name
+        r = self.client.post("/api/auth/register", json=payload)
         self.assertEqual(r.status_code, 201, r.text)
         token = r.json()["access_token"]
         return {"Authorization": f"Bearer {token}"}
@@ -73,14 +76,49 @@ class CrmApiTestCase(unittest.TestCase):
         r = self.client.get("/api/quotes")
         self.assertEqual(r.status_code, 401)
 
-    def test_org_profile_update(self):
+    def test_org_profile_update_all_fields(self):
         auth = self.register("profile@acme.com")
         r = self.client.put("/api/organization/me", headers=auth, json={
-            "name": "Acme Roofing Co", "phone": "555-0000", "tax_id": "TX-1",
+            "name": "Acme Roofing Co",
+            "description": "Licensed roof repair & restoration specialists",
+            "website": "https://acme.example.com",
+            "email": "office@acme.example.com",
+            "phone": "555-0000",
+            "address": "1 Market St, Anytown",
+            "license_number": "CSLB #123456",
+            "tax_id": "TX-1",
+            "default_payment_terms": "Due on receipt. 10% discount for upfront payment.",
+            "currency_symbol": "£",
         })
         self.assertEqual(r.status_code, 200, r.text)
-        self.assertEqual(r.json()["name"], "Acme Roofing Co")
-        self.assertEqual(r.json()["phone"], "555-0000")
+        body = r.json()
+        self.assertEqual(body["name"], "Acme Roofing Co")
+        self.assertEqual(body["description"], "Licensed roof repair & restoration specialists")
+        self.assertEqual(body["website"], "https://acme.example.com")
+        self.assertEqual(body["email"], "office@acme.example.com")
+        self.assertEqual(body["phone"], "555-0000")
+        self.assertEqual(body["address"], "1 Market St, Anytown")
+        self.assertEqual(body["license_number"], "CSLB #123456")
+        self.assertEqual(body["tax_id"], "TX-1")
+        self.assertEqual(body["default_payment_terms"], "Due on receipt. 10% discount for upfront payment.")
+        self.assertEqual(body["currency_symbol"], "£")
+        # Persisted: a fresh GET returns the same values.
+        r = self.client.get("/api/organization/me", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["license_number"], "CSLB #123456")
+        self.assertEqual(r.json()["description"], "Licensed roof repair & restoration specialists")
+
+    def test_org_me_autoprovisions_for_orgless_user(self):
+        # Registered without a company name -> no org, but GET /me creates one.
+        auth = self.register("solopreneur@acme.com", org="", full_name="Solopreneur")
+        r = self.client.get("/api/organization/me", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        org = r.json()
+        self.assertEqual(org["name"], "Solopreneur")  # falls back to full_name
+        # The same org now backs the user's quotes.
+        r = self.client.post("/api/quotes", headers=auth, json={"title": "First job"})
+        self.assertEqual(r.status_code, 201, r.text)
+        self.assertEqual(r.json()["organization_id"], org["id"])
 
     # ------------------------------------------------------------------
     # Clients
