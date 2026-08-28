@@ -100,6 +100,13 @@ def _run_calculator(name: str, dimensions: dict) -> list[dict]:
     return lines
 
 
+def calculate_calculator(name: str, dimensions: dict) -> list[dict]:
+    """Run a registered Python calculator by name and normalize its lines
+    into the app's line contract. Public entry point for the catalog's
+    calculate-assembly endpoint."""
+    return _run_calculator(name, dimensions)
+
+
 def calculate_assembly_lines(assembly: ParametricAssembly, dimensions: dict) -> list[dict]:
     """Price an assembly for the caller's dimensions.
 

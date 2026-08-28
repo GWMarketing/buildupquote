@@ -127,6 +127,17 @@ class ApplyAssemblyRequest(BaseModel):
     dimensions: dict[str, float]
 
 
+class AssemblyBuildRequest(BaseModel):
+    """POST /api/catalog/calculate-assembly -- run a hand-written assembly
+    calculator by type ('stud_wall' or 'floor_tiling') for a set of
+    dimensions."""
+
+    assembly_type: str
+    length: float
+    width: float = 0.0
+    height: float = 0.0
+
+
 class AssemblyLineOut(BaseModel):
     description: str
     item_type: str

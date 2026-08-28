@@ -484,6 +484,56 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertEqual(len(names), len(set(names)))
         self.assertIn("Floor tile (ceramic)", names)
 
+    def test_catalog_autocorrect_matches_canonical_names_too(self):
+        auth = self.register("catalog5@acme.com")
+        r = self.client.get("/api/catalog/autocorrect", params={"q": "concrete block"}, headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertTrue(any(res["canonical_name"] == "Concrete blocks (100mm)"
+                            for res in r.json()["results"]), r.text)
+
+    # ------------------------------------------------------------------
+    # /api/catalog/calculate-assembly
+    # ------------------------------------------------------------------
+    def test_calculate_assembly_stud_wall(self):
+        auth = self.register("calcapi@acme.com")
+        r = self.client.post("/api/catalog/calculate-assembly", headers=auth, json={
+            "assembly_type": "stud_wall", "length": 4, "height": 2.4,
+        })
+        self.assertEqual(r.status_code, 200, r.text)
+        body = r.json()
+        self.assertEqual(body["assembly_type"], "stud_wall")
+        self.assertEqual(len(body["lines"]), 5)
+        first = body["lines"][0]
+        self.assertEqual(first["description"], "70mm Metal/Timber Studs (2.4m)")
+        self.assertEqual(first["item_type"], "material")
+        self.assertEqual(first["trade"], "Carpentry")
+        self.assertEqual(first["unit"], "pcs")
+        self.assertEqual(first["quantity"], 9)
+        self.assertAlmostEqual(first["subtotal"], 48.60, places=2)
+        self.assertGreater(body["total"], 0)
+
+    def test_calculate_assembly_floor_tiling(self):
+        auth = self.register("calcapi2@acme.com")
+        r = self.client.post("/api/catalog/calculate-assembly", headers=auth, json={
+            "assembly_type": "floor_tiling", "length": 4, "width": 3,
+        })
+        self.assertEqual(r.status_code, 200, r.text)
+        body = r.json()
+        self.assertEqual(len(body["lines"]), 4)
+        self.assertEqual([l["item_type"] for l in body["lines"]],
+                         ["material", "material", "material", "labor"])
+
+    def test_calculate_assembly_errors(self):
+        auth = self.register("calcapi3@acme.com")
+        r = self.client.post("/api/catalog/calculate-assembly", headers=auth, json={
+            "assembly_type": "does_not_exist", "length": 4,
+        })
+        self.assertEqual(r.status_code, 400)
+        r = self.client.post("/api/catalog/calculate-assembly", headers=auth, json={
+            "assembly_type": "stud_wall", "length": 4,  # height missing
+        })
+        self.assertEqual(r.status_code, 400)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,68 +1,143 @@
-"""Trade catalog autocorrect (PostgreSQL trigram).
+"""Trade catalog autocorrect + assembly calculators (PostgreSQL trigram).
 
 GET /api/catalog/autocorrect?q=... is the typeahead behind the quote
-builder's description combobox: it resolves whatever a contractor half-types
-('sheetro', '2x4', 'thins') to a canonical priced catalog item using
-pg_trgm similarity on raw terms. On non-PostgreSQL databases (SQLite in dev
-and tests) it falls back to a contains match so the endpoint still works.
+builder's description combobox. It resolves a half-typed term ('sheetro',
+'2x4', 'thins') to a canonical priced catalog item by matching the raw
+aliases AND the canonical name, ranked by the best PostgreSQL trigram
+similarity score. On non-PostgreSQL databases (SQLite in dev and tests) it
+falls back to a contains match so the endpoint keeps working.
+
+POST /api/catalog/calculate-assembly runs a hand-written Python assembly
+calculator (stud_wall / floor_tiling) for the given dimensions and returns
+the normalized, priced line items.
 """
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, or_, text
 from sqlalchemy.orm import Session
 
-from app import models
+from app import models, schemas
 from app.auth import get_current_user
 from app.database import get_db
+from app.services.assembly_service import AssemblyFormulaError, calculate_calculator
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 
+# assembly_type -> calculator name registered in assembly_calculators.py
+_ASSEMBLY_TYPE_TO_CALCULATOR = {
+    "stud_wall": "calculate_partition_wall",
+    "floor_tiling": "calculate_floor_tiling",
+}
+
+
+def _autocorrect_postgres(db: Session, query: str, limit: int):
+    """Trigram similarity over canonical names AND raw aliases, best score
+    wins -- the raw-SQL form (PostgreSQL only)."""
+    sql = text(
+        """
+        SELECT
+            c.id, c.trade, c.canonical_name, c.unit, c.default_unit_cost,
+            c.default_trade_type,
+            GREATEST(similarity(c.canonical_name, :q),
+                     COALESCE(MAX(similarity(s.raw_term, :q)), 0)) AS match_score
+        FROM trade_catalog_items c
+        LEFT JOIN trade_synonyms s ON c.id = s.catalog_id
+        WHERE c.canonical_name ILIKE :wildcard
+           OR s.raw_term ILIKE :wildcard
+           OR similarity(c.canonical_name, :q) > 0.25
+           OR similarity(s.raw_term, :q) > 0.25
+        GROUP BY c.id
+        ORDER BY match_score DESC
+        LIMIT :limit
+        """
+    )
+    return db.execute(sql, {"q": query, "wildcard": f"%{query}%", "limit": limit}).fetchall()
+
+
+def _autocorrect_fallback(db: Session, query: str, limit: int):
+    """Contains match over canonical names AND raw aliases (SQLite in dev
+    and tests) -- same result shape, no Postgres-specific SQL."""
+    return (
+        db.query(models.TradeCatalogItem, models.TradeSynonym)
+        .outerjoin(models.TradeSynonym, models.TradeCatalogItem.id == models.TradeSynonym.catalog_id)
+        .filter(or_(
+            models.TradeCatalogItem.canonical_name.ilike(f"%{query}%"),
+            models.TradeSynonym.raw_term.ilike(f"%{query}%"),
+        ))
+        .limit(limit * 4)
+        .all()
+    )
+
+
+def _row_to_result(row) -> dict:
+    return {
+        "id": row.id,
+        "trade": row.trade,
+        "canonical_name": row.canonical_name,
+        "unit": row.unit,
+        "default_unit_cost": float(row.default_unit_cost or 0),
+        # The DB stores display labels ("Material"); the quote builder's
+        # item_type contract is lowercase, so normalize on the way out.
+        "default_trade_type": (row.default_trade_type or "material").lower(),
+    }
+
 
 @router.get("/autocorrect")
-def autocorrect(
+def autocorrect_trade_search(
     q: str = Query("", max_length=80),
-    limit: int = Query(8, ge=1, le=25),
+    limit: int = Query(6, ge=1, le=25),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """Typeahead suggestions: {canonical_name, trade, unit, default_unit_cost,
-    default_trade_type}. Postgres ranks raw terms by trigram similarity and
-    keeps matches above 0.3; other databases use a contains match."""
+    """Typeahead suggestions: {id, trade, canonical_name, unit,
+    default_unit_cost, default_trade_type}. Postgres ranks by the best
+    trigram similarity of the canonical name or any raw alias; other
+    databases use a contains match. Short queries return no results."""
     query = (q or "").strip()
     if len(query) < 2:
         return {"results": []}
 
-    base = db.query(models.TradeSynonym).join(models.TradeCatalogItem)
-    if db.get_bind().dialect.name == "postgresql":
-        similarity = func.similarity(models.TradeSynonym.raw_term, query)
-        rows = (
-            base.filter(similarity > 0.3)
-            .order_by(similarity.desc())
-            .limit(limit * 4)
-            .all()
-        )
-    else:
-        rows = (
-            base.filter(models.TradeSynonym.raw_term.ilike(f"%{query}%"))
-            .limit(limit * 4)
-            .all()
-        )
-
     results = []
     seen = set()
-    for synonym in rows:
-        item = synonym.catalog_item
-        if item.canonical_name in seen:
-            continue
-        seen.add(item.canonical_name)
-        results.append({
-            "canonical_name": item.canonical_name,
-            "trade": item.trade,
-            "unit": item.unit,
-            "default_unit_cost": float(item.default_unit_cost or 0),
-            # The DB stores display labels ("Material"); the quote builder's
-            # item_type contract is lowercase, so normalize on the way out.
-            "default_trade_type": (item.default_trade_type or "material").lower(),
-        })
-        if len(results) >= limit:
-            break
+    if db.get_bind().dialect.name == "postgresql":
+        rows = _autocorrect_postgres(db, query, limit)
+        for row in rows:
+            if row.canonical_name in seen:
+                continue
+            seen.add(row.canonical_name)
+            results.append(_row_to_result(row))
+    else:
+        for item, _synonym in _autocorrect_fallback(db, query, limit):
+            if item.canonical_name in seen:
+                continue
+            seen.add(item.canonical_name)
+            results.append(_row_to_result(item))
     return {"results": results}
+
+
+@router.post("/calculate-assembly")
+def calculate_assembly(
+    payload: schemas.AssemblyBuildRequest,
+    current_user: models.User = Depends(get_current_user),
+):
+    """Run a hand-written assembly calculator ('stud_wall' or
+    'floor_tiling') and return its normalized, priced lines."""
+    calc_name = _ASSEMBLY_TYPE_TO_CALCULATOR.get(payload.assembly_type)
+    if calc_name is None:
+        raise HTTPException(status_code=400, detail="Unknown assembly type")
+
+    dimensions = {"length": payload.length}
+    if payload.width:
+        dimensions["width"] = payload.width
+    if payload.height:
+        dimensions["height"] = payload.height
+    try:
+        lines = calculate_calculator(calc_name, dimensions)
+    except AssemblyFormulaError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "assembly_type": payload.assembly_type,
+        "lines": lines,
+        "total": round(sum(float(line["subtotal"]) for line in lines), 2),
+    }
+
