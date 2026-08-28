@@ -11,3 +11,7 @@ app/static/uploads/logos/*
 
 # local secrets for docker compose interpolation (never commit)
 .env
+
+# uploaded contract files (never commit)
+app/static/uploads/contracts/*
+!app/static/uploads/contracts/.gitkeep
