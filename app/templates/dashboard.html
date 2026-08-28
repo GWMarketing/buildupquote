@@ -1,114 +1,129 @@
 {% extends "base.html" %}
 {% block content %}
-<div x-data="dashboard()" x-init="init()" class="space-y-6">
-  <!-- Page hero -->
-  <div class="bq-hero flex flex-wrap items-center justify-between gap-4">
-    <div class="hero-content">
-      <p class="hero-eyebrow">Contractor workspace</p>
-      <h1>Welcome back<span x-show="orgName" x-cloak>, <span x-text="orgName"></span></span></h1>
-      <p class="hero-sub">Quotes, clients, and pricing — all in one place.</p>
+<div x-data="dashboardAnalytics()" x-init="fetchStats()" class="mx-auto max-w-7xl space-y-6 px-4 py-8">
+
+  <!-- KPI Metric Cards -->
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Active Pipeline</span>
+        <span class="rounded-lg bg-indigo-50 p-2 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><i data-lucide="layers" class="h-4 w-4"></i></span>
+      </div>
+      <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white" x-text="stats.currency + stats.pipeline_total"></p>
+      <p class="mt-1 text-xs text-slate-400" x-text="stats.active_quotes_count + ' draft/sent proposals'"></p>
     </div>
-    <div class="hero-actions">
-      <button class="bq-btn" @click="createQuote()">＋ Create Quote</button>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Won Revenue</span>
+        <span class="rounded-lg bg-emerald-50 p-2 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"><i data-lucide="check-circle" class="h-4 w-4"></i></span>
+      </div>
+      <p class="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400" x-text="stats.currency + stats.won_revenue"></p>
+      <p class="mt-1 text-xs text-slate-400" x-text="stats.accepted_quotes_count + ' accepted contracts'"></p>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Win Rate</span>
+        <span class="rounded-lg bg-amber-50 p-2 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"><i data-lucide="trending-up" class="h-4 w-4"></i></span>
+      </div>
+      <p class="mt-2 text-2xl font-black text-amber-500" x-text="stats.win_rate + '%'"></p>
+      <p class="mt-1 text-xs text-slate-400">Acceptance conversion</p>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Average Gross Margin</span>
+        <span class="rounded-lg bg-sky-50 p-2 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400"><i data-lucide="pie-chart" class="h-4 w-4"></i></span>
+      </div>
+      <p class="mt-2 text-2xl font-black text-sky-600 dark:text-sky-400" x-text="stats.avg_margin + '%'"></p>
+      <p class="mt-1 text-xs text-slate-400">Projected profit margin</p>
     </div>
   </div>
 
-  <!-- Metric cards -->
-  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-    <div class="bq-card p-5">
-      <div class="flex items-center gap-3">
-        <span class="icon-chip bg-amber-500/10 text-amber-600 dark:text-amber-400"><i data-lucide="file-text" class="h-5 w-5"></i></span>
-        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Open Estimates</p>
-      </div>
-      <p class="mt-3 text-3xl font-bold text-slate-900 dark:text-white" x-text="metrics.open"></p>
+  <!-- Quick Action Bar -->
+  <div class="flex flex-col justify-between gap-4 rounded-xl bg-slate-900 p-5 text-white sm:flex-row sm:items-center">
+    <div>
+      <h2 class="text-lg font-bold">Contractor Quick Cockpit</h2>
+      <p class="text-xs text-slate-300">Generate a high-speed parametric bid or import a lead.</p>
     </div>
-    <div class="bq-card p-5">
-      <div class="flex items-center gap-3">
-        <span class="icon-chip bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><i data-lucide="check-circle-2" class="h-5 w-5"></i></span>
-        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Accepted Work</p>
-      </div>
-      <p class="mt-3 text-3xl font-bold text-emerald-600 dark:text-emerald-400" x-text="metrics.accepted"></p>
-    </div>
-    <div class="bq-card p-5">
-      <div class="flex items-center gap-3">
-        <span class="icon-chip bg-blue-500/10 text-blue-600 dark:text-blue-400"><i data-lucide="trending-up" class="h-5 w-5"></i></span>
-        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Quoted Pipeline</p>
-      </div>
-      <p class="mt-3 text-3xl font-bold text-slate-900 dark:text-white" x-text="BQ.money(metrics.pipeline)"></p>
-    </div>
-    <div class="bq-card p-5">
-      <div class="flex items-center gap-3">
-        <span class="icon-chip bg-violet-500/10 text-violet-600 dark:text-violet-400"><i data-lucide="users" class="h-5 w-5"></i></span>
-        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Active Clients</p>
-      </div>
-      <p class="mt-3 text-3xl font-bold text-slate-900 dark:text-white" x-text="metrics.clients"></p>
+    <div class="flex flex-wrap gap-3">
+      <a href="/quotes/new" class="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 shadow transition hover:bg-amber-600">
+        <i data-lucide="plus" class="h-4 w-4"></i> Create Estimate
+      </a>
+      <a href="/parser" class="flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700">
+        <i data-lucide="file-text" class="h-4 w-4 text-amber-400"></i> Insurance Parser
+      </a>
     </div>
   </div>
 
-  <!-- Recent quotes -->
-  <div class="bq-card">
-    <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-700">
-      <div class="card-title">
-        <span class="icon-chip sm bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"><i data-lucide="history" class="h-4 w-4"></i></span>
-        <h2 class="text-base font-semibold text-slate-900 dark:text-white">Recent Quotes</h2>
-      </div>
-      <button class="bq-btn" @click="createQuote()">＋ Create Quote</button>
+
+  <!-- Recent Quotes Board -->
+  <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div class="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-700">
+      <h3 class="font-bold text-slate-900 dark:text-white">Recent Proposals & Quotes</h3>
+      <a href="/quotes" class="text-xs font-semibold text-amber-600 hover:text-amber-700 dark:text-amber-400">View All &rarr;</a>
     </div>
-    <div class="p-5 text-sm text-slate-500" x-show="loading" x-cloak>Loading…</div>
-    <div class="empty-state" x-show="!loading && quotes.length === 0" x-cloak>
-      <span class="icon-chip bg-amber-500/10 text-amber-500"><i data-lucide="file-plus-2" class="h-6 w-6"></i></span>
-      <p class="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">No quotes yet</p>
-      <p class="mt-1 text-sm text-slate-400">Create your first quote and start pricing work.</p>
-      <button class="bq-btn mt-4" @click="createQuote()">＋ Create Quote</button>
-    </div>
-    <ul class="divide-y divide-slate-100 dark:divide-slate-700" x-show="!loading && quotes.length > 0" x-cloak>
-      <template x-for="q in quotes.slice(0, 6)" :key="q.id">
-        <li class="flex items-center justify-between px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800">
-          <a :href="'/quotes/' + q.id" class="min-w-0">
-            <p class="truncate text-sm font-medium text-slate-900 dark:text-slate-100" x-text="q.title"></p>
-            <p class="text-xs text-slate-500" x-text="q.client_name || 'No client'"></p>
-          </a>
-          <div class="flex items-center gap-3">
-            <span class="badge" :class="BQ.statusClass(q.status)" x-text="q.status.charAt(0).toUpperCase() + q.status.slice(1)"></span>
-            <span class="text-sm font-semibold text-slate-900 dark:text-slate-100" x-text="BQ.money(q.total)"></span>
-          </div>
-        </li>
-      </template>
-    </ul>
+    <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+      <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+        <tr>
+          <th class="px-6 py-3 text-left">Quote Ref</th>
+          <th class="px-6 py-3 text-left">Client</th>
+          <th class="px-6 py-3 text-left">Status</th>
+          <th class="px-6 py-3 text-right">Grand Total</th>
+          <th class="px-6 py-3 text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+        <template x-for="q in recentQuotes" :key="q.id">
+          <tr class="transition hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
+            <td class="px-6 py-4 font-bold text-slate-900 dark:text-slate-100">
+              <a :href="'/quotes/' + q.id" class="hover:text-amber-600" x-text="q.title || ('Quote #' + q.id)"></a>
+            </td>
+            <td class="px-6 py-4 text-slate-600 dark:text-slate-300" x-text="q.client_name || 'Direct Client'"></td>
+            <td class="px-6 py-4">
+              <span :class="{
+                  'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300': q.status === 'Draft',
+                  'bg-indigo-100 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300': q.status === 'Sent',
+                  'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300': q.status === 'Accepted'
+                }" class="rounded-full px-2.5 py-1 text-xs font-bold" x-text="q.status"></span>
+            </td>
+            <td class="px-6 py-4 text-right font-black text-slate-900 dark:text-slate-100" x-text="stats.currency + Number(q.total_amount).toFixed(2)"></td>
+            <td class="flex justify-end gap-2 px-6 py-4 text-right">
+              <a :href="'/quotes/' + q.id" class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200" title="Open quote"><i data-lucide="edit-3" class="h-4 w-4"></i></a>
+              <a :href="'/api/quotes/' + q.id + '/export-pdf'" target="_blank" class="text-slate-400 hover:text-emerald-600" title="Download PDF"><i data-lucide="download" class="h-4 w-4"></i></a>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="!loading && recentQuotes.length === 0" x-cloak>
+          <td colspan="5" class="px-6 py-12 text-center text-sm text-slate-400 dark:text-slate-500">
+            No proposals yet — create your first estimate.
+          </td>
+        </tr>
+        <tr x-show="loading" x-cloak>
+          <td colspan="5" class="px-6 py-12 text-center text-sm text-slate-400 dark:text-slate-500">Loading dashboard…</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
+
 </div>
 
 <script>
-function dashboard() {
+function dashboardAnalytics() {
   return {
-    quotes: [], loading: true, orgName: '',
-    metrics: { open: 0, accepted: 0, pipeline: 0, clients: 0 },
-    async init() {
+    loading: true,
+    stats: { currency: '£', pipeline_total: '0.00', won_revenue: '0.00', active_quotes_count: 0, accepted_quotes_count: 0, win_rate: 0, avg_margin: 22 },
+    recentQuotes: [],
+
+    async fetchStats() {
       try {
-        const [quotes, clients, org] = await Promise.all([
-          BQ.api('/api/quotes'),
-          BQ.api('/api/clients'),
-          BQ.api('/api/organization/me').catch(() => null),
-        ]);
-        this.quotes = quotes;
-        this.orgName = (org && org.name) || '';
-        this.metrics = {
-          open: quotes.filter(q => q.status === 'draft').length,
-          accepted: quotes.filter(q => q.status === 'accepted').length,
-          pipeline: quotes.reduce((s, q) => s + (q.total || 0), 0),
-          clients: clients.length,
-        };
-      } catch (e) { console.error(e); }
+        const data = await BQ.api('/api/dashboard/stats');
+        this.stats = data.stats || this.stats;
+        this.recentQuotes = data.recent_quotes || [];
+      } catch (e) { BQ.toast('Could not load dashboard: ' + e.message); }
       this.loading = false;
-    },
-    async createQuote() {
-      try {
-        const q = await BQ.api('/api/quotes', {
-          method: 'POST',
-          body: { title: 'Untitled quote' },
-        });
-        location.href = '/quotes/' + q.id;
-      } catch (e) { BQ.toast('Could not create quote: ' + e.message); }
+      this.$nextTick(() => lucide.createIcons());
     },
   };
 }

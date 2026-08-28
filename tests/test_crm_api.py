@@ -429,6 +429,57 @@ class CrmApiTestCase(unittest.TestCase):
                        "filterCatalog", "default_trade_type", "Add Rate Item"):
             self.assertIn(needle, html)
 
+    # ------------------------------------------------------------------
+    # Dashboard analytics
+    # ------------------------------------------------------------------
+    def test_dashboard_stats_empty_for_new_org(self):
+        auth = self.register("dashempty@acme.com")
+        r = self.client.get("/api/dashboard/stats", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        body = r.json()
+        self.assertEqual(body["stats"]["active_quotes_count"], 0)
+        self.assertEqual(body["stats"]["pipeline_total"], "0.00")
+        self.assertEqual(body["recent_quotes"], [])
+
+    def test_dashboard_stats_computes_analytics(self):
+        auth = self.register("dashstat@acme.com")
+        line = [{"description": "Shingles", "item_type": "material", "quantity": 10,
+                 "unit": "m2", "unit_cost": 20, "markup_percent": 20}]
+        q1 = self.make_quote(auth, "Draft roof")
+        self.client.put(f"/api/quotes/{q1}/lines", headers=auth, json=line)
+        q2 = self.make_quote(auth, "Sent gutter")
+        self.client.patch(f"/api/quotes/{q2}", headers=auth, json={"status": "sent"})
+        q3 = self.make_quote(auth, "Accepted roof")
+        self.client.put(f"/api/quotes/{q3}/lines", headers=auth, json=line)
+        self.client.patch(f"/api/quotes/{q3}", headers=auth, json={"status": "accepted"})
+
+        r = self.client.get("/api/dashboard/stats", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        body = r.json()
+        stats = body["stats"]
+        self.assertEqual(stats["active_quotes_count"], 2)  # draft + sent
+        self.assertEqual(stats["accepted_quotes_count"], 1)
+        self.assertEqual(stats["win_rate"], 50.0)  # 1 accepted of 2 decided
+        self.assertGreater(float(stats["pipeline_total"]), 0)
+        self.assertGreater(float(stats["won_revenue"]), 0)
+        self.assertGreater(stats["avg_margin"], 0)
+        recent = body["recent_quotes"]
+        self.assertEqual(len(recent), 3)
+        self.assertEqual(recent[0]["status"], "Accepted")  # newest first
+        for q in recent:
+            self.assertIn("id", q)
+            self.assertIn("title", q)
+            self.assertIn("total_amount", q)
+
+    def test_dashboard_page_renders_analytics(self):
+        r = self.client.get("/dashboard")
+        self.assertEqual(r.status_code, 200, r.text)
+        html = r.text
+        for needle in ("dashboardAnalytics", "/api/dashboard/stats", "Active Pipeline",
+                       "Won Revenue", "Win Rate", "Contractor Quick Cockpit",
+                       "recent_quotes", "/quotes/new"):
+            self.assertIn(needle, html)
+
     def test_org_profile_update_all_fields(self):
         auth = self.register("profile@acme.com", full_name="Glenn Westman")
         r = self.client.put("/api/organization/me", headers=auth, json={

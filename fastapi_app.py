@@ -34,6 +34,7 @@ from app.routers import assemblies as assemblies_router
 from app.routers import auth as auth_router
 from app.routers import catalog as catalog_router
 from app.routers import clients as clients_router
+from app.routers import dashboard as dashboard_router
 from app.routers import lexicon as lexicon_router
 from app.routers import organization as organization_router
 from app.routers import pages as pages_router
@@ -83,6 +84,7 @@ app.include_router(pages_router.router)
 app.include_router(auth_router.router)
 app.include_router(organization_router.router)
 app.include_router(clients_router.router)
+app.include_router(dashboard_router.router)
 app.include_router(assemblies_router.router)
 app.include_router(catalog_router.router)
 app.include_router(quotes_router.router)
