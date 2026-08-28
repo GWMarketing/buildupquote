@@ -22,9 +22,9 @@ _MIME_BY_EXT = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "gif": "gif",
 
 _PAGE_CSS = CSS(string="""
 @page {
-  size: Letter;
-  margin: 0.55in 0.55in 0.65in 0.55in;
-  @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #64748b; }
+  size: A4 portrait;
+  margin: 18mm 16mm 22mm 16mm;
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #64748b; }
 }
 """)
 
