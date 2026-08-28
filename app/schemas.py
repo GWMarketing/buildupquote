@@ -260,6 +260,12 @@ class ParseToQuoteRequest(BaseModel):
     client_id: Optional[int] = None
 
 
+class GoogleAuthRequest(BaseModel):
+    """ID token from the Google Identity Services button (response.credential)."""
+
+    credential: str
+
+
 class RegisterResponse(BaseModel):
     """What /api/auth/register returns: the new user plus a fresh JWT so
     the page can sign in immediately (no second login round-trip)."""

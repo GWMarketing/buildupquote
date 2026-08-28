@@ -28,6 +28,16 @@
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Welcome back — pick up right where you left off.</p>
       </div>
       <div id="error" class="mb-3 hidden rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"></div>
+      {% if google_client_id %}
+      <div class="mb-4">
+        <div id="google-signin" class="flex justify-center"></div>
+        <div class="my-4 flex items-center gap-3">
+          <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></span>
+          <span class="text-xs text-slate-400">or sign in with email</span>
+          <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></span>
+        </div>
+      </div>
+      {% endif %}
       <form id="loginForm" class="space-y-3">
         <div>
           <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Email</label>
@@ -71,6 +81,42 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     err.classList.remove('hidden');
   }
 });
+{% if google_client_id %}
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+function handleGoogleCredential(response) {
+  (async () => {
+    const err = document.getElementById('error');
+    err.classList.add('hidden');
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Google sign-in failed');
+      BQ.setToken(data.access_token);
+      location.href = '/dashboard';
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.classList.remove('hidden');
+    }
+  })();
+}
+window.addEventListener('load', function () {
+  if (window.google && google.accounts) {
+    google.accounts.id.initialize({
+      client_id: {{ google_client_id | tojson }},
+      callback: handleGoogleCredential,
+    });
+    google.accounts.id.renderButton(document.getElementById('google-signin'), {
+      theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', width: 320,
+    });
+  }
+});
+</script>
+{% endif %}
 </script>
 {% endblock %}
 

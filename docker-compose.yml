@@ -8,6 +8,11 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://app_user:app_password@db:5432/buildupquote_db
+      # Google Sign-In: create a "Web application" OAuth client in Google
+      # Cloud Console, add https://<your-domain> as an Authorized JavaScript
+      # origin, and paste its client ID below (ends with
+      # .apps.googleusercontent.com). Leave empty/unset to hide the button.
+      GOOGLE_CLIENT_ID: ""
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

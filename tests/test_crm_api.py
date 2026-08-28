@@ -77,6 +77,72 @@ class CrmApiTestCase(unittest.TestCase):
         r = self.client.get("/api/quotes")
         self.assertEqual(r.status_code, 401)
 
+    def test_google_auth_not_configured(self):
+        # With no GOOGLE_CLIENT_ID set the endpoint must refuse cleanly so the
+        # feature stays opt-in until the operator configures Google.
+        r = self.client.post("/api/auth/google", json={"credential": "not-a-real-token"})
+        self.assertEqual(r.status_code, 503, r.text)
+
+    def test_google_auth_signup_then_login(self):
+        from unittest import mock
+
+        import app.routers.auth as auth_router
+
+        profile = {
+            "sub": "112233445566778899",
+            "email": "google.user@example.com",
+            "email_verified": True,
+            "name": "Google User",
+        }
+        with mock.patch.object(auth_router, "GOOGLE_CLIENT_ID", "test.apps.googleusercontent.com"), \
+             mock.patch.object(auth_router, "verify_google_credential", return_value=profile):
+            # First call = sign-up: self-provisions account + org, issues JWT.
+            r = self.client.post("/api/auth/google", json={"credential": "jwt"})
+            self.assertEqual(r.status_code, 200, r.text)
+            body = r.json()
+            self.assertTrue(body["access_token"])
+            self.assertEqual(body["user"]["email"], "google.user@example.com")
+            self.assertEqual(body["user"]["role"], "owner")
+            token = body["access_token"]
+            # The issued JWT is a normal BuildUpQuote token.
+            r = self.client.get("/api/auth/me", headers={"Authorization": "Bearer " + token})
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertEqual(r.json()["email"], "google.user@example.com")
+            # Organization self-provisioned from the Google display name.
+            r = self.client.get("/api/organization/me", headers={"Authorization": "Bearer " + token})
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertEqual(r.json()["name"], "Google User")
+            # Second call = sign-in: reuses the same account (no duplicates).
+            r = self.client.post("/api/auth/google", json={"credential": "jwt"})
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertEqual(r.json()["user"]["id"], body["user"]["id"])
+
+    def test_google_auth_rejects_unverified_email(self):
+        from unittest import mock
+
+        import app.routers.auth as auth_router
+
+        profile = {"sub": "1", "email": "unverified@example.com", "email_verified": False, "name": "X"}
+        with mock.patch.object(auth_router, "GOOGLE_CLIENT_ID", "cid"), \
+             mock.patch.object(auth_router, "verify_google_credential", return_value=profile):
+            r = self.client.post("/api/auth/google", json={"credential": "jwt"})
+            self.assertEqual(r.status_code, 401, r.text)
+            self.assertIn("not verified", r.json()["detail"])
+
+    def test_google_auth_rejects_bad_credential(self):
+        from unittest import mock
+
+        import app.routers.auth as auth_router
+
+        def boom(credential):
+            raise ValueError("Invalid Google credential")
+
+        with mock.patch.object(auth_router, "GOOGLE_CLIENT_ID", "cid"), \
+             mock.patch.object(auth_router, "verify_google_credential", side_effect=boom):
+            r = self.client.post("/api/auth/google", json={"credential": "junk"})
+            self.assertEqual(r.status_code, 401, r.text)
+            self.assertEqual(r.json()["detail"], "Invalid Google credential")
+
     def test_org_profile_update_all_fields(self):
         auth = self.register("profile@acme.com", full_name="Glenn Westman")
         r = self.client.put("/api/organization/me", headers=auth, json={

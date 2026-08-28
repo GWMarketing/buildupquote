@@ -1,13 +1,17 @@
 """Registration, login, and the authenticated /me endpoint."""
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.auth import (
+    GOOGLE_CLIENT_ID,
     create_access_token,
     get_current_user,
     get_password_hash,
+    verify_google_credential,
     verify_password,
 )
 from app.database import get_db
@@ -90,6 +94,58 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
         )
     token = create_access_token({"sub": user.email})
     return {"access_token": token, "token_type": "bearer"}
+
+
+@router.post("/google", response_model=schemas.RegisterResponse)
+def google_auth(payload: schemas.GoogleAuthRequest, db: Session = Depends(get_db)):
+    """Google Sign-In / Sign-Up.
+
+    The frontend Google button sends an ID token (response.credential). We
+    verify its signature against Google's JWKS and its `aud` against
+    GOOGLE_CLIENT_ID, then find-or-create the user: first-time Google
+    sign-ins self-provision an account + organization (owner role) and are
+    immediately logged in via a normal BuildUpQuote JWT. Existing email
+    accounts simply log in.
+    """
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google sign-in is not configured",
+        )
+    try:
+        profile = verify_google_credential(payload.credential)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    if not profile["email_verified"]:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Google email is not verified",
+        )
+
+    email = _normalize_email(profile["email"])
+    db_user = db.query(models.User).filter(models.User.email == email).first()
+    if db_user is None:
+        # Sign-up: self-provision an account + organization. The password is
+        # random/unused -- this account signs in with Google from now on.
+        org_name = (profile["name"] or "").strip() or email.split("@")[0] or "My Business"
+        organization = models.Organization(
+            name=org_name,
+            slug=_unique_slug(db, models.slugify(org_name)),
+        )
+        db.add(organization)
+        db.flush()
+        db_user = models.User(
+            email=email,
+            hashed_password=get_password_hash(secrets.token_urlsafe(24)),
+            full_name=profile["name"],
+            organization_id=organization.id,
+            role="owner",
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+    token = create_access_token({"sub": db_user.email})
+    return {"user": db_user, "access_token": token, "token_type": "bearer"}
 
 
 @router.get("/me", response_model=schemas.UserOut)

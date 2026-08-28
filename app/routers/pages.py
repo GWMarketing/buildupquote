@@ -9,6 +9,8 @@ import os
 from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
 
+from app.auth import GOOGLE_CLIENT_ID
+
 router = APIRouter(include_in_schema=False)
 
 _TEMPLATES_DIR = os.path.join(
@@ -26,12 +28,20 @@ def home(request: Request):
 
 @router.get("/login")
 def login(request: Request):
-    return templates.TemplateResponse(request, "login.html", {"active": ""})
+    return templates.TemplateResponse(
+        request,
+        "login.html",
+        {"active": "", "google_client_id": GOOGLE_CLIENT_ID},
+    )
 
 
 @router.get("/register")
 def register(request: Request):
-    return templates.TemplateResponse(request, "register.html", {"active": ""})
+    return templates.TemplateResponse(
+        request,
+        "register.html",
+        {"active": "", "google_client_id": GOOGLE_CLIENT_ID},
+    )
 
 
 @router.get("/dashboard")
