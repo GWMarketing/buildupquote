@@ -1,13 +1,34 @@
 {% extends "base.html" %}
 {% block content %}
-<div x-data="quoteBuilder({{ quote_id or 'null' }})" x-init="init()" class="space-y-5">
-  <!-- Header: client, name, site, status -->
-  <div class="bq-card p-5">
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <div>
-        <label class="mb-1 block text-xs font-medium text-slate-500">Project title</label>
-        <input class="bq-input" x-model="quote.title" @change="patch({ title: quote.title })">
+<div x-data="quoteBuilder({{ quote_id or 'null' }})" x-init="init()" class="mx-auto max-w-7xl space-y-6 px-4 py-8">
+
+  <!-- Top action bar -->
+  <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div class="min-w-0 flex-1 space-y-1">
+        <input type="text" x-model="quote.title" @change="patch({ title: quote.title })"
+               class="w-full border-b border-transparent bg-transparent text-2xl font-bold text-slate-900 outline-none transition-colors hover:border-slate-300 focus:border-amber-500 dark:text-white"
+               placeholder="Project Name / Quote Reference">
+        <p class="text-sm text-slate-500 dark:text-slate-400"
+           x-text="'Status: ' + (quote.status || 'draft').charAt(0).toUpperCase() + (quote.status || 'draft').slice(1)"></p>
       </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button class="bq-btn-secondary" @click="openAssemblyDrawer = true">
+          <i data-lucide="layers" class="h-4 w-4 text-amber-500"></i> Insert Assembly
+        </button>
+        <button class="bq-btn" :disabled="saving" @click="save()">
+          <span x-show="saving" x-cloak class="mr-1 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+          <i data-lucide="save" class="h-4 w-4"></i> Save
+        </button>
+        <button class="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition duration-150 hover:-translate-y-px hover:bg-emerald-700 hover:shadow-md"
+                :disabled="!lines.length || exporting" @click="exportPdf()">
+          <i data-lucide="file-text" class="h-4 w-4"></i>
+          <span x-text="exporting ? 'Building…' : 'Export PDF'"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-3 dark:border-slate-700">
       <div>
         <label class="mb-1 block text-xs font-medium text-slate-500">Client</label>
         <div class="flex gap-2">
@@ -35,36 +56,8 @@
     </div>
   </div>
 
-  <!-- Parametric assembly drawer -->
-  <div class="bq-card p-5">
-    <div class="card-title">
-      <span class="icon-chip sm bg-amber-500/10 text-amber-600 dark:text-amber-400"><i data-lucide="layers" class="h-4 w-4"></i></span>
-      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Add from assembly template</h2>
-    </div>
-    <div class="flex flex-wrap items-end gap-3">
-      <div class="min-w-56 flex-1">
-        <label class="mb-1 block text-xs font-medium text-slate-500">Assembly</label>
-        <select class="bq-input" x-model="selectedCode" @change="resetDims()">
-          <option value="">Choose a template…</option>
-          <template x-for="a in assemblies" :key="a.code">
-            <option :value="a.code" x-text="a.name + ' (' + a.category + ')'"></option>
-          </template>
-        </select>
-      </div>
-      <template x-for="k in selectedInputs" :key="k">
-        <div class="w-28">
-          <label class="mb-1 block text-xs font-medium text-slate-500" x-text="k.charAt(0).toUpperCase() + k.slice(1)"></label>
-          <input class="bq-input" type="number" min="0" step="0.1" x-model.number="dims[k]" :placeholder="k">
-        </div>
-      </template>
-      <button class="bq-btn" :disabled="!selectedCode || !inputsReady()" @click="addAssembly()">＋ Apply</button>
-    </div>
-    <p class="mt-2 text-xs text-slate-400" x-show="selectedInputs.length" x-cloak
-       x-text="'Requires: ' + selectedInputs.join(', ')"></p>
-  </div>
-
-  <!-- Interactive line items grid -->
-  <div class="bq-card overflow-x-auto">
+  <!-- Line items table -->
+  <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
     <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-slate-700">
       <div class="card-title">
         <span class="icon-chip sm bg-amber-500/10 text-amber-600 dark:text-amber-400"><i data-lucide="list" class="h-4 w-4"></i></span>
@@ -72,125 +65,142 @@
       </div>
       <button class="bq-btn-secondary" @click="addRow()">＋ Row</button>
     </div>
-    <table class="w-full min-w-150 grid-table">
-      <thead>
-        <tr>
-          <th>Description</th><th>Trade</th><th>Type</th><th class="text-right">Qty</th><th>Unit</th>
-          <th class="text-right">Unit Cost</th><th class="text-right">Markup %</th>
-          <th class="text-right">Total</th><th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <template x-for="(row, i) in lines" :key="i">
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-150 grid-table">
+        <thead>
           <tr>
-            <td class="relative">
-              <input class="bq-input" x-model="row.description" placeholder="Description — start typing…"
-                     @input.debounce.250ms="autoComplete(row)" @focus="row._showSuggest = !!row._suggestions.length"
-                     @blur="setTimeout(() => row._showSuggest = false, 200)" @keydown.escape="row._showSuggest = false">
-              <ul x-show="row._showSuggest && row._suggestions.length" x-cloak
-                  class="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                <template x-for="s in row._suggestions" :key="s.canonical_name">
-                  <li @mousedown.prevent="pickSuggestion(row, s)"
-                      class="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 hover:bg-amber-50 dark:hover:bg-slate-800">
-                    <div class="min-w-0">
-                      <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100" x-text="s.canonical_name"></p>
-                      <p class="text-xs text-slate-400" x-text="s.trade + ' · ' + s.unit + ' · ' + BQ.money(s.default_unit_cost)"></p>
-                    </div>
-                    <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:bg-slate-800"
-                          x-text="s.default_trade_type"></span>
-                  </li>
-                </template>
-              </ul>
-            </td>
-            <td>
-              <select class="bq-input" x-model="row.trade">
-                <option value="">Auto</option>
-                <template x-for="t in trades" :key="t"><option :value="t" x-text="t"></option></template>
-              </select>
-            </td>
-            <td>
-              <select class="bq-input" x-model="row.item_type">
-                <option value="material">Material</option>
-                <option value="labor">Labor</option>
-                <option value="plant">Plant</option>
-                <option value="subcontractor">Subcontractor</option>
-              </select>
-            </td>
-            <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" step="0.001" x-model.number="row.quantity"></td>
-            <td><input class="bq-input w-16" x-model="row.unit"></td>
-            <td class="text-right"><input class="bq-input w-24 text-right" type="number" min="0" step="0.01" x-model.number="row.unit_cost"></td>
-            <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" max="100" step="0.5" x-model.number="row.markup_percent"></td>
-            <td class="text-right font-semibold text-slate-900 dark:text-slate-100" x-text="fmt(BQ.lineTotal(row))"></td>
-            <td><button class="text-slate-400 hover:text-red-600" @click="deleteLine(row, i)" title="Delete line">✕</button></td>
+            <th>Trade</th><th>Description &amp; Quick Search</th><th>Type</th>
+            <th class="text-right">Qty</th><th>Unit</th>
+            <th class="text-right">Cost</th><th class="text-right">Margin %</th>
+            <th class="text-right">Total</th><th></th>
           </tr>
-        </template>
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          <template x-for="(row, i) in lines" :key="i">
+            <tr>
+              <td>
+                <span class="inline-flex rounded bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300"
+                      x-text="row.trade || 'General'"></span>
+              </td>
+              <td class="relative">
+                <input class="bq-input" x-model="row.description" placeholder="Type material or task…"
+                       @input.debounce.250ms="autoComplete(row)" @focus="row._showSuggest = !!row._suggestions.length"
+                       @blur="setTimeout(() => row._showSuggest = false, 200)" @keydown.escape="row._showSuggest = false">
+                <ul x-show="row._showSuggest && row._suggestions.length" x-cloak
+                    class="absolute left-0 right-0 z-20 mt-1 max-h-48 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                  <template x-for="s in row._suggestions" :key="s.id">
+                    <li @mousedown.prevent="pickSuggestion(row, s)"
+                        class="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 hover:bg-amber-50 dark:hover:bg-slate-800">
+                      <div class="min-w-0">
+                        <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100" x-text="s.canonical_name"></p>
+                        <p class="text-xs text-slate-400" x-text="'(' + s.trade + ')'"></p>
+                      </div>
+                      <span class="shrink-0 text-xs font-semibold text-slate-600 dark:text-slate-300"
+                            x-text="fmt(s.default_unit_cost) + ' / ' + s.unit"></span>
+                    </li>
+                  </template>
+                </ul>
+              </td>
+              <td class="text-xs text-slate-500" x-text="row.item_type"></td>
+              <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" step="0.001" x-model.number="row.quantity"></td>
+              <td class="text-slate-500" x-text="row.unit"></td>
+              <td class="text-right"><input class="bq-input w-24 text-right" type="number" min="0" step="0.01" x-model.number="row.unit_cost"></td>
+              <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" max="100" step="0.5" x-model.number="row.markup_percent"></td>
+              <td class="text-right font-semibold text-slate-900 dark:text-slate-100" x-text="fmt(BQ.lineTotal(row))"></td>
+              <td class="text-center">
+                <button class="text-slate-400 hover:text-red-600" @click="deleteLine(row, i)" title="Delete line">
+                  <i data-lucide="trash-2" class="h-4 w-4"></i>
+                </button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
     <p class="p-5 text-sm text-slate-500" x-show="lines.length === 0" x-cloak>
-      No lines yet — pick an assembly above or click "＋ Row".
+      No lines yet — pick "Insert Assembly" above or add a manual line.
     </p>
+    <div class="border-t border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
+      <button class="text-xs font-bold text-amber-600 hover:text-amber-700" @click="addRow()">＋ Add Manual Line</button>
+    </div>
   </div>
 
 
   <!-- Financial cockpit -->
-  <div class="grid gap-5 lg:grid-cols-3">
-    <div class="bq-card p-5 lg:col-span-2">
-      <div class="card-title">
-        <span class="icon-chip sm bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><i data-lucide="percent" class="h-4 w-4"></i></span>
-        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Gross margin</h2>
+  <div class="grid grid-cols-1 gap-6 rounded-xl bg-slate-900 p-6 text-white shadow-md md:grid-cols-2">
+    <div>
+      <div class="mb-2 flex items-center justify-between">
+        <label class="text-sm font-semibold text-slate-300">Global Gross Margin Controller</label>
+        <span class="text-lg font-bold text-amber-400" x-text="margin + '%'"></span>
       </div>
-      <div class="flex items-center gap-4">
-        <input type="range" min="0" max="50" step="1" class="flex-1 accent-amber-500" x-model.number="margin" @input="onMarginChange()">
-        <span class="w-16 text-right font-semibold text-slate-900 dark:text-white" x-text="margin + '%'"></span>
-        <button class="bq-btn-secondary" @click="onMarginChange()">Apply to all lines</button>
+      <input type="range" min="0" max="50" step="1" x-model.number="margin" @input="onMarginChange()"
+             class="w-full cursor-pointer accent-amber-500">
+      <p class="mt-2 text-xs text-slate-400">Adjusting this slider updates markups across all line items in real-time.</p>
+      <div class="mt-4 flex items-center gap-2">
+        <label class="text-xs font-semibold text-slate-400">Tax / VAT %</label>
+        <input type="number" min="0" step="0.25" x-model.number="taxRate" @change="onTaxRateChange()"
+               class="w-20 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-right text-white focus:border-amber-500 focus:outline-none">
       </div>
-      <p class="mt-2 text-xs text-slate-400">
-        Profit at this margin: <span class="font-semibold text-slate-700 dark:text-slate-200" x-text="fmt(previewAtMargin())"></span>
-      </p>
     </div>
-
-    <div class="bq-card p-5">
-      <div class="card-title">
-        <span class="icon-chip sm bg-blue-500/10 text-blue-600 dark:text-blue-400"><i data-lucide="calculator" class="h-4 w-4"></i></span>
-        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Totals</h2>
+    <div class="grid grid-cols-2 gap-4 border-t border-slate-800 pt-4 text-right md:border-l md:border-t-0 md:pl-6 md:pt-0">
+      <div>
+        <p class="text-xs text-slate-400">Total Material</p>
+        <p class="text-lg font-bold text-white" x-text="fmt(costOf('material'))"></p>
       </div>
-      <dl class="space-y-1.5 text-sm">
-        <div class="flex justify-between"><dt class="text-slate-500">Net subtotal</dt><dd class="font-medium" x-text="fmt(subtotal())"></dd></div>
-        <div class="flex justify-between"><dt class="text-slate-500">Materials</dt><dd class="font-medium" x-text="fmt(byType('material'))"></dd></div>
-        <div class="flex justify-between"><dt class="text-slate-500">Labor</dt><dd class="font-medium" x-text="fmt(byType('labor'))"></dd></div>
-        <div class="flex justify-between items-center">
-          <dt class="text-slate-500">Tax / VAT</dt>
-          <dd class="flex items-center gap-1">
-            <input class="bq-input w-16 text-right" type="number" min="0" step="0.25" x-model.number="taxRate" @change="onTaxRateChange()">
-            <span>%</span>
-          </dd>
-        </div>
-        <div class="flex justify-between"><dt class="text-slate-500">Tax amount</dt><dd class="font-medium" x-text="fmt(taxAmount())"></dd></div>
-        <div class="flex justify-between border-t-2 border-amber-400 pt-2 text-base font-bold text-slate-900 dark:border-amber-500 dark:text-white">
-          <dt>Gross quote total</dt><dd class="text-amber-600 dark:text-amber-400" x-text="fmt(grandTotal())"></dd>
-        </div>
-      </dl>
-    </div>
-  </div>
-
-  <!-- Actions toolbar -->
-  <div class="bq-card flex flex-wrap items-center gap-3 p-5">
-    <button class="bq-btn" :disabled="saving" @click="save()" x-text="saving ? 'Saving…' : 'Save'"></button>
-    <button class="bq-btn" :disabled="!lines.length || exporting" @click="exportPdf()" x-text="exporting ? 'Building PDF…' : 'Export Branded PDF'"></button>
-    <div class="ml-auto flex items-center gap-2">
-      <span class="text-xs text-slate-400" x-show="savedAt" x-cloak x-text="'Saved ' + savedAt"></span>
-      <a :href="pdfUrl" x-show="pdfUrl" x-cloak target="_blank" class="text-sm font-medium text-blue-600 hover:underline">Open PDF</a>
+      <div>
+        <p class="text-xs text-slate-400">Total Labor</p>
+        <p class="text-lg font-bold text-white" x-text="fmt(costOf('labor'))"></p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400">Net Profit</p>
+        <p class="text-lg font-bold text-emerald-400" x-text="fmt(grossProfit())"></p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400">Grand Total (Inc. Tax)</p>
+        <p class="text-2xl font-black text-amber-400" x-text="fmt(grandTotal())"></p>
+      </div>
     </div>
   </div>
 
   <!-- PDF download history -->
-  <div class="bq-card p-5" x-show="downloads.length">
+  <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900" x-show="downloads.length" x-cloak>
     <h2 class="mb-2 text-sm font-semibold text-slate-900 dark:text-white">PDF downloads</h2>
     <ul class="space-y-1 text-sm">
       <template x-for="d in downloads" :key="d.url">
         <li><a :href="d.url" target="_blank" class="text-blue-600 hover:underline" x-text="d.url"></a></li>
       </template>
     </ul>
+  </div>
+
+  <!-- Parametric assembly modal -->
+  <div x-show="openAssemblyDrawer" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+       @keydown.escape.window="openAssemblyDrawer = false">
+    <div class="w-full max-w-lg space-y-4 rounded-xl bg-white p-6 text-slate-800 shadow-xl dark:bg-slate-900 dark:text-slate-200">
+      <h3 class="text-lg font-bold">Insert Parametric Assembly</h3>
+      <div>
+        <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Assembly Type</label>
+        <select class="bq-input mt-1" x-model="selectedCode" @change="resetDims()">
+          <option value="">Choose…</option>
+          <template x-for="a in assemblies" :key="a.code">
+            <option :value="a.code" x-text="a.name + ' (' + a.category + ')'"></option>
+          </template>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <template x-for="k in selectedInputs" :key="k">
+          <div>
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400" x-text="k.charAt(0).toUpperCase() + k.slice(1) + ' (m)'"></label>
+            <input type="number" step="0.1" x-model.number="dims[k]" class="bq-input mt-1" :placeholder="k">
+          </div>
+        </template>
+      </div>
+      <p class="text-xs text-slate-400" x-show="selectedInputs.length" x-cloak
+         x-text="'Requires: ' + selectedInputs.join(', ')"></p>
+      <div class="flex justify-end gap-2 pt-4">
+        <button class="bq-btn-secondary" @click="openAssemblyDrawer = false">Cancel</button>
+        <button class="bq-btn" :disabled="!selectedCode || !inputsReady()" @click="insertAssembly()">Calculate &amp; Insert</button>
+      </div>
+    </div>
   </div>
 
   <!-- New-client modal -->
@@ -224,16 +234,15 @@ function quoteBuilder(quoteId) {
     quoteId: quoteId,
     quote: { title: 'Untitled quote', status: 'draft', client_id: null, site_address: '' },
     clients: [], assemblies: [], selectedCode: '', dims: {}, lines: [],
-    trades: ['General', 'Carpentry', 'Drywall', 'Electrical', 'Plumbing', 'Tiling', 'Roofing', 'Siding', 'Flooring', 'Painting'],
     currencySymbol: '$',
     margin: 20, taxRate: 0, saving: false, exporting: false, savedAt: '',
     pdfUrl: '', downloads: JSON.parse(localStorage.getItem('bq_downloads') || '[]'),
-    clientModalOpen: false, savingClient: false,
+    openAssemblyDrawer: false, clientModalOpen: false, savingClient: false,
     clientForm: { name: '', site_address: '', phone: '', email: '' },
 
     get selectedInputs() {
       const a = this.assemblies.find(a => a.code === this.selectedCode);
-      return a ? a.required_inputs : [];
+      return a ? (a.required_inputs || []) : [];
     },
 
     async init() {
@@ -244,7 +253,7 @@ function quoteBuilder(quoteId) {
       try {
         const org = await BQ.api('/api/organization/me');
         if (org && org.currency_symbol) this.currencySymbol = org.currency_symbol;
-      } catch (e) { /* keep $ */ }
+      } catch (e) { /* keep default */ }
       if (this.quoteId) {
         await this.loadQuote();
       } else {
@@ -257,6 +266,7 @@ function quoteBuilder(quoteId) {
           this.quote = Object.assign(this.quote, q);
         } catch (e) { BQ.toast('Could not create quote: ' + e.message); }
       }
+      this.refreshIcons();
     },
 
     async loadQuote() {
@@ -269,6 +279,11 @@ function quoteBuilder(quoteId) {
         quantity: l.quantity, unit: l.unit, unit_cost: l.unit_cost, markup_percent: l.markup_percent,
         _suggestions: [], _showSuggest: false,
       }));
+      this.refreshIcons();
+    },
+
+    refreshIcons() {
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
     },
 
     resetDims() { this.dims = {}; },
@@ -282,13 +297,17 @@ function quoteBuilder(quoteId) {
       } catch (e) { BQ.toast('Could not save: ' + e.message); }
     },
 
-    async addAssembly() {
+    async insertAssembly() {
       try {
         await BQ.api('/api/quotes/' + this.quoteId + '/apply-assembly', {
           method: 'POST',
           body: { code: this.selectedCode, dimensions: this.dims },
         });
         await this.loadQuote();
+        this.openAssemblyDrawer = false;
+        this.selectedCode = '';
+        this.dims = {};
+        BQ.toast('Assembly added', 'success');
       } catch (e) { BQ.toast('Could not add assembly: ' + e.message); }
     },
 
@@ -298,9 +317,10 @@ function quoteBuilder(quoteId) {
         quantity: 1, unit: 'each', unit_cost: 0, markup_percent: this.margin,
         _suggestions: [], _showSuggest: false,
       });
+      this.refreshIcons();
     },
 
-    // ---- Catalog typeahead (POSTGRES TRIGRAM AUTOCORRECT) ----
+    // ---- Catalog typeahead (autocorrect) ----
     async autoComplete(row) {
       const q = (row.description || '').trim();
       if (q.length < 2) { row._suggestions = []; row._showSuggest = false; return; }
@@ -319,24 +339,10 @@ function quoteBuilder(quoteId) {
       row._suggestions = []; row._showSuggest = false;
     },
 
-    // Auto-tag the trade from the description (only when not manually set).
-    async autoTag(row) {
-      if (row.trade || !(row.description || '').trim()) return;
-      try {
-        const res = await BQ.api('/api/lexicon/match', {
-          method: 'POST', body: { description: row.description },
-        });
-        row.trade = res.trade;
-      } catch (e) { /* leave it unset */ }
-    },
-
     fmt(n) { return this.currencySymbol + Number(n || 0).toFixed(2); },
 
 
     applyMargin() { this.lines.forEach(r => r.markup_percent = this.margin); },
-
-    /* The slider/button applies the target margin to every line instantly
-       (Alpine re-renders all totals) and then persists it debounced. */
     onMarginChange() {
       this.applyMargin();
       this.scheduleAutoSave();
@@ -354,7 +360,6 @@ function quoteBuilder(quoteId) {
         this.savedAt = new Date().toLocaleTimeString();
       } catch (e) { BQ.toast('Save failed: ' + e.message); }
     },
-
     async onTaxRateChange() {
       clearTimeout(this._taxTimer);
       this._taxTimer = setTimeout(() => {
@@ -362,11 +367,14 @@ function quoteBuilder(quoteId) {
       }, 500);
     },
 
-    previewAtMargin() {
-      return this.lines.reduce((s, r) => s + Number(r.quantity || 0) * Number(r.unit_cost || 0) * (1 + this.margin / 100), 0);
+    costOf(t) {
+      return this.lines.filter(r => r.item_type === t)
+        .reduce((s, r) => s + Number(r.quantity || 0) * Number(r.unit_cost || 0), 0);
+    },
+    grossProfit() {
+      return this.lines.reduce((s, r) => s + (BQ.lineTotal(r) - Number(r.quantity || 0) * Number(r.unit_cost || 0)), 0);
     },
     subtotal() { return this.lines.reduce((s, r) => s + BQ.lineTotal(r), 0); },
-    byType(t) { return this.lines.filter(r => r.item_type === t).reduce((s, r) => s + BQ.lineTotal(r), 0); },
     taxAmount() { return this.subtotal() * this.taxRate / 100; },
     grandTotal() { return this.subtotal() + this.taxAmount(); },
 
@@ -386,6 +394,7 @@ function quoteBuilder(quoteId) {
     async deleteLine(row, i) {
       if (!row.id) {  // unsaved row: just drop it locally
         this.lines.splice(i, 1);
+        this.refreshIcons();
         return;
       }
       try {
@@ -398,6 +407,7 @@ function quoteBuilder(quoteId) {
           quantity: l.quantity, unit: l.unit, unit_cost: l.unit_cost, markup_percent: l.markup_percent,
           _suggestions: [], _showSuggest: false,
         }));
+        this.refreshIcons();
       } catch (e) { BQ.toast('Delete failed: ' + e.message); }
     },
 
