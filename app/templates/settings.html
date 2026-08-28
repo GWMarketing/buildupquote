@@ -1,100 +1,169 @@
 {% extends "base.html" %}
 {% block content %}
-<div x-data="settingsPage()" x-init="init()" class="mx-auto max-w-3xl space-y-5">
-  <h1 class="text-xl font-bold text-slate-900 dark:text-white">Settings</h1>
+<div x-data="settingsPage()" x-init="init()" class="mx-auto max-w-4xl space-y-5">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-bold text-slate-900 dark:text-white">Settings</h1>
+    <button class="bq-btn" :disabled="saving || !hasOrg" @click="save()">
+      <span x-show="saving" x-cloak class="mr-1 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+      <span x-text="saving ? 'Saving…' : 'Save Changes'"></span>
+    </button>
+  </div>
+  <p class="text-sm text-emerald-600" x-show="saved" x-cloak>Saved ✓</p>
+  <p class="text-sm text-red-600" x-show="error" x-cloak x-text="error"></p>
 
   <div class="bq-card p-6" x-show="!hasOrg" x-cloak>
-    <p class="text-sm text-slate-500">No organization yet — create one from your account (register with a company name) before saving company settings.</p>
+    <p class="text-sm text-slate-500">No organization yet — save your details below and one will be created for you.</p>
   </div>
 
-  <!-- Branding & Identity -->
-  <div class="bq-card p-6" x-show="hasOrg" x-cloak>
-    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Branding & Identity</h2>
-    <p class="mb-4 text-xs text-slate-400">How your business appears on exported quotes.</p>
-    <div class="flex items-center gap-5">
-      <img :src="logoPreview" x-show="logoPreview" x-cloak
-           class="h-20 w-20 rounded-lg border border-slate-200 bg-white object-contain">
-      <div>
-        <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" @change="onLogo($event)" class="text-sm">
-        <p class="mt-1 text-xs text-slate-400">PNG, JPG, SVG, GIF or WebP (max 2MB) — shown in the PDF header.</p>
-        <p class="mt-1 text-xs text-emerald-600" x-show="logoSaved" x-cloak>Logo updated ✓</p>
+  <!-- Tabs -->
+  <div class="flex gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <button @click="tab = 'brand'"
+            class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            :class="tab === 'brand' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'">
+      Business & Branding</button>
+    <button @click="tab = 'legal'"
+            class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            :class="tab === 'legal' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'">
+      Contact, Legal & Defaults</button>
+  </div>
+
+  <!-- Card 1: Company Branding & Identity -->
+  <div class="bq-card p-6" x-show="tab === 'brand'" x-cloak>
+    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Company Branding & Identity</h2>
+    <p class="mb-4 text-xs text-slate-400">Your logo, name, and tagline — shown on every exported quote.</p>
+    <div class="flex flex-col gap-6 md:flex-row">
+      <div class="md:w-72">
+        <div @click="$refs.logoInput.click()" @dragover.prevent @drop.prevent="onLogoDrop($event)"
+             class="flex h-44 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 text-center hover:border-amber-400 dark:border-slate-600 dark:bg-slate-800">
+          <img :src="logoPreview" x-show="logoPreview" x-cloak class="max-h-28 max-w-full object-contain">
+          <template x-if="!logoPreview">
+            <div class="px-6 text-slate-400">
+              <p class="text-sm font-medium">Drop your logo here, or click to browse</p>
+              <p class="mt-1 text-xs">PNG or SVG · transparent background recommended</p>
+            </div>
+          </template>
+        </div>
+        <input type="file" x-ref="logoInput" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" class="hidden" @change="onLogo($event)">
+        <div class="mt-3 flex items-center gap-3">
+          <button class="bq-btn-secondary" @click="$refs.logoInput.click()">Change Logo</button>
+          <span class="text-xs text-emerald-600" x-show="logoSaved" x-cloak>Updated ✓</span>
+        </div>
+        <p class="mt-2 text-xs text-slate-400">Max 2MB · PNG, JPG, SVG, GIF, WebP</p>
+      </div>
+      <div class="flex-1 space-y-4">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-slate-500">Business name</label>
+          <input class="bq-input" x-model="profile.name" placeholder="Acme Roofing Co">
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-slate-500">Company tagline / description</label>
+          <textarea class="bq-input" rows="3" x-model="profile.bio"
+                    placeholder="e.g. Licensed roof repair & restoration specialists since 2009"></textarea>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-slate-500">Website URL</label>
+          <div class="relative">
+            <i data-lucide="globe" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+            <input class="bq-input pl-9" type="url" x-model="profile.website" placeholder="https://www.example.com">
+          </div>
+        </div>
       </div>
     </div>
-    <div class="mt-5 grid gap-4 sm:grid-cols-2">
-      <div class="sm:col-span-2"><label class="mb-1 block text-xs font-medium text-slate-500">Business name</label>
-        <input class="bq-input" x-model="profile.name"></div>
-      <div class="sm:col-span-2"><label class="mb-1 block text-xs font-medium text-slate-500">Company description / tagline</label>
-        <textarea class="bq-input" rows="2" x-model="profile.description" placeholder="e.g. Licensed roof repair & restoration specialists since 2009"></textarea></div>
-      <div class="sm:col-span-2"><label class="mb-1 block text-xs font-medium text-slate-500">Website URL</label>
-        <input class="bq-input" type="url" x-model="profile.website" placeholder="https://www.example.com"></div>
+  </div>
+
+  <!-- Card 2: Representative -->
+  <div class="bq-card p-6" x-show="tab === 'brand'" x-cloak>
+    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Representative / Who You Are</h2>
+    <p class="mb-4 text-xs text-slate-400">The name printed under "Prepared By" on your quotes.</p>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Your full name</label>
+        <div class="relative">
+          <i data-lucide="user" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+          <input class="bq-input pl-9" x-model="profile.full_name" placeholder="Glenn Westman">
+        </div>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Your role / job title</label>
+        <input class="bq-input" x-model="profile.job_title" placeholder="Owner / Lead Contractor">
+      </div>
     </div>
   </div>
 
-  <!-- Contact Information -->
-  <div class="bq-card p-6" x-show="hasOrg" x-cloak>
-    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Contact Information</h2>
-    <p class="mb-4 text-xs text-slate-400">Public contact details shown on your quotes.</p>
+  <!-- Card 3: Business Contact & Location -->
+  <div class="bq-card p-6" x-show="tab === 'legal'" x-cloak>
+    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Business Contact & Location</h2>
+    <p class="mb-4 text-xs text-slate-400">Public contact details used in the PDF header and on quotes.</p>
     <div class="grid gap-4 sm:grid-cols-2">
-      <div><label class="mb-1 block text-xs font-medium text-slate-500">Business email</label>
-        <input class="bq-input" type="email" x-model="profile.email" placeholder="office@example.com"></div>
-      <div><label class="mb-1 block text-xs font-medium text-slate-500">Phone number</label>
-        <input class="bq-input" x-model="profile.phone" placeholder="(555) 010-1234"></div>
-      <div class="sm:col-span-2"><label class="mb-1 block text-xs font-medium text-slate-500">Physical / mailing address</label>
-        <textarea class="bq-input" rows="2" x-model="profile.address" placeholder="123 Main St, Anytown, CA 90210"></textarea></div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Business email</label>
+        <div class="relative">
+          <i data-lucide="mail" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+          <input class="bq-input pl-9" type="email" x-model="profile.email" placeholder="office@example.com">
+        </div>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Business phone</label>
+        <div class="relative">
+          <i data-lucide="phone" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+          <input class="bq-input pl-9" type="tel" x-model="profile.phone" placeholder="(555) 010-1234">
+        </div>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="mb-1 block text-xs font-medium text-slate-500">Office / mailing address</label>
+        <textarea class="bq-input" rows="2" x-model="profile.address" placeholder="123 Main St, Anytown, CA 90210"></textarea>
+      </div>
     </div>
   </div>
 
-  <!-- Legal & Tax Info -->
-  <div class="bq-card p-6" x-show="hasOrg" x-cloak>
-    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Legal & Tax Info</h2>
-    <p class="mb-4 text-xs text-slate-400">Licenses and tax identifiers printed on your quotes.</p>
+  <!-- Card 4: Legal, Tax & Defaults -->
+  <div class="bq-card p-6" x-show="tab === 'legal'" x-cloak>
+    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Legal, Tax & Defaults</h2>
+    <p class="mb-4 text-xs text-slate-400">Tax identifiers, licensing, currency, and payment boilerplate.</p>
     <div class="grid gap-4 sm:grid-cols-2">
-      <div><label class="mb-1 block text-xs font-medium text-slate-500">Tax ID / VAT number</label>
-        <input class="bq-input" x-model="profile.tax_id" placeholder="EIN / VAT / GST"></div>
-      <div><label class="mb-1 block text-xs font-medium text-slate-500">Trade / contractor license number</label>
-        <input class="bq-input" x-model="profile.license_number" placeholder="e.g. CSLB #123456"></div>
-    </div>
-  </div>
-
-  <!-- Quote Defaults -->
-  <div class="bq-card p-6" x-show="hasOrg" x-cloak>
-    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Quote Defaults</h2>
-    <p class="mb-4 text-xs text-slate-400">Defaults applied to new quotes and exports.</p>
-    <div class="grid gap-4 sm:grid-cols-2">
-      <div><label class="mb-1 block text-xs font-medium text-slate-500">Default currency</label>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">VAT / Tax ID number</label>
+        <input class="bq-input" x-model="profile.tax_id" placeholder="EIN / VAT / GST">
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Trade / contractor license #</label>
+        <input class="bq-input" x-model="profile.license_number" placeholder="e.g. CSLB #123456">
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Currency</label>
         <select class="bq-input" x-model="profile.currency_symbol">
-          <option value="$">$ — US Dollar</option>
-          <option value="£">£ — British Pound</option>
-          <option value="€">€ — Euro</option>
-          <option value="CAD">CAD — Canadian Dollar</option>
-          <option value="AUD">AUD — Australian Dollar</option>
-        </select></div>
-      <div class="sm:col-span-2"><label class="mb-1 block text-xs font-medium text-slate-500">Payment terms / notes boilerplate</label>
+          <option value="£">£ - GBP</option>
+          <option value="$">$ - USD</option>
+          <option value="€">€ - EUR</option>
+          <option value="CAD">CAD</option>
+          <option value="AUD">AUD</option>
+        </select>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="mb-1 block text-xs font-medium text-slate-500">Default payment terms & notes</label>
         <textarea class="bq-input" rows="3" x-model="profile.default_payment_terms"
-                  placeholder="e.g. Due on receipt · Net 7 · Net 14 · Net 30 — or any custom payment notes"></textarea></div>
-    </div>
-    <div class="mt-5 flex items-center gap-3">
-      <button class="bq-btn" :disabled="saving" @click="save()" x-text="saving ? 'Saving…' : 'Save changes'"></button>
-      <span class="text-sm text-emerald-600" x-show="saved" x-cloak>Saved ✓</span>
-      <span class="text-sm text-red-600" x-show="error" x-cloak x-text="error"></span>
+                  placeholder="e.g. Due on receipt · Net 7 · Net 14 · Net 30 — or any custom payment notes"></textarea>
+      </div>
     </div>
   </div>
 </div>
 
+
 <script>
 function settingsPage() {
   return {
-    hasOrg: false, saving: false, saved: false, logoSaved: false, error: '',
+    tab: 'brand', hasOrg: false, saving: false, saved: false, logoSaved: false, error: '',
     logoPreview: '',
-    profile: { name: '', description: '', website: '', email: '', phone: '', address: '',
-               license_number: '', tax_id: '', default_payment_terms: '', currency_symbol: '$' },
+    profile: { name: '', bio: '', website: '', email: '', phone: '', address: '',
+               license_number: '', tax_id: '', default_payment_terms: '', currency_symbol: '$',
+               full_name: '', job_title: '' },
     async init() {
       try {
         const org = await BQ.api('/api/organization/me');
         this.hasOrg = true;
         this.profile = {
           name: org.name || '',
-          description: org.description || '',
+          bio: org.bio || '',
           website: org.website || '',
           email: org.email || '',
           phone: org.phone || '',
@@ -103,12 +172,11 @@ function settingsPage() {
           tax_id: org.tax_id || '',
           default_payment_terms: org.default_payment_terms || '',
           currency_symbol: org.currency_symbol || '$',
+          full_name: org.full_name || '',
+          job_title: org.job_title || '',
         };
         this.logoPreview = org.logo_url || '';
-      } catch (e) {
-        if (e.status !== 404) { this.error = e.message; }
-        this.hasOrg = false;
-      }
+      } catch (e) { this.error = e.message; this.hasOrg = false; }
     },
     async save() {
       this.saving = true; this.saved = false; this.error = '';
@@ -124,14 +192,21 @@ function settingsPage() {
     },
     async onLogo(e) {
       const file = e.target.files[0];
-      if (!file) return;
+      if (file) await this.uploadLogo(file);
+      e.target.value = '';
+    },
+    async onLogoDrop(e) {
+      const file = e.dataTransfer && e.dataTransfer.files[0];
+      if (file) await this.uploadLogo(file);
+    },
+    async uploadLogo(file) {
       // Immediate local preview, then upload to the server.
       const reader = new FileReader();
       reader.onload = () => this.logoPreview = reader.result;
       reader.readAsDataURL(file);
+      this.logoSaved = false;
       const form = new FormData();
       form.append('file', file);
-      this.logoSaved = false;
       try {
         const org = await BQ.api('/api/organization/logo', { method: 'POST', body: form });
         this.logoPreview = org.logo_url;

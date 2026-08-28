@@ -38,7 +38,7 @@ class Organization(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     slug = Column(String, unique=True, index=True, nullable=False)
-    description = Column(Text, nullable=True)  # bio / company description / tagline
+    bio = Column(Text, nullable=True)  # company description / tagline
     phone = Column(String, nullable=True)
     website = Column(String, nullable=True)
     email = Column(String, nullable=True)  # public business contact email
@@ -59,7 +59,8 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    full_name = Column(String, nullable=True)
+    full_name = Column(String, nullable=False, default="")
+    job_title = Column(String, nullable=True)  # "Owner / Lead Contractor", "Senior Estimator"...
     is_active = Column(Boolean, default=True)
     role = Column(String, default="owner")
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True, index=True)

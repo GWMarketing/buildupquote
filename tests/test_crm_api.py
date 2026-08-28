@@ -77,10 +77,10 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertEqual(r.status_code, 401)
 
     def test_org_profile_update_all_fields(self):
-        auth = self.register("profile@acme.com")
+        auth = self.register("profile@acme.com", full_name="Glenn Westman")
         r = self.client.put("/api/organization/me", headers=auth, json={
             "name": "Acme Roofing Co",
-            "description": "Licensed roof repair & restoration specialists",
+            "bio": "Licensed roof repair & restoration specialists",
             "website": "https://acme.example.com",
             "email": "office@acme.example.com",
             "phone": "555-0000",
@@ -89,11 +89,13 @@ class CrmApiTestCase(unittest.TestCase):
             "tax_id": "TX-1",
             "default_payment_terms": "Due on receipt. 10% discount for upfront payment.",
             "currency_symbol": "£",
+            "full_name": "Glenn Westman",
+            "job_title": "Owner / Lead Contractor",
         })
         self.assertEqual(r.status_code, 200, r.text)
         body = r.json()
         self.assertEqual(body["name"], "Acme Roofing Co")
-        self.assertEqual(body["description"], "Licensed roof repair & restoration specialists")
+        self.assertEqual(body["bio"], "Licensed roof repair & restoration specialists")
         self.assertEqual(body["website"], "https://acme.example.com")
         self.assertEqual(body["email"], "office@acme.example.com")
         self.assertEqual(body["phone"], "555-0000")
@@ -102,11 +104,42 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertEqual(body["tax_id"], "TX-1")
         self.assertEqual(body["default_payment_terms"], "Due on receipt. 10% discount for upfront payment.")
         self.assertEqual(body["currency_symbol"], "£")
-        # Persisted: a fresh GET returns the same values.
+        self.assertEqual(body["full_name"], "Glenn Westman")
+        self.assertEqual(body["job_title"], "Owner / Lead Contractor")
+        # Persisted: a fresh GET returns the same values, including the rep.
         r = self.client.get("/api/organization/me", headers=auth)
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json()["license_number"], "CSLB #123456")
-        self.assertEqual(r.json()["description"], "Licensed roof repair & restoration specialists")
+        self.assertEqual(r.json()["bio"], "Licensed roof repair & restoration specialists")
+        self.assertEqual(r.json()["job_title"], "Owner / Lead Contractor")
+
+    def test_users_me(self):
+        auth = self.register("usersme@acme.com", full_name="Ada Lovelace")
+        r = self.client.get("/api/users/me", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["email"], "usersme@acme.com")
+        self.assertEqual(r.json()["full_name"], "Ada Lovelace")
+        self.assertEqual(r.json()["role"], "owner")
+
+    def test_logo_upload_roundtrip(self):
+        auth = self.register("logo@acme.com")
+        png = (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+            b"\x00\x00\x00\rIDATx\x9cc\xf8\xcf\xc0\x00\x00\x00\x03\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+        )
+        r = self.client.post("/api/organization/logo", headers=auth,
+                             files={"file": ("logo.png", png, "image/png")})
+        self.assertEqual(r.status_code, 200, r.text)
+        logo_url = r.json()["logo_url"]
+        self.assertTrue(logo_url.startswith("/static/uploads/logos/org-"), logo_url)
+        # The uploaded file is served through the static mount.
+        r = self.client.get(logo_url)
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.content.startswith(b"\x89PNG"))
+        # Logo upload is rejected for disallowed extensions.
+        r = self.client.post("/api/organization/logo", headers=auth,
+                             files={"file": ("logo.txt", b"not an image", "text/plain")})
+        self.assertEqual(r.status_code, 400)
 
     def test_org_me_autoprovisions_for_orgless_user(self):
         # Registered without a company name -> no org, but GET /me creates one.

@@ -50,40 +50,69 @@ def _get_or_provision_org(db: Session, current_user: models.User) -> models.Orga
     return org
 
 
-@router.get("/me", response_model=schemas.OrganizationOut)
+def _profile_out(org: models.Organization, user: models.User) -> dict:
+    """The combined business + representative profile returned by /me."""
+    return {
+        "id": org.id,
+        "name": org.name,
+        "slug": org.slug,
+        "bio": org.bio,
+        "website": org.website,
+        "email": org.email,
+        "phone": org.phone,
+        "address": org.address,
+        "license_number": org.license_number,
+        "tax_id": org.tax_id,
+        "default_payment_terms": org.default_payment_terms,
+        "currency_symbol": org.currency_symbol,
+        "logo_url": org.logo_url,
+        "created_at": org.created_at,
+        "full_name": user.full_name,
+        "job_title": user.job_title,
+    }
+
+
+@router.get("/me", response_model=schemas.OrganizationProfileOut)
 def organization_me(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """The authenticated user's own organization profile. Auto-provisions an
-    organization for accounts that registered without one, so every user has
-    a profile to manage."""
-    return _get_or_provision_org(db, current_user)
+    """The authenticated user's full business profile plus their own name and
+    job title. Auto-provisions an organization for accounts that registered
+    without one, so every user has a profile to manage."""
+    org = _get_or_provision_org(db, current_user)
+    return _profile_out(org, current_user)
 
 
-@router.put("/me", response_model=schemas.OrganizationOut)
+@router.put("/me", response_model=schemas.OrganizationProfileOut)
 def update_organization_me(
     payload: schemas.OrganizationUpdate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """Partial update of the organization profile. Only the fields sent are
-    touched; a blank name is rejected."""
+    """Partial update of the business profile and the representative. Only the
+    fields sent are touched; a blank name is rejected."""
     org = _get_or_provision_org(db, current_user)
     if payload.name is not None:
         name = payload.name.strip()
         if not name:
             raise HTTPException(status_code=400, detail="Business name cannot be blank")
         org.name = name
-    for field in ("description", "website", "email", "phone", "address",
+    for field in ("bio", "website", "email", "phone", "address",
                   "license_number", "tax_id", "default_payment_terms", "currency_symbol"):
         value = getattr(payload, field, None)
         if value is not None:
             setattr(org, field, value.strip() if isinstance(value, str) else value)
+    if payload.full_name is not None:
+        current_user.full_name = payload.full_name.strip()
+    if payload.job_title is not None:
+        current_user.job_title = payload.job_title.strip()
     db.add(org)
+    db.add(current_user)
     db.commit()
     db.refresh(org)
-    return org
+    db.refresh(current_user)
+    return _profile_out(org, current_user)
 
 
 @router.post("/logo", response_model=schemas.OrganizationOut)

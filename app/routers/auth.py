@@ -62,7 +62,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = models.User(
         email=email,
         hashed_password=get_password_hash(user.password),
-        full_name=user.full_name,
+        full_name=(user.full_name or "").strip(),  # NOT NULL column; may be ""
         organization_id=organization.id if organization else None,
         role="owner",
     )

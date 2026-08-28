@@ -16,7 +16,7 @@ class OrganizationCreate(BaseModel):
 
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = None
-    description: Optional[str] = None
+    bio: Optional[str] = None
     website: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
@@ -25,13 +25,16 @@ class OrganizationUpdate(BaseModel):
     tax_id: Optional[str] = None
     default_payment_terms: Optional[str] = None
     currency_symbol: Optional[str] = None
+    # The representative attached to this business.
+    full_name: Optional[str] = None
+    job_title: Optional[str] = None
 
 
 class OrganizationOut(BaseModel):
     id: int
     name: str
     slug: str
-    description: Optional[str] = None
+    bio: Optional[str] = None
     website: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
@@ -44,6 +47,14 @@ class OrganizationOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class OrganizationProfileOut(OrganizationOut):
+    """What GET /api/organization/me returns: the full business profile plus
+    the representative's name and job title."""
+
+    full_name: Optional[str] = None
+    job_title: Optional[str] = None
 
 
 class UserCreate(BaseModel):
@@ -61,6 +72,19 @@ class UserOut(BaseModel):
     role: str
     organization_id: Optional[int] = None
     created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class UserProfileOut(BaseModel):
+    """The authenticated user's own profile (GET /api/users/me)."""
+
+    id: int
+    email: EmailStr
+    full_name: Optional[str] = None
+    job_title: Optional[str] = None
+    role: str
+    organization_id: Optional[int] = None
 
     model_config = {"from_attributes": True}
 

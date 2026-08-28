@@ -366,6 +366,7 @@ def export_quote_pdf(
         "quote": quote,
         "client": quote.client,
         "organization": current_user.organization,
+        "estimator": current_user,
         "lines": sorted(quote.items, key=lambda i: i.position or 0),
         "today": time.strftime("%B %d, %Y"),
     }
@@ -392,6 +393,7 @@ def export_quote_pdf_download(
         "quote": quote,
         "client": quote.client,
         "organization": current_user.organization,
+        "estimator": current_user,
         "lines": sorted(quote.items, key=lambda i: i.position or 0),
         "today": time.strftime("%B %d, %Y"),
     }

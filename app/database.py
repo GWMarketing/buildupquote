@@ -54,6 +54,8 @@ def ensure_legacy_columns(bind):
         statements.append("ALTER TABLE users ADD COLUMN organization_id INTEGER")
     if "role" not in existing:
         statements.append("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'owner'")
+    if "job_title" not in existing:
+        statements.append("ALTER TABLE users ADD COLUMN job_title VARCHAR")
     # The quotes table predates client_id/site_address/status (added when
     # the CRM UI landed) -- same in-place upgrade, still zero data.
     if "quotes" in existing_tables:
@@ -67,9 +69,16 @@ def ensure_legacy_columns(bind):
         if "tax_rate_percent" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN tax_rate_percent NUMERIC(5, 2)")
     # Organization profile fields landed after the first organizations
-    # table was created -- same idempotent in-place upgrade.
+    # table was created -- same idempotent in-place upgrade. `bio` superseded
+    # the old `description` column, so existing databases get an in-place
+    # RENAME rather than a second column.
     if "organizations" in existing_tables:
         org_cols = {c["name"] for c in inspector.get_columns("organizations")}
+        if "bio" not in org_cols:
+            if "description" in org_cols:
+                statements.append("ALTER TABLE organizations RENAME COLUMN description TO bio")
+            else:
+                statements.append("ALTER TABLE organizations ADD COLUMN bio TEXT")
         for col, ddl in (
             ("phone", "ALTER TABLE organizations ADD COLUMN phone VARCHAR"),
             ("address", "ALTER TABLE organizations ADD COLUMN address VARCHAR"),
@@ -77,7 +86,6 @@ def ensure_legacy_columns(bind):
             ("default_payment_terms", "ALTER TABLE organizations ADD COLUMN default_payment_terms VARCHAR"),
             ("currency_symbol", "ALTER TABLE organizations ADD COLUMN currency_symbol VARCHAR"),
             ("logo_url", "ALTER TABLE organizations ADD COLUMN logo_url VARCHAR"),
-            ("description", "ALTER TABLE organizations ADD COLUMN description TEXT"),
             ("website", "ALTER TABLE organizations ADD COLUMN website VARCHAR"),
             ("email", "ALTER TABLE organizations ADD COLUMN email VARCHAR"),
             ("license_number", "ALTER TABLE organizations ADD COLUMN license_number VARCHAR"),

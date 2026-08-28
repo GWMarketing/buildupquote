@@ -38,6 +38,7 @@ from app.routers import lexicon as lexicon_router
 from app.routers import organization as organization_router
 from app.routers import pages as pages_router
 from app.routers import quotes as quotes_router
+from app.routers import users as users_router
 from app.seeds.assemblies_seed import seed_assemblies_and_lexicon
 from app.seeds.trade_catalog_seed import seed_trade_catalog
 from proposal import ContractorInfo, build_proposal, render_proposal_pdf
@@ -86,6 +87,7 @@ app.include_router(assemblies_router.router)
 app.include_router(catalog_router.router)
 app.include_router(quotes_router.router)
 app.include_router(lexicon_router.router)
+app.include_router(users_router.router)
 
 _WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 
