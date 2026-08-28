@@ -65,6 +65,7 @@ _ASSEMBLIES = [
             "and framing/boarding labour."
         ),
         "required_inputs": ["length", "height"],
+        "calculator": "calculate_partition_wall",
         "components": [
             # (description, item_type, unit, formula, unit_cost, markup)
             ("Wall studs @ 400mm centres", "material", "each", "(length / 0.4) + 1", 4.50, 20.00),
@@ -100,6 +101,7 @@ _ASSEMBLIES = [
             "primer, and tiling labour."
         ),
         "required_inputs": ["length", "width"],
+        "calculator": "calculate_floor_tiling",
         "components": [
             ("Floor tile +15% cuts allowance", "material", "m2", "length * width * 1.15", 42.00, 20.00),
             ("Tile adhesive", "material", "kg", "length * width * 4", 3.50, 20.00),
@@ -115,6 +117,12 @@ def _seed_assemblies(db: Session) -> None:
     for spec in _ASSEMBLIES:
         exists = db.query(models.ParametricAssembly).filter_by(code=spec["code"]).first()
         if exists is not None:
+            # Assemblies already in the database get any new fields pushed in
+            # (e.g. the `calculator` added after the first seed), so shipping
+            # an updated seed actually upgrades existing installs.
+            if spec.get("calculator") and exists.calculator != spec["calculator"]:
+                exists.calculator = spec["calculator"]
+                db.add(exists)
             continue
         assembly = models.ParametricAssembly(
             organization_id=None,
@@ -123,6 +131,7 @@ def _seed_assemblies(db: Session) -> None:
             category=spec["category"],
             description=spec["description"],
             required_inputs=spec["required_inputs"],
+            calculator=spec.get("calculator"),
         )
         db.add(assembly)
         db.flush()  # assembly.id

@@ -10,6 +10,7 @@ import ast
 import operator
 
 from app.models import ParametricAssembly
+from app.services import assembly_calculators
 
 
 class AssemblyFormulaError(ValueError):
@@ -65,12 +66,52 @@ def _eval_node(node, dims):
     raise AssemblyFormulaError(f"Unsupported expression element: {type(node).__name__}")
 
 
-def calculate_assembly_lines(assembly: ParametricAssembly, dimensions: dict) -> list[dict]:
-    """Every component formula, evaluated against the caller's dimensions.
+def _run_calculator(name: str, dimensions: dict) -> list[dict]:
+    """Dispatch to a hand-written Python calculator (see
+    assembly_calculators.py) and normalize its lines into the app's line
+    contract: lowercase item_type, computed subtotal, optional trade."""
+    func = assembly_calculators.get_calculator(name)
+    if func is None:
+        raise AssemblyFormulaError(f"Unknown assembly calculator '{name}'")
 
-    Returns structured line items: description, item_type, quantity, unit,
-    unit_cost, markup_percent, and the marked-up subtotal for the line.
+    mapping = assembly_calculators.CALC_DIMENSION_MAP.get(name, {})
+    kwargs = {}
+    for param, dim_key in mapping.items():
+        value = (dimensions or {}).get(dim_key)
+        if value is None:
+            raise AssemblyFormulaError(f"Missing required input '{dim_key}'")
+        kwargs[param] = _to_float(dim_key, value)
+
+    lines = []
+    for raw in func(**kwargs):
+        quantity = float(raw.get("quantity") or 0)
+        unit_cost = float(raw.get("unit_cost") or 0)
+        markup = float(raw.get("markup_pct") or 0)
+        lines.append({
+            "description": str(raw.get("description") or ""),
+            "item_type": str(raw.get("type") or "material").lower(),
+            "trade": (str(raw.get("trade") or "").strip() or None),
+            "quantity": round(quantity, 3),
+            "unit": str(raw.get("unit") or "each"),
+            "unit_cost": round(unit_cost, 2),
+            "markup_percent": round(markup, 2),
+            "subtotal": round(quantity * unit_cost * (1 + markup / 100.0), 2),
+        })
+    return lines
+
+
+def calculate_assembly_lines(assembly: ParametricAssembly, dimensions: dict) -> list[dict]:
+    """Price an assembly for the caller's dimensions.
+
+    Assemblies with a `calculator` name dispatch to a hand-written Python
+    calculator; the rest evaluate their component formulas (both produce the
+    same {description, item_type, quantity, unit, unit_cost, markup_percent,
+    subtotal} line contract).
     """
+    calculator = getattr(assembly, "calculator", None)
+    if calculator:
+        return _run_calculator(calculator, dimensions)
+
     dims = {k: _to_float(k, v) for k, v in (dimensions or {}).items()}
     missing = [i for i in (assembly.required_inputs or []) if i not in dims]
     if missing:

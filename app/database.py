@@ -92,6 +92,12 @@ def ensure_legacy_columns(bind):
         ):
             if col not in org_cols:
                 statements.append(ddl)
+    # Parametric assemblies gained a `calculator` column (hand-written
+    # Python calculators that supersede the formula-string components).
+    if "parametric_assemblies" in existing_tables:
+        pa_cols = {c["name"] for c in inspector.get_columns("parametric_assemblies")}
+        if "calculator" not in pa_cols:
+            statements.append("ALTER TABLE parametric_assemblies ADD COLUMN calculator VARCHAR")
     if statements:
         with bind.begin() as conn:
             for statement in statements:

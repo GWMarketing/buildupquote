@@ -128,7 +128,9 @@ def apply_assembly(
     for line in lines:
         db.add(models.QuoteLineItem(
             quote_id=quote.id,
-            trade=match_trade_from_description(line["description"], db),
+            # Calculator lines carry their trade; formula components fall
+            # back to the trade lexicon.
+            trade=line.get("trade") or match_trade_from_description(line["description"], db),
             description=line["description"],
             item_type=line["item_type"],
             quantity=line["quantity"],

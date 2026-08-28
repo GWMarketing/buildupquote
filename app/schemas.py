@@ -111,6 +111,7 @@ class AssemblyOut(BaseModel):
     category: str
     description: Optional[str] = None
     required_inputs: list[str] = []
+    calculator: Optional[str] = None
     created_at: datetime
     components: list[AssemblyComponentOut] = []
 
@@ -129,6 +130,7 @@ class ApplyAssemblyRequest(BaseModel):
 class AssemblyLineOut(BaseModel):
     description: str
     item_type: str
+    trade: Optional[str] = None
     quantity: float
     unit: str
     unit_cost: float

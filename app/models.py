@@ -97,6 +97,7 @@ class ParametricAssembly(Base):
     category = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     required_inputs = Column(JSON, nullable=True)
+    calculator = Column(String, nullable=True)  # name of a Python calculator in assembly_calculators.py
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     components = relationship(
