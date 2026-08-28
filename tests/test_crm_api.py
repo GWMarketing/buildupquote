@@ -491,6 +491,22 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertTrue(any(res["canonical_name"] == "Concrete blocks (100mm)"
                             for res in r.json()["results"]), r.text)
 
+    def test_catalog_seed_covers_standard_materials(self):
+        auth = self.register("catalog6@acme.com")
+        for q, expected in [
+            ("plasterboard", "Drywall board (12.5mm)"),
+            ("2x4", "Timber wall stud (2x4)"),
+            ("screws", "Drywall screws (box of 200)"),
+            ("adhesive", "Tile adhesive"),
+            ("grout", "Tile grout (5kg)"),
+            ("skim", "Skim coat plaster"),
+        ]:
+            r = self.client.get("/api/catalog/autocorrect", params={"q": q}, headers=auth)
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertTrue(any(res["canonical_name"] == expected
+                                for res in r.json()["results"]),
+                            (q, r.json()["results"]))
+
     # ------------------------------------------------------------------
     # /api/catalog/calculate-assembly
     # ------------------------------------------------------------------

@@ -120,6 +120,28 @@ _CATALOG = [
         "synonyms": ["painting labour", "painting labor", "painter", "paint job",
                      "spray painting", "paint labour"],
     },
+    # Additional standard building materials
+    {
+        "canonical_name": "Drywall screws (box of 200)",
+        "trade": "Drywall", "unit": "box", "default_unit_cost": 6.50,
+        "default_trade_type": "Material",
+        "synonyms": ["drywall screws", "drywall screw", "screws", "bugle head screw",
+                     "screws for drywall", "plasterboard screws"],
+    },
+    {
+        "canonical_name": "Skim coat plaster",
+        "trade": "Drywall", "unit": "kg", "default_unit_cost": 1.20,
+        "default_trade_type": "Material",
+        "synonyms": ["skim", "skim coat", "skim plaster", "skimming", "finishing plaster",
+                     "multifinish", "plaster skim"],
+    },
+    {
+        "canonical_name": "Tile grout (5kg)",
+        "trade": "Tiling", "unit": "bag", "default_unit_cost": 12.00,
+        "default_trade_type": "Material",
+        "synonyms": ["grout", "tile grout", "joint filler", "anti-mould grout",
+                     "wall and floor grout", "grout bag"],
+    },
 ]
 
 
