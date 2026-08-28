@@ -212,6 +212,17 @@ class CrmApiTestCase(unittest.TestCase):
                              json={"raw_text": "Name: X\nx@y.com"})
         self.assertEqual(r.status_code, 400, r.text)
 
+    def test_clients_page_renders_sync_hub(self):
+        """The clients page must render the 1-Click Sync Hub UI: phone picker,
+        quick-paste modal, file import modal, and add-client modal."""
+        r = self.client.get("/clients")
+        self.assertEqual(r.status_code, 200, r.text)
+        html = r.text
+        for needle in ("clientManager", "pickNativeContacts", "navigator.contacts",
+                       "openQuickPasteModal", "openImportFileModal", "openAddClientModal",
+                       "quick-parse-lead", "import-file", "site_address"):
+            self.assertIn(needle, html)
+
     def test_org_profile_update_all_fields(self):
         auth = self.register("profile@acme.com", full_name="Glenn Westman")
         r = self.client.put("/api/organization/me", headers=auth, json={

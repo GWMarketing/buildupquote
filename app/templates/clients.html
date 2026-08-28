@@ -1,227 +1,230 @@
 {% extends "base.html" %}
 {% block content %}
-<div x-data="clientsPage()" x-init="init()" class="space-y-4">
-  <div class="bq-hero flex flex-wrap items-center justify-between gap-4">
-    <div class="hero-content">
-      <p class="hero-eyebrow">Clients</p>
-      <h1>Your customers, in one list</h1>
-      <p class="hero-sub">Import contacts, track site addresses, and quote faster.</p>
+<div x-data="clientManager()" x-init="fetchClients()" class="mx-auto max-w-7xl space-y-6 px-4 py-8">
+
+  <!-- Header Actions -->
+  <div class="flex flex-col justify-between gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center dark:border-slate-700 dark:bg-slate-900">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Clients & Contacts</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Manage client details or import from phone, WhatsApp, CSV, or vCard.</p>
     </div>
-    <div class="hero-actions">
-      <button class="bq-btn" @click="openModal()">＋ Add New Client</button>
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- Native Phone Contact Picker (Works on Mobile/Supported Browsers) -->
+      <button @click="pickNativeContacts()" :disabled="syncing"
+              class="flex items-center gap-2 rounded-lg bg-slate-100 px-3.5 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-200 disabled:opacity-60 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+        <i data-lucide="smartphone" class="h-4 w-4 text-amber-500"></i>
+        <span x-text="syncing ? 'Syncing…' : 'Import Phone Contacts'"></span>
+      </button>
+      <button @click="openQuickPasteModal = true"
+              class="flex items-center gap-2 rounded-lg bg-slate-100 px-3.5 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+        <i data-lucide="message-square" class="h-4 w-4 text-amber-500"></i> Quick Paste Lead
+      </button>
+      <button @click="openImportFileModal = true"
+              class="flex items-center gap-2 rounded-lg bg-slate-100 px-3.5 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+        <i data-lucide="upload" class="h-4 w-4 text-amber-500"></i> Import File
+      </button>
+      <button @click="openAddClientModal = true"
+              class="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 shadow-sm transition hover:bg-amber-600">
+        <i data-lucide="user-plus" class="h-4 w-4"></i> + Add Client
+      </button>
     </div>
   </div>
 
-  <div class="bq-card p-5">
-    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Import contacts</h2>
-    <p class="mb-3 text-xs text-slate-400">Upload a .vcf contacts file or a .csv (name, email, phone, address columns), or paste leads — one contact per blank line.</p>
-    <div class="grid gap-4 lg:grid-cols-2">
-      <div>
-        <div @click="$refs.importFile.click()" @dragover.prevent @drop.prevent="onDrop($event)"
-             class="flex h-28 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 text-center text-sm text-slate-400 hover:border-slate-400 dark:border-slate-600 dark:bg-slate-800">
-          <p class="px-4">Drop a <span class="font-medium text-slate-600 dark:text-slate-300">.vcf</span> or <span class="font-medium text-slate-600 dark:text-slate-300">.csv</span> file here, or click to browse</p>
-          <input type="file" x-ref="importFile" accept=".vcf,.csv,text/x-vcard,text/csv" class="hidden" @change="onFile($event)">
-        </div>
-      </div>
-      <div class="flex flex-col justify-between">
-        <div class="flex h-28 flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 text-center text-sm text-slate-400 dark:border-slate-600 dark:bg-slate-800">
-          <p class="px-4">Have leads in a message or on your phone?</p>
-          <p class="mt-1">
-            <button class="font-medium text-amber-600 hover:underline dark:text-amber-400" @click="openPaste()">Quick-paste them</button>
-            <span x-show="pickerSupported">or</span>
-            <button class="font-medium text-amber-600 hover:underline dark:text-amber-400" x-show="pickerSupported"
-                    @click="pickContacts()" :disabled="importing" x-text="importing ? 'Syncing…' : 'sync from your phone'"></button>
-          </p>
-        </div>
-      </div>
-    </div>
-    <p class="mt-2 text-sm text-emerald-600" x-show="importMsg" x-cloak x-text="importMsg"></p>
-    <p class="mt-1 text-sm text-red-600" x-show="importError" x-cloak x-text="importError"></p>
-  </div>
 
-  <div class="bq-card overflow-x-auto">
-    <table class="w-full grid-table">
-      <thead>
-        <tr><th>Name</th><th>Site address</th><th>Phone</th><th>Email</th><th></th></tr>
+  <!-- Clients List Table -->
+  <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+      <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+        <tr>
+          <th class="px-6 py-3 text-left">Client / Company</th>
+          <th class="px-6 py-3 text-left">Contact Info</th>
+          <th class="px-6 py-3 text-left">Address</th>
+          <th class="px-6 py-3 text-right">Actions</th>
+        </tr>
       </thead>
-      <tbody>
-        <template x-for="c in clients" :key="c.id">
-          <tr>
-            <td class="text-sm font-medium text-slate-900 dark:text-slate-100" x-text="c.name"></td>
-            <td class="text-sm text-slate-600 dark:text-slate-300" x-text="c.site_address || '—'"></td>
-            <td class="text-sm text-slate-600 dark:text-slate-300" x-text="c.phone || '—'"></td>
-            <td class="text-sm text-slate-600 dark:text-slate-300" x-text="c.email || '—'"></td>
-            <td class="text-right">
-              <button class="px-2 py-1 text-slate-400 hover:text-red-600" title="Delete client"
-                      @click="confirmDelete(c)">🗑</button>
+      <tbody class="divide-y divide-slate-200 text-sm dark:divide-slate-700">
+        <template x-for="client in clients" :key="client.id">
+          <tr class="transition hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
+            <td class="px-6 py-4 font-bold text-slate-900 dark:text-slate-100" x-text="client.name"></td>
+            <td class="px-6 py-4">
+              <div class="text-slate-800 dark:text-slate-200" x-text="client.phone || '—'"></div>
+              <div class="text-xs text-slate-400" x-text="client.email || '—'"></div>
+            </td>
+            <td class="px-6 py-4 text-xs text-slate-600 dark:text-slate-300" x-text="client.site_address || '—'"></td>
+            <td class="px-6 py-4 text-right">
+              <button @click="deleteClient(client.id)" class="text-slate-400 transition hover:text-red-600" title="Delete client">
+                <i data-lucide="trash-2" class="h-4 w-4"></i>
+              </button>
             </td>
           </tr>
         </template>
+        <tr x-show="!loading && clients.length === 0" x-cloak>
+          <td colspan="4" class="px-6 py-12 text-center text-sm text-slate-400 dark:text-slate-500">
+            No clients yet — import a .vcf / .csv, paste a lead, or sync from your phone.
+          </td>
+        </tr>
+        <tr x-show="loading" x-cloak>
+          <td colspan="4" class="px-6 py-12 text-center text-sm text-slate-400 dark:text-slate-500">Loading clients…</td>
+        </tr>
       </tbody>
     </table>
-    <div class="empty-state" x-show="!loading && clients.length === 0" x-cloak>
-      <span class="icon-chip bg-amber-500/10 text-amber-500"><i data-lucide="users" class="h-6 w-6"></i></span>
-      <p class="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">No clients yet</p>
-      <p class="mt-1 text-sm text-slate-400">Add a client or import a .vcf / .csv file above.</p>
-      <button class="bq-btn mt-4" @click="openModal()">＋ Add New Client</button>
+  </div>
+
+
+  <!-- Quick Paste Modal (WhatsApp / SMS Dump) -->
+  <div x-show="openQuickPasteModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+       @keydown.escape.window="openQuickPasteModal = false">
+    <div class="w-full max-w-lg space-y-4 rounded-xl bg-white p-6 text-slate-800 shadow-xl dark:bg-slate-900 dark:text-slate-200">
+      <h3 class="text-lg font-bold dark:text-white">Quick Paste Lead Text</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Paste raw message text from WhatsApp, SMS, or Email. The parser will automatically extract the name, phone, and address.</p>
+      <textarea x-model="quickPasteText" rows="5" placeholder="e.g. John Doe, 07123456789, need a quote for 12 Elm Street, john@example.com"
+                class="bq-input w-full"></textarea>
+      <div class="flex justify-end gap-2">
+        <button @click="openQuickPasteModal = false" class="rounded border border-slate-200 px-4 py-2 text-slate-600 dark:border-slate-700 dark:text-slate-300">Cancel</button>
+        <button @click="submitQuickPaste()" :disabled="pasting" class="rounded bg-amber-500 px-4 py-2 font-bold text-slate-950 transition hover:bg-amber-600 disabled:opacity-60"
+                x-text="pasting ? 'Saving…' : 'Parse & Save'"></button>
+      </div>
     </div>
   </div>
 
-  <!-- Add-client modal -->
-  <div x-show="modalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-       @keydown.escape.window="modalOpen = false">
-    <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-      <h2 class="mb-4 text-base font-semibold text-slate-900">Add new client</h2>
+  <!-- File Import Modal (.csv / .vcf) -->
+  <div x-show="openImportFileModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+       @keydown.escape.window="openImportFileModal = false">
+    <div class="w-full max-w-lg space-y-4 rounded-xl bg-white p-6 text-slate-800 shadow-xl dark:bg-slate-900 dark:text-slate-200">
+      <h3 class="text-lg font-bold dark:text-white">Import Contacts File</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Upload a vCard (.vcf) from Apple Contacts / Google or a CSV spreadsheet.</p>
+      <input type="file" x-ref="contactsFileInput" accept=".csv,.vcf,text/x-vcard,text/csv"
+             class="block w-full rounded border border-slate-200 p-2 text-sm dark:border-slate-700">
+      <div class="flex justify-end gap-2">
+        <button @click="openImportFileModal = false" class="rounded border border-slate-200 px-4 py-2 text-slate-600 dark:border-slate-700 dark:text-slate-300">Cancel</button>
+        <button @click="uploadContactsFile()" :disabled="uploading" class="rounded bg-amber-500 px-4 py-2 font-bold text-slate-950 transition hover:bg-amber-600 disabled:opacity-60"
+                x-text="uploading ? 'Uploading…' : 'Upload & Import'"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Client Modal -->
+  <div x-show="openAddClientModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+       @keydown.escape.window="openAddClientModal = false">
+    <div class="w-full max-w-md space-y-4 rounded-xl bg-white p-6 text-slate-800 shadow-xl dark:bg-slate-900 dark:text-slate-200">
+      <h3 class="text-lg font-bold dark:text-white">Add New Client</h3>
       <div class="space-y-3">
-        <div><label class="mb-1 block text-xs font-medium text-slate-500">Name *</label>
-          <input class="bq-input" x-model="form.name"></div>
-        <div><label class="mb-1 block text-xs font-medium text-slate-500">Site address</label>
-          <input class="bq-input" x-model="form.site_address"></div>
-        <div><label class="mb-1 block text-xs font-medium text-slate-500">Phone</label>
-          <input class="bq-input" x-model="form.phone"></div>
-        <div><label class="mb-1 block text-xs font-medium text-slate-500">Email</label>
-          <input class="bq-input" type="email" x-model="form.email"></div>
+        <div><label class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Name *</label>
+          <input class="bq-input w-full" x-model="newClient.name"></div>
+        <div><label class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Site address</label>
+          <input class="bq-input w-full" x-model="newClient.site_address"></div>
+        <div><label class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Phone</label>
+          <input class="bq-input w-full" x-model="newClient.phone"></div>
+        <div><label class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Email</label>
+          <input class="bq-input w-full" type="email" x-model="newClient.email"></div>
       </div>
-      <div class="mt-5 flex justify-end gap-2">
-        <button class="bq-btn-secondary" @click="modalOpen = false">Cancel</button>
-        <button class="bq-btn" :disabled="saving" @click="addClient()" x-text="saving ? 'Adding…' : 'Add client'"></button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Quick-paste lead modal -->
-  <div x-show="pasteOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-       @keydown.escape.window="pasteOpen = false">
-    <div class="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-      <h2 class="mb-1 text-base font-semibold text-slate-900">Quick-paste leads</h2>
-      <p class="mb-3 text-xs text-slate-500">Paste one contact per blank line — names, emails, phones and site addresses are picked up automatically.</p>
-      <textarea x-ref="pasteBox" class="bq-input h-40 w-full" placeholder="Jane Doe&#10;jane@example.com&#10;555-010-1234&#10;123 Main St&#10;&#10;Bob Smith&#10;bob@example.com"></textarea>
-      <p class="mt-2 text-sm text-emerald-600" x-show="importMsg" x-cloak x-text="importMsg"></p>
-      <p class="mt-1 text-sm text-red-600" x-show="importError" x-cloak x-text="importError"></p>
-      <div class="mt-5 flex justify-end gap-2">
-        <button class="bq-btn-secondary" @click="pasteOpen = false">Cancel</button>
-        <button class="bq-btn" :disabled="importing" @click="quickPaste()" x-text="importing ? 'Importing…' : 'Import leads'"></button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Delete confirmation modal -->
-  <div x-show="target" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-       @keydown.escape.window="target = null">
-    <div class="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
-      <h2 class="text-base font-semibold text-slate-900">Delete client?</h2>
-      <p class="mt-2 text-sm text-slate-500">
-        Are you sure you want to delete this client (<span class="font-medium text-slate-700" x-text="target && target.name"></span>)?
-        This action cannot be undone.
-      </p>
-      <p class="mt-2 text-sm text-red-600" x-show="deleteError" x-cloak x-text="deleteError"></p>
-      <div class="mt-5 flex justify-end gap-2">
-        <button class="bq-btn-secondary" @click="target = null; deleteError = ''">Cancel</button>
-        <button class="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition duration-150 hover:-translate-y-px hover:bg-red-700 hover:shadow-md"
-                :disabled="deleting" @click="doDelete()" x-text="deleting ? 'Deleting…' : 'Delete'"></button>
+      <div class="flex justify-end gap-2">
+        <button @click="openAddClientModal = false" class="rounded border border-slate-200 px-4 py-2 text-slate-600 dark:border-slate-700 dark:text-slate-300">Cancel</button>
+        <button @click="submitNewClient()" :disabled="saving" class="rounded bg-amber-500 px-4 py-2 font-bold text-slate-950 transition hover:bg-amber-600 disabled:opacity-60"
+                x-text="saving ? 'Adding…' : 'Add client'"></button>
       </div>
     </div>
   </div>
 </div>
 
+
 <script>
-function clientsPage() {
+function clientManager() {
   return {
-    clients: [], loading: true, modalOpen: false, saving: false,
-    target: null, deleting: false, deleteError: '',
-    pasteOpen: false, importing: false, importMsg: '', importError: '',
-    pickerSupported: typeof navigator !== 'undefined' && !!(navigator.contacts && navigator.contacts.select),
-    form: { name: '', site_address: '', phone: '', email: '' },
-    async init() {
-      try { this.clients = await BQ.api('/api/clients'); } catch (e) { console.error(e); }
-      this.loading = false;
-    },
-    openModal() { this.form = { name: '', site_address: '', phone: '', email: '' }; this.modalOpen = true; },
-    openPaste() { this.importMsg = ''; this.importError = ''; this.pasteOpen = true; },
-    async pickContacts() {
-      // Native Contact Picker API (Chrome/Edge Android, iOS Safari 14.5+).
-      this.importing = true; this.importError = ''; this.importMsg = '';
+    clients: [],
+    loading: true, syncing: false, pasting: false, uploading: false, saving: false,
+    openQuickPasteModal: false, openImportFileModal: false, openAddClientModal: false,
+    quickPasteText: '',
+    newClient: { name: '', site_address: '', phone: '', email: '' },
+
+    async fetchClients() {
       try {
-        const contacts = await navigator.contacts.select(['name', 'email', 'tel'], { multiple: true });
-        if (!contacts || !contacts.length) return;
-        const blocks = contacts.map(c => [
-          (c.name && c.name[0]) || '',
-          (c.email && c.email[0]) || '',
-          (c.tel && c.tel[0]) || '',
-        ].filter(Boolean).join('\n')).join('\n\n');
-        const res = await BQ.api('/api/clients/quick-parse-text', {
-          method: 'POST', body: { text: blocks },
-        });
-        this.importMsg = 'Synced ' + res.created + ' from your phone' + (res.skipped ? ' (skipped ' + res.skipped + ' existing)' : '');
         this.clients = await BQ.api('/api/clients');
-      } catch (e) {
-        if (e && e.name === 'NotAllowedError') return;  // user cancelled
-        this.importError = 'Sync failed: ' + (e && e.message || e);
-      }
-      this.importing = false;
+      } catch (e) { BQ.toast('Failed to load clients: ' + e.message); }
+      this.loading = false;
+      this.$nextTick(() => lucide.createIcons());
     },
-    async addClient() {
-      if (!this.form.name.trim()) { BQ.toast('Name is required'); return; }
+
+    /* Native Contact Picker API -- Chrome/Edge Android, iOS Safari 14.5+. */
+    async pickNativeContacts() {
+      if (navigator.contacts && navigator.contacts.select) {
+        this.syncing = true;
+        try {
+          const contacts = await navigator.contacts.select(['name', 'email', 'tel'], { multiple: true });
+          if (contacts && contacts.length) {
+            // Reuse the deduping quick-parse importer: one contact per block.
+            const text = contacts.map(c => [
+              (c.name && c.name[0]) || '',
+              (c.email && c.email[0]) || '',
+              (c.tel && c.tel[0]) || '',
+            ].filter(Boolean).join('\n')).join('\n\n');
+            const res = await BQ.api('/api/clients/quick-parse-text', {
+              method: 'POST', body: { text },
+            });
+            BQ.toast('Synced ' + res.created + ' from your phone' + (res.skipped ? ' (skipped ' + res.skipped + ' existing)' : ''), 'success');
+            await this.fetchClients();
+          }
+        } catch (e) {
+          if (e && e.name !== 'NotAllowedError') BQ.toast('Phone sync failed: ' + (e.message || e));
+        }
+        this.syncing = false;
+      } else {
+        BQ.toast('The native phone picker needs a mobile browser (Chrome Android / Safari iOS 14.5+). Try Quick Paste or Import File.');
+      }
+    },
+
+    async submitQuickPaste() {
+      const text = (this.quickPasteText || '').trim();
+      if (!text) return;
+      this.pasting = true;
+      try {
+        await BQ.api('/api/clients/quick-parse-lead', {
+          method: 'POST', body: { raw_text: text },
+        });
+        this.quickPasteText = '';
+        this.openQuickPasteModal = false;
+        BQ.toast('Lead saved', 'success');
+        await this.fetchClients();
+      } catch (e) { BQ.toast('Could not save lead: ' + e.message); }
+      this.pasting = false;
+    },
+
+    async uploadContactsFile() {
+      const fileInput = this.$refs.contactsFileInput;
+      if (!fileInput || !fileInput.files.length) return;
+      this.uploading = true;
+      try {
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        const res = await BQ.api('/api/clients/import-file', { method: 'POST', body: formData });
+        this.openImportFileModal = false;
+        fileInput.value = '';
+        BQ.toast('Added ' + res.created + ', skipped ' + res.skipped, 'success');
+        await this.fetchClients();
+      } catch (e) { BQ.toast('Import failed: ' + e.message); }
+      this.uploading = false;
+    },
+
+    async submitNewClient() {
+      if (!this.newClient.name.trim()) { BQ.toast('Name is required'); return; }
       this.saving = true;
       try {
-        await BQ.api('/api/clients', {
-          method: 'POST', body: this.form,
-        });
-        this.modalOpen = false;
-        this.clients = await BQ.api('/api/clients');
+        await BQ.api('/api/clients', { method: 'POST', body: this.newClient });
+        this.openAddClientModal = false;
+        this.newClient = { name: '', site_address: '', phone: '', email: '' };
         BQ.toast('Client added', 'success');
+        await this.fetchClients();
       } catch (e) { BQ.toast('Failed: ' + e.message); }
       this.saving = false;
     },
-    confirmDelete(c) { this.target = c; this.deleteError = ''; },
-    async doDelete() {
-      if (!this.target) return;
-      this.deleting = true; this.deleteError = '';
+
+    async deleteClient(id) {
+      if (!confirm('Are you sure you want to delete this client?')) return;
       try {
-        await BQ.api('/api/clients/' + this.target.id, { method: 'DELETE' });
-        this.clients = this.clients.filter(c => c.id !== this.target.id);
-        this.target = null;
+        await BQ.api('/api/clients/' + id, { method: 'DELETE' });
         BQ.toast('Client deleted', 'success');
-      } catch (e) {
-        this.deleteError = e.message;  // e.g. "Client has N active quote(s)…"
-      }
-      this.deleting = false;
-    },
-    async onFile(e) {
-      const file = e.target.files[0];
-      if (file) await this.uploadImport(file);
-      e.target.value = '';
-    },
-    async onDrop(e) {
-      const file = e.dataTransfer && e.dataTransfer.files[0];
-      if (file) await this.uploadImport(file);
-    },
-    async uploadImport(file) {
-      this.importing = true; this.importError = ''; this.importMsg = '';
-      try {
-        const form = new FormData();
-        form.append('file', file);
-        const res = await BQ.api('/api/clients/import-file', { method: 'POST', body: form });
-        this.importMsg = 'Added ' + res.created + ', skipped ' + res.skipped;
-        this.clients = await BQ.api('/api/clients');
-      } catch (e) { this.importError = 'Import failed: ' + e.message; }
-      this.importing = false;
-    },
-    async quickPaste() {
-      const text = (this.$refs.pasteBox && this.$refs.pasteBox.value || '').trim();
-      if (!text) return;
-      this.importing = true; this.importError = ''; this.importMsg = '';
-      try {
-        const res = await BQ.api('/api/clients/quick-parse-text', {
-          method: 'POST', body: { text },
-        });
-        this.importMsg = 'Added ' + res.created + ', skipped ' + res.skipped;
-        if (this.$refs.pasteBox) this.$refs.pasteBox.value = '';
-        this.clients = await BQ.api('/api/clients');
-        this.pasteOpen = false;
-        BQ.toast('Leads imported', 'success');
-      } catch (e) { this.importError = 'Import failed: ' + e.message; }
-      this.importing = false;
+        await this.fetchClients();
+      } catch (e) { BQ.toast(e.message); }
     },
   };
 }
