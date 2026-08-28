@@ -34,6 +34,14 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 # hide the button and /api/auth/google answers 503 "not configured". Set the
 # client ID from a Google Cloud Console "Web application" OAuth client.
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+# Redirect URI for the Google Contacts OAuth flow. Must EXACTLY match an entry
+# in the OAuth client's "Authorized redirect URIs" (https, no trailing slash,
+# no port). It is public (it appears in the consent URL), so committing a
+# default is fine. Explicitly configured rather than derived from the request
+# because TLS terminates at Caddy -- the app only ever sees plain http.
+GOOGLE_REDIRECT_URI = os.getenv(
+    "GOOGLE_REDIRECT_URI", "https://glennwestman.com/api/auth/google/contacts/callback",
+)
 # Google Contacts sync (People API) needs the OAuth client secret -- unlike
 # Sign-In, which only requires the public client ID. Empty disables the
 # "Sync Google Contacts" flow (503 from the endpoints, button hidden).

@@ -19,6 +19,10 @@ services:
       # .env is gitignored so deploys never clobber it). Leave unset to hide
       # the Sync Google Contacts button.
       GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
+      # Google Contacts OAuth redirect URI -- must EXACTLY match an entry in the
+      # OAuth client's "Authorized redirect URIs" (https, no trailing slash).
+      # Public value (it appears in the consent URL), safe to commit.
+      GOOGLE_REDIRECT_URI: "https://glennwestman.com/api/auth/google/contacts/callback"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

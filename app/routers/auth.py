@@ -3,7 +3,7 @@ Contacts OAuth dance (People API)."""
 import secrets
 import urllib.parse
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -14,6 +14,7 @@ from app.auth import (
     ALGORITHM,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
+    GOOGLE_REDIRECT_URI,
     SECRET_KEY,
     create_access_token,
     get_current_user,
@@ -162,16 +163,15 @@ def read_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 
-def _google_contacts_redirect_uri(request: Request) -> str:
-    """Must exactly match the Authorized redirect URI registered for the OAuth
-    client (Google is strict about this). Derived from the request's own base
-    URL so localhost and production both work."""
-    return str(request.base_url).rstrip("/") + "/api/auth/google/contacts/callback"
+def _google_contacts_redirect_uri() -> str:
+    """The registered Authorized redirect URI (see GOOGLE_REDIRECT_URI). Not
+    derived from the request: TLS terminates at Caddy, so request.base_url
+    would report plain http and Google would reject it as a mismatch."""
+    return GOOGLE_REDIRECT_URI
 
 
 @router.get("/google/contacts/auth")
 def google_contacts_auth(
-    request: Request,
     current_user: models.User = Depends(get_current_user),
 ):
     """Start the Google Contacts OAuth dance: returns the consent-screen URL
@@ -188,14 +188,13 @@ def google_contacts_auth(
     )
     return {
         "auth_url": google_contacts.build_auth_url(
-            GOOGLE_CLIENT_ID, _google_contacts_redirect_uri(request), state,
+            GOOGLE_CLIENT_ID, _google_contacts_redirect_uri(), state,
         ),
     }
 
 
 @router.get("/google/contacts/callback")
 def google_contacts_callback(
-    request: Request,
     code: str = "",
     state: str = "",
     error: str = "",
@@ -219,7 +218,7 @@ def google_contacts_callback(
         return bail("no_user")
     try:
         tokens = google_contacts.exchange_code(
-            code, _google_contacts_redirect_uri(request),
+            code, _google_contacts_redirect_uri(),
             GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
         )
     except google_contacts.GoogleContactsError as exc:

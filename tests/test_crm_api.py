@@ -234,6 +234,7 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertEqual(r.status_code, 503, r.text)
 
     def test_google_contacts_auth_url_when_configured(self):
+        import urllib.parse
         from unittest import mock
 
         import app.routers.auth as auth_router
@@ -247,7 +248,13 @@ class CrmApiTestCase(unittest.TestCase):
             self.assertIn("https://accounts.google.com/o/oauth2/v2/auth?", url)
             self.assertIn("access_type=offline", url)
             self.assertIn("prompt=consent", url)
-            self.assertIn("redirect_uri=", url)
+            # The redirect URI must be the exact registered https URL -- never
+            # http (that's what caused the redirect_uri_mismatch behind Caddy).
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+            self.assertEqual(
+                query["redirect_uri"],
+                ["https://glennwestman.com/api/auth/google/contacts/callback"],
+            )
 
     def test_google_contacts_import_not_connected(self):
         from unittest import mock
