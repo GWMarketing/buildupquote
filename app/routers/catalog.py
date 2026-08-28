@@ -50,7 +50,7 @@ def autocorrect(
     results = []
     seen = set()
     for synonym in rows:
-        item = synonym.catalog
+        item = synonym.catalog_item
         if item.canonical_name in seen:
             continue
         seen.add(item.canonical_name)
@@ -59,7 +59,9 @@ def autocorrect(
             "trade": item.trade,
             "unit": item.unit,
             "default_unit_cost": float(item.default_unit_cost or 0),
-            "default_trade_type": item.default_trade_type,
+            # The DB stores display labels ("Material"); the quote builder's
+            # item_type contract is lowercase, so normalize on the way out.
+            "default_trade_type": (item.default_trade_type or "material").lower(),
         })
         if len(results) >= limit:
             break

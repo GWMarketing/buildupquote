@@ -140,9 +140,9 @@ class TradeSynonym(Base):
         Integer, ForeignKey("trade_catalog_items.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    raw_term = Column(String, nullable=False, index=True)
+    raw_term = Column(String(255), nullable=False, index=True)
 
-    catalog = relationship("TradeCatalogItem", back_populates="synonyms")
+    catalog_item = relationship("TradeCatalogItem", back_populates="synonyms")
 
     __table_args__ = (
         Index(
@@ -156,20 +156,22 @@ class TradeSynonym(Base):
 class TradeCatalogItem(Base):
     """The canonical trade catalog: a priced material/labor line a
     description can be autocorrected to. 'trade' is the trade category
-    (Drywall, Framing, ...), default_trade_type is material/labor/plant/
-    subcontractor."""
+    (Drywall, Framing, ...), default_trade_type is the display label
+    (Material, Labor, Subcontractor, Plant) -- the API lowercases it so the
+    quote builder's item_type values (material/labor/plant/subcontractor)
+    keep matching."""
 
     __tablename__ = "trade_catalog_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    trade = Column(String, nullable=False, index=True)
-    canonical_name = Column(String, nullable=False, unique=True, index=True)
-    unit = Column(String, nullable=False)
-    default_unit_cost = Column(Numeric(10, 2), nullable=False, default=0)
-    default_trade_type = Column(String, nullable=False, default="material")
+    trade = Column(String(64), nullable=False, index=True)  # "Drywall", "Carpentry"...
+    canonical_name = Column(String(255), nullable=False, unique=True, index=True)
+    unit = Column(String(32), nullable=False, default="unit")  # "sheet", "m2", "hour"...
+    default_unit_cost = Column(Numeric(10, 2), nullable=False, default=0.0)
+    default_trade_type = Column(String(32), nullable=False, default="Material")
 
     synonyms = relationship(
-        "TradeSynonym", back_populates="catalog", cascade="all, delete-orphan",
+        "TradeSynonym", back_populates="catalog_item", cascade="all, delete-orphan",
     )
 
 
