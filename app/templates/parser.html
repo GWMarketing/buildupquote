@@ -10,6 +10,18 @@
       <span class="text-sm text-red-600" x-show="error" x-cloak x-text="error"></span>
     </div>
 
+    <div class="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3 dark:border-slate-700" x-show="parsed" x-cloak>
+      <select class="bq-input max-w-56" x-model.number="quoteClientId">
+        <option :value="null">No client</option>
+        <template x-for="c in clients" :key="c.id">
+          <option :value="c.id" x-text="c.name"></option>
+        </template>
+      </select>
+      <button class="bq-btn" :disabled="building || !rows.length" @click="buildQuote()"
+              x-text="building ? 'Building…' : '＋ Build quote from this estimate'"></button>
+      <span class="text-xs text-slate-400">Creates a draft Quote from these lines and opens the builder.</span>
+    </div>
+
     <div x-show="parsed" x-cloak class="mt-4 border-t border-slate-100 pt-4 dark:border-slate-700">
       <div class="flex flex-wrap items-center gap-2">
         <span class="badge" :class="needsReviewCount ? 'badge-sent' : 'badge-accepted'"
@@ -138,7 +150,8 @@ function parserPage() {
     businessFromOrg: false,
     taxRule: 'none', taxRate: 8.25, taxOptions: {}, tradeOptions: [],
     parsed: null, claim: {}, warnings: [], documentType: '', needsReviewCount: 0, deductible: null,
-    rows: [], uploading: false, exporting: false, error: '',
+    rows: [], uploading: false, exporting: false, building: false, error: '',
+    clients: [], quoteClientId: null,
     totals: { subtotal: 0, tax: 0, total: 0, count: 0, trades: [] },
 
     async init() {
@@ -149,6 +162,7 @@ function parserPage() {
         this.taxRate = meta.default_tax_rate_pct || 8.25;
         this.taxRule = 'none';
       } catch (e) { console.error(e); }
+      try { this.clients = await BQ.api('/api/clients'); } catch (e) { /* optional */ }
       // Prefill business info from the organization profile.
       try {
         const org = await BQ.api('/api/organization/me');
@@ -190,6 +204,19 @@ function parserPage() {
       this.uploading = false;
     },
 
+    async buildQuote() {
+      this.building = true; this.error = '';
+      try {
+        const q = await BQ.api('/api/quotes/from-parse', {
+          method: 'POST',
+          body: { rows: this.rows, claim_fields: this.claim, client_id: this.quoteClientId },
+        });
+        BQ.toast('Quote created — opening in the builder', 'success');
+        location.href = '/quotes/' + q.id;
+      } catch (e) { this.error = e.message; BQ.toast('Could not build quote: ' + e.message); }
+      this.building = false;
+    },
+
     async totals() {
       try {
         this.totals = await BQ.api('/api/totals', {
@@ -213,28 +240,14 @@ function parserPage() {
     fmt(n) { return BQ.money(n); },
 
     async download(path, fallbackName) {
-      const res = await fetch(path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + BQ.token() },
+      const res = await BQ.apiRaw(path, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rows: this.rows, business: this.biz, claim_fields: this.claim,
           tax_rule: this.taxRule, tax_rate_pct: this.taxRate, deductible: this.deductible,
         }),
       });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error((typeof d.detail === 'string' ? d.detail : 'Export failed') || 'Export failed');
-      }
-      let name = fallbackName;
-      const cd = res.headers.get('Content-Disposition') || '';
-      const m = cd.match(/filename="?([^";]+)"?/);
-      if (m) name = m[1];
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = name;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
+      return BQ.download(res, fallbackName);
     },
 
     async exportPdf() {

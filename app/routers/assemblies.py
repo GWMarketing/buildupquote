@@ -12,6 +12,7 @@ from app import models, schemas
 from app.auth import get_current_user
 from app.database import get_db
 from app.services import assembly_service
+from app.services.lexicon_service import match_trade_from_description
 
 router = APIRouter(prefix="/api", tags=["assemblies"])
 
@@ -30,14 +31,17 @@ def _assembly_query(db: Session, user: models.User):
 
 
 def _recalculate_quote_totals(db: Session, quote: models.Quote) -> None:
-    """Refresh a quote's subtotal/total from its stored line items."""
+    """Refresh a quote's subtotal/tax/total from its stored line items and
+    its persisted flat tax rate."""
     subtotal = (
         db.query(func.coalesce(func.sum(models.QuoteLineItem.line_total), 0))
         .filter(models.QuoteLineItem.quote_id == quote.id)
         .scalar()
     )
     quote.subtotal = round(float(subtotal), 2)
-    quote.total = quote.subtotal  # sales tax hooks in later
+    rate = float(quote.tax_rate_percent or 0)
+    quote.tax_amount = round(quote.subtotal * rate / 100.0, 2)
+    quote.total = round(quote.subtotal + quote.tax_amount, 2)
     db.add(quote)
 
 
@@ -124,7 +128,7 @@ def apply_assembly(
     for line in lines:
         db.add(models.QuoteLineItem(
             quote_id=quote.id,
-            trade=None,  # filled from the trade lexicon in a later phase
+            trade=match_trade_from_description(line["description"], db),
             description=line["description"],
             item_type=line["item_type"],
             quantity=line["quantity"],

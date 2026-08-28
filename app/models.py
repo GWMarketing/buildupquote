@@ -133,6 +133,7 @@ class Quote(Base):
     site_address = Column(String, nullable=True)
     status = Column(String, nullable=False, default="draft")  # draft / sent / accepted
     subtotal = Column(Numeric(12, 2), default=0)
+    tax_rate_percent = Column(Numeric(5, 2), nullable=True)  # flat rate; None = tax not set
     tax_amount = Column(Numeric(12, 2), default=0)
     total = Column(Numeric(12, 2), default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -8,6 +8,7 @@ import os
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
@@ -51,6 +52,8 @@ def _quote_out(quote: models.Quote) -> dict:
         "site_address": quote.site_address,
         "status": quote.status,
         "subtotal": float(quote.subtotal or 0),
+        "tax_amount": float(quote.tax_amount or 0),
+        "tax_rate_percent": float(quote.tax_rate_percent) if quote.tax_rate_percent is not None else None,
         "total": float(quote.total or 0),
         "created_at": quote.created_at,
         "line_count": len(quote.items or []),
@@ -68,14 +71,17 @@ def _quote_detail_out(quote: models.Quote) -> dict:
 
 
 def _recalculate_quote_totals(db: Session, quote: models.Quote) -> None:
-    """Refresh a quote's subtotal/total from its stored line items."""
+    """Refresh a quote's subtotal/tax/total from its stored line items and
+    its persisted flat tax rate."""
     subtotal = (
         db.query(func.coalesce(func.sum(models.QuoteLineItem.line_total), 0))
         .filter(models.QuoteLineItem.quote_id == quote.id)
         .scalar()
     )
     quote.subtotal = round(float(subtotal), 2)
-    quote.total = quote.subtotal  # tax hooks in later
+    rate = float(quote.tax_rate_percent or 0)
+    quote.tax_amount = round(quote.subtotal * rate / 100.0, 2)
+    quote.total = round(quote.subtotal + quote.tax_amount, 2)
     db.add(quote)
 
 @router.get("", response_model=list[schemas.QuoteOut])
@@ -116,6 +122,115 @@ def create_quote(
     quote.items = []
     return _quote_out(quote)
 
+def _row_truthy(value) -> bool:
+    """Parsed rows carry Include/Material as True/False bools, but tolerate
+    the 'TRUE'/'1' strings a hand-built payload might send."""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on", "x")
+    return bool(value)
+
+
+def _parse_to_title(claim_fields: dict) -> str:
+    """'Jane Doe / claim 123 / State Farm' -> 'Estimate — Jane Doe (Claim 123)'."""
+    normalized = {
+        k.lower(): str(v or "").strip() for k, v in (claim_fields or {}).items()
+    }
+
+    def first(*keys):
+        for key in keys:
+            for col, value in normalized.items():
+                if key in col and value and value != "--":
+                    return value
+        return None
+
+    holder = first("policyholder", "insured", "policy holder", "name")
+    claim = first("claim number", "claim", "claim #", "file")
+    carrier = first("carrier", "insurance company", "company")
+    if holder and claim:
+        return f"Estimate — {holder} (Claim {claim})"
+    if holder:
+        return f"Estimate — {holder}"
+    if claim:
+        return f"Claim {claim}"
+    if carrier:
+        return f"Insurance estimate — {carrier}"
+    return "Insurance estimate"
+
+
+@router.post("/from-parse", response_model=schemas.QuoteDetailOut,
+             status_code=status.HTTP_201_CREATED)
+def create_quote_from_parse(
+    payload: schemas.ParseToQuoteRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Turn the insurance parser's output into a draft Quote: one line item
+    per Included row, in order, with the parsed trade/qty/unit/unit cost and
+    markup. Needs-review rows keep a '⚠' marker on their description."""
+    if current_user.organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You need an organization before creating quotes",
+        )
+    if payload.client_id is not None:
+        client = (
+            db.query(models.Client)
+            .filter(models.Client.id == payload.client_id)
+            .first()
+        )
+        if client is None or client.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=404, detail="Client not found")
+
+    quote = models.Quote(
+        organization_id=current_user.organization_id,
+        client_id=payload.client_id,
+        title=_parse_to_title(payload.claim_fields),
+    )
+    db.add(quote)
+    db.flush()
+
+    position = 1
+    for row in payload.rows:
+        if not _row_truthy(row.get("Include")):
+            continue
+        description = str(row.get("Description") or "").strip()
+        if not description:
+            continue
+        if _row_truthy(row.get("Needs Review")):
+            description = "⚠ " + description
+        try:
+            quantity = float(row.get("Qty") or 0)
+            unit_cost = float(row.get("Unit Cost") or 0)
+            markup = float(row.get("Margin %") or 0)
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=422,
+                detail="Row values for Qty, Unit Cost and Margin % must be numbers",
+            )
+        line_total = round(quantity * unit_cost * (1 + markup / 100.0), 2)
+        db.add(models.QuoteLineItem(
+            quote_id=quote.id,
+            trade=(str(row.get("Trade") or "").strip() or None),
+            description=description,
+            item_type="material" if _row_truthy(row.get("Material")) else "labor",
+            quantity=quantity,
+            unit=str(row.get("Unit") or "item").strip() or "item",
+            unit_cost=unit_cost,
+            markup_percent=markup,
+            line_total=line_total,
+            position=position,
+        ))
+        position += 1
+
+    db.flush()  # totals SUM must see the new rows (autoflush is off)
+    _recalculate_quote_totals(db, quote)
+    db.commit()
+    return _quote_detail_out(_get_owned_quote(db, current_user, quote.id))
+
+
+
 
 @router.get("/{quote_id}", response_model=schemas.QuoteDetailOut)
 def get_quote(
@@ -134,10 +249,12 @@ def update_quote(
     current_user: models.User = Depends(get_current_user),
 ):
     quote = _get_owned_quote(db, current_user, quote_id)
-    for field in ("title", "site_address", "status", "client_id"):
+    for field in ("title", "site_address", "status", "client_id", "tax_rate_percent"):
         value = getattr(payload, field, None)
         if value is not None:
             setattr(quote, field, value)
+    if payload.tax_rate_percent is not None:
+        _recalculate_quote_totals(db, quote)
     db.commit()
     db.refresh(quote)
     return _quote_out(quote)
@@ -254,4 +371,34 @@ def export_quote_pdf(
     }
     quote_pdf.render_quote_pdf(context, out_path)
     return {"url": f"/static/exports/pdf/{filename}", "filename": filename}
+
+
+@router.get("/{quote_id}/export-pdf")
+def export_quote_pdf_download(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Render the branded PDF and serve it as a direct download attachment
+    (the browser save-as path; the page records it in its download list)."""
+    quote = _get_owned_quote(db, current_user, quote_id)
+    if not quote.items:
+        raise HTTPException(status_code=400, detail="Add line items before exporting")
+
+    os.makedirs(_EXPORT_DIR, exist_ok=True)
+    filename = f"quote-{quote.id}-{int(time.time())}.pdf"
+    out_path = os.path.join(_EXPORT_DIR, filename)
+    context = {
+        "quote": quote,
+        "client": quote.client,
+        "organization": current_user.organization,
+        "lines": sorted(quote.items, key=lambda i: i.position or 0),
+        "today": time.strftime("%B %d, %Y"),
+    }
+    quote_pdf.render_quote_pdf(context, out_path)
+    return FileResponse(
+        out_path,
+        media_type="application/pdf",
+        filename=filename,
+    )
 

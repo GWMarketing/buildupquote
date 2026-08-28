@@ -96,9 +96,9 @@
     <div class="bq-card p-5 lg:col-span-2">
       <h2 class="mb-3 text-sm font-semibold text-slate-900">Gross margin</h2>
       <div class="flex items-center gap-4">
-        <input type="range" min="0" max="50" step="1" class="flex-1" x-model.number="margin">
+        <input type="range" min="0" max="50" step="1" class="flex-1" x-model.number="margin" @input="onMarginChange()">
         <span class="w-16 text-right font-semibold text-slate-900" x-text="margin + '%'"></span>
-        <button class="bq-btn-secondary" @click="applyMargin()">Apply to all lines</button>
+        <button class="bq-btn-secondary" @click="onMarginChange()">Apply to all lines</button>
       </div>
       <p class="mt-2 text-xs text-slate-400">
         Preview at this margin: <span class="font-semibold text-slate-700" x-text="fmt(previewAtMargin())"></span>
@@ -114,7 +114,7 @@
         <div class="flex justify-between items-center">
           <dt class="text-slate-500">Tax / VAT</dt>
           <dd class="flex items-center gap-1">
-            <input class="bq-input w-16 text-right" type="number" min="0" step="0.25" x-model.number="taxRate">
+            <input class="bq-input w-16 text-right" type="number" min="0" step="0.25" x-model.number="taxRate" @change="onTaxRateChange()">
             <span>%</span>
           </dd>
         </div>
@@ -151,7 +151,7 @@
             <td class="text-right"><input class="bq-input w-24 text-right" type="number" min="0" step="0.01" x-model.number="row.unit_cost"></td>
             <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" max="100" step="0.5" x-model.number="row.markup_percent"></td>
             <td class="text-right font-semibold text-slate-900" x-text="fmt(BQ.lineTotal(row))"></td>
-            <td><button class="text-slate-400 hover:text-red-600" @click="lines.splice(i, 1)">✕</button></td>
+            <td><button class="text-slate-400 hover:text-red-600" @click="deleteLine(row, i)" title="Delete line">✕</button></td>
           </tr>
         </template>
       </tbody>
@@ -190,20 +190,23 @@ function quoteBuilder(quoteId) {
       if (this.quoteId) {
         await this.loadQuote();
       } else {
-        const q = await BQ.api('/api/quotes', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: 'Untitled quote' }),
-        });
-        this.quoteId = q.id;
-        history.replaceState(null, '', '/quotes/' + q.id);
-        this.quote = Object.assign(this.quote, q);
+        try {
+          const q = await BQ.api('/api/quotes', {
+            method: 'POST', body: { title: 'Untitled quote' },
+          });
+          this.quoteId = q.id;
+          history.replaceState(null, '', '/quotes/' + q.id);
+          this.quote = Object.assign(this.quote, q);
+        } catch (e) { BQ.toast('Could not create quote: ' + e.message); }
       }
     },
 
     async loadQuote() {
       const detail = await BQ.api('/api/quotes/' + this.quoteId);
       this.quote = detail;
+      this.taxRate = (detail.tax_rate_percent != null) ? Number(detail.tax_rate_percent) : this.taxRate;
       this.lines = detail.lines.map(l => ({
+        id: l.id,
         description: l.description, item_type: l.item_type, trade: l.trade || '',
         quantity: l.quantity, unit: l.unit, unit_cost: l.unit_cost, markup_percent: l.markup_percent,
       }));
@@ -221,11 +224,13 @@ function quoteBuilder(quoteId) {
     },
 
     async addAssembly() {
-      await BQ.api('/api/quotes/' + this.quoteId + '/apply-assembly', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: this.selectedCode, dimensions: this.dims }),
-      });
-      await this.loadQuote();
+      try {
+        await BQ.api('/api/quotes/' + this.quoteId + '/apply-assembly', {
+          method: 'POST',
+          body: { code: this.selectedCode, dimensions: this.dims },
+        });
+        await this.loadQuote();
+      } catch (e) { BQ.toast('Could not add assembly: ' + e.message); }
     },
 
     addRow() {
@@ -248,6 +253,33 @@ function quoteBuilder(quoteId) {
 
     applyMargin() { this.lines.forEach(r => r.markup_percent = this.margin); },
 
+    /* The slider/button applies the target margin to every line instantly
+       (Alpine re-renders all totals) and then persists it debounced. */
+    onMarginChange() {
+      this.applyMargin();
+      this.scheduleAutoSave();
+    },
+    scheduleAutoSave() {
+      clearTimeout(this._saveTimer);
+      this._saveTimer = setTimeout(() => this.persistLines(), 600);
+    },
+    async persistLines() {
+      if (this.saving) return;
+      try {
+        await BQ.api('/api/quotes/' + this.quoteId + '/lines', {
+          method: 'PUT', body: this.lines,
+        });
+        this.savedAt = new Date().toLocaleTimeString();
+      } catch (e) { BQ.toast('Save failed: ' + e.message); }
+    },
+
+    async onTaxRateChange() {
+      clearTimeout(this._taxTimer);
+      this._taxTimer = setTimeout(() => {
+        this.patch({ tax_rate_percent: Number(this.taxRate) || 0 });
+      }, 500);
+    },
+
     previewAtMargin() {
       return this.lines.reduce((s, r) => s + Number(r.quantity || 0) * Number(r.unit_cost || 0) * (1 + this.margin / 100), 0);
     },
@@ -260,23 +292,43 @@ function quoteBuilder(quoteId) {
       this.saving = true;
       try {
         await BQ.api('/api/quotes/' + this.quoteId + '/lines', {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.lines),
+          method: 'PUT', body: this.lines,
         });
         await this.loadQuote();
         this.savedAt = new Date().toLocaleTimeString();
-      } catch (e) { alert('Save failed: ' + e.message); }
+        BQ.toast('Quote saved', 'success');
+      } catch (e) { BQ.toast('Save failed: ' + e.message); }
       this.saving = false;
+    },
+
+    async deleteLine(row, i) {
+      if (!row.id) {  // unsaved row: just drop it locally
+        this.lines.splice(i, 1);
+        return;
+      }
+      try {
+        const detail = await BQ.api('/api/quotes/' + this.quoteId + '/lines/' + row.id, {
+          method: 'DELETE',
+        });
+        this.lines = detail.lines.map(l => ({
+          id: l.id,
+          description: l.description, item_type: l.item_type, trade: l.trade || '',
+          quantity: l.quantity, unit: l.unit, unit_cost: l.unit_cost, markup_percent: l.markup_percent,
+        }));
+      } catch (e) { BQ.toast('Delete failed: ' + e.message); }
     },
 
     async exportPdf() {
       this.exporting = true;
       try {
-        const res = await BQ.api('/api/quotes/' + this.quoteId + '/pdf');
-        this.pdfUrl = res.url;
-        this.downloads = [res, ...this.downloads].slice(0, 10);
+        const res = await BQ.apiRaw('/api/quotes/' + this.quoteId + '/export-pdf');
+        const name = await BQ.download(res, 'quote-' + this.quoteId + '.pdf');
+        const record = { url: '/static/exports/pdf/' + name, filename: name };
+        this.downloads = [record, ...this.downloads].slice(0, 10);
         localStorage.setItem('bq_downloads', JSON.stringify(this.downloads));
-        window.open(res.url, '_blank');
-      } catch (e) { alert('Export failed: ' + e.message); }
+        this.pdfUrl = record.url;
+        BQ.toast('PDF downloaded', 'success');
+      } catch (e) { BQ.toast('Export failed: ' + e.message); }
       this.exporting = false;
     },
   };

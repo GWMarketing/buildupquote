@@ -67,12 +67,13 @@ function dashboard() {
       this.loading = false;
     },
     async createQuote() {
-      const q = await BQ.api('/api/quotes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Untitled quote' }),
-      });
-      location.href = '/quotes/' + q.id;
+      try {
+        const q = await BQ.api('/api/quotes', {
+          method: 'POST',
+          body: { title: 'Untitled quote' },
+        });
+        location.href = '/quotes/' + q.id;
+      } catch (e) { BQ.toast('Could not create quote: ' + e.message); }
     },
   };
 }

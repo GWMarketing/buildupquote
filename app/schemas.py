@@ -136,6 +136,18 @@ class ClientOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class QuickParseRequest(BaseModel):
+    """Free-form pasted lead text (one contact per blank line)."""
+
+    text: str
+
+
+class ClientImportResult(BaseModel):
+    created: int
+    skipped: int
+    clients: list[ClientOut]
+
+
 class QuoteCreate(BaseModel):
     title: str = "Untitled quote"
     client_id: Optional[int] = None
@@ -146,6 +158,7 @@ class QuoteUpdate(BaseModel):
     site_address: Optional[str] = None
     status: Optional[str] = None  # draft / sent / accepted
     client_id: Optional[int] = None
+    tax_rate_percent: Optional[float] = None  # flat rate persisted for the PDF
 
 
 class QuoteLineWrite(BaseModel):
@@ -182,6 +195,8 @@ class QuoteOut(BaseModel):
     site_address: Optional[str] = None
     status: str
     subtotal: float
+    tax_amount: float = 0
+    tax_rate_percent: Optional[float] = None
     total: float
     created_at: datetime
     line_count: int = 0
@@ -189,6 +204,15 @@ class QuoteOut(BaseModel):
 
 class QuoteDetailOut(QuoteOut):
     lines: list[QuoteLineOut] = []
+
+
+class ParseToQuoteRequest(BaseModel):
+    """Rows + claim context from the insurance parser, turned into a draft
+    Quote by POST /api/quotes/from-parse."""
+
+    rows: list[dict] = []
+    claim_fields: dict = {}
+    client_id: Optional[int] = None
 
 
 class RegisterResponse(BaseModel):

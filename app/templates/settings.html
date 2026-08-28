@@ -80,11 +80,12 @@ function settingsPage() {
       this.saving = true; this.saved = false; this.error = '';
       try {
         await BQ.api('/api/organization/me', {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.profile),
+          method: 'PUT', body: this.profile,
         });
         this.saved = true;
+        BQ.toast('Settings saved', 'success');
         setTimeout(() => this.saved = false, 1500);
-      } catch (e) { this.error = e.message; }
+      } catch (e) { this.error = e.message; BQ.toast('Save failed: ' + e.message); }
       this.saving = false;
     },
     async onLogo(e) {
@@ -101,8 +102,9 @@ function settingsPage() {
         const org = await BQ.api('/api/organization/logo', { method: 'POST', body: form });
         this.logoPreview = org.logo_url;
         this.logoSaved = true;
+        BQ.toast('Logo updated', 'success');
         setTimeout(() => this.logoSaved = false, 1500);
-      } catch (ex) { this.error = ex.message; }
+      } catch (ex) { this.error = ex.message; BQ.toast('Logo upload failed: ' + ex.message); }
     },
   };
 }

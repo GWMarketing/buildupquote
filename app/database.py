@@ -64,6 +64,8 @@ def ensure_legacy_columns(bind):
             statements.append("ALTER TABLE quotes ADD COLUMN site_address VARCHAR")
         if "status" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN status VARCHAR DEFAULT 'draft'")
+        if "tax_rate_percent" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN tax_rate_percent NUMERIC(5, 2)")
     # Organization profile fields landed after the first organizations
     # table was created -- same idempotent in-place upgrade.
     if "organizations" in existing_tables:

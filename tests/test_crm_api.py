@@ -1,0 +1,331 @@
+"""Integration tests for the CRM API layer (auth, organization, clients,
+quotes, assemblies, and the parser->quote pipeline) against a throwaway
+SQLite database.
+
+Runs inside `unittest discover -s tests` next to the pure-logic suites:
+this module sets DATABASE_URL/SECRET_KEY *before* importing the app, so the
+whole run never touches the real postgres database.
+"""
+import os
+import tempfile
+import unittest
+
+_DB = os.path.join(tempfile.gettempdir(), "test_crm_api.db")
+os.environ["DATABASE_URL"] = f"sqlite:///{_DB}"
+os.environ["SECRET_KEY"] = "test-secret-key"
+for suffix in ("", "-journal", "-wal", "-shm"):
+    if os.path.exists(_DB + suffix):
+        os.remove(_DB + suffix)
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+import fastapi_app  # noqa: E402
+
+_FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+
+
+class CrmApiTestCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.client = TestClient(fastapi_app.app)
+        cls.client.__enter__()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.client.__exit__(None, None, None)
+
+    def register(self, email, org="Acme Roofing"):
+        r = self.client.post("/api/auth/register", json={
+            "email": email, "password": "pw12345678", "organization_name": org,
+        })
+        self.assertEqual(r.status_code, 201, r.text)
+        token = r.json()["access_token"]
+        return {"Authorization": f"Bearer {token}"}
+
+    def make_quote(self, auth, title="Test quote"):
+        r = self.client.post("/api/quotes", headers=auth, json={"title": title})
+        self.assertEqual(r.status_code, 201, r.text)
+        return r.json()["id"]
+
+    # ------------------------------------------------------------------
+    # Auth + organization
+    # ------------------------------------------------------------------
+    def test_register_issues_jwt_and_me_roundtrips(self):
+        auth = self.register("owner@acme.com")
+        r = self.client.get("/api/auth/me", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["email"], "owner@acme.com")
+        self.assertEqual(r.json()["role"], "owner")
+
+    def test_login_roundtrip(self):
+        self.register("login@acme.com")
+        r = self.client.post("/api/auth/token", data={
+            "username": "login@acme.com", "password": "pw12345678",
+        })
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertTrue(r.json()["access_token"])
+        r = self.client.post("/api/auth/token", data={
+            "username": "login@acme.com", "password": "wrong",
+        })
+        self.assertEqual(r.status_code, 401)
+
+    def test_protected_endpoints_require_auth(self):
+        r = self.client.get("/api/quotes")
+        self.assertEqual(r.status_code, 401)
+
+    def test_org_profile_update(self):
+        auth = self.register("profile@acme.com")
+        r = self.client.put("/api/organization/me", headers=auth, json={
+            "name": "Acme Roofing Co", "phone": "555-0000", "tax_id": "TX-1",
+        })
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["name"], "Acme Roofing Co")
+        self.assertEqual(r.json()["phone"], "555-0000")
+
+    # ------------------------------------------------------------------
+    # Clients
+    # ------------------------------------------------------------------
+    def test_client_create_list_delete(self):
+        auth = self.register("client@acme.com")
+        r = self.client.post("/api/clients", headers=auth, json={
+            "name": "Jane Doe", "email": "jane@example.com", "phone": "555-010-1234",
+        })
+        self.assertEqual(r.status_code, 201, r.text)
+        client_id = r.json()["id"]
+        r = self.client.get("/api/clients", headers=auth)
+        self.assertEqual(len(r.json()), 1)
+        r = self.client.delete(f"/api/clients/{client_id}", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(len(self.client.get("/api/clients", headers=auth).json()), 0)
+
+    def test_client_delete_blocked_when_quoted(self):
+        auth = self.register("blocked@acme.com")
+        cid = self.client.post("/api/clients", headers=auth, json={"name": "Quoted"}).json()["id"]
+        qid = self.make_quote(auth)
+        self.client.patch(f"/api/quotes/{qid}", headers=auth, json={"client_id": cid})
+        r = self.client.delete(f"/api/clients/{cid}", headers=auth)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("active quote", r.json()["detail"])
+
+    def test_import_vcf_file(self):
+        auth = self.register("vcf@acme.com")
+        vcf = (
+            "BEGIN:VCARD\nVERSION:3.0\nFN:Jane Doe\n"
+            "EMAIL;TYPE=INTERNET:jane@example.com\nTEL;TYPE=CELL:(555) 010-1234\n"
+            "ADR;TYPE=HOME:;;123 Main St;Anytown;CA;90210\nEND:VCARD\n"
+            "BEGIN:VCARD\nVERSION:3.0\nFN:Bob Smith\nEMAIL:bob@example.com\nEND:VCARD\n"
+        )
+        r = self.client.post("/api/clients/import-file", headers=auth,
+                             files={"file": ("contacts.vcf", vcf, "text/x-vcard")})
+        self.assertEqual(r.status_code, 200, r.text)
+        body = r.json()
+        self.assertEqual(body["created"], 2)
+        self.assertEqual(body["skipped"], 0)
+        by_name = {c["name"]: c for c in body["clients"]}
+        self.assertEqual(by_name["Jane Doe"]["email"], "jane@example.com")
+        self.assertEqual(by_name["Jane Doe"]["site_address"], "123 Main St, Anytown, CA, 90210")
+        # Re-uploading the same file skips everything.
+        r = self.client.post("/api/clients/import-file", headers=auth,
+                             files={"file": ("contacts.vcf", vcf, "text/x-vcard")})
+        self.assertEqual(r.json()["created"], 0)
+        self.assertEqual(r.json()["skipped"], 2)
+
+    def test_import_csv_file(self):
+        auth = self.register("csv@acme.com")
+        csv_data = "name,email,phone,site_address\nAcme Client,acme@example.com,555-010-9999,1 Market St\n"
+        r = self.client.post("/api/clients/import-file", headers=auth,
+                             files={"file": ("clients.csv", csv_data, "text/csv")})
+        self.assertEqual(r.status_code, 200, r.text)
+        body = r.json()
+        self.assertEqual(body["created"], 1)
+        self.assertEqual(body["clients"][0]["name"], "Acme Client")
+
+    def test_import_unsupported_file_rejected(self):
+        auth = self.register("badfile@acme.com")
+        r = self.client.post("/api/clients/import-file", headers=auth,
+                             files={"file": ("notes.txt", "hello", "text/plain")})
+        self.assertEqual(r.status_code, 400)
+
+    def test_quick_parse_text(self):
+        auth = self.register("quick@acme.com")
+        text = ("Jane Doe\njane@example.com\n(555) 010-1234\n123 Main St\n\n"
+                "Bob Smith\nbob@example.com\n")
+        r = self.client.post("/api/clients/quick-parse-text", headers=auth, json={"text": text})
+        self.assertEqual(r.status_code, 200, r.text)
+        body = r.json()
+        self.assertEqual(body["created"], 2)
+        names = {c["name"] for c in body["clients"]}
+        self.assertEqual(names, {"Jane Doe", "Bob Smith"})
+        # Same email imported via quick-paste is deduped.
+        r = self.client.post("/api/clients/quick-parse-text", headers=auth,
+                             json={"text": "Someone Else\njane@example.com\n"})
+        self.assertEqual(r.json()["created"], 0)
+        self.assertEqual(r.json()["skipped"], 1)
+
+    def test_clients_require_organization(self):
+        auth = self.register("noorgan@acme.com", org="")
+        r = self.client.post("/api/clients", headers=auth, json={"name": "X"})
+        self.assertEqual(r.status_code, 400)
+
+
+    # ------------------------------------------------------------------
+    # Quotes: CRUD, lines, tax, assemblies
+    # ------------------------------------------------------------------
+    def test_quote_crud_and_lines_with_tax(self):
+        auth = self.register("quote@acme.com")
+        qid = self.make_quote(auth)
+        r = self.client.patch(f"/api/quotes/{qid}", headers=auth,
+                              json={"title": "Roof repair", "status": "sent", "tax_rate_percent": 8.25})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["tax_rate_percent"], 8.25)
+
+        r = self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
+            {"description": "Shingles", "item_type": "material", "trade": "Roofing",
+             "quantity": 10, "unit": "m2", "unit_cost": 20, "markup_percent": 20},
+            {"description": "Labour", "item_type": "labor", "trade": "Roofing",
+             "quantity": 4, "unit": "hr", "unit_cost": 50, "markup_percent": 0},
+        ])
+        self.assertEqual(r.status_code, 200, r.text)
+        detail = r.json()
+        self.assertEqual(detail["line_count"], 2)
+        # (10*20*1.2) + (4*50*1.0) = 240 + 200 = 440 subtotal; tax 8.25% = 36.30
+        self.assertAlmostEqual(detail["subtotal"], 440.0, places=2)
+        self.assertAlmostEqual(detail["tax_amount"], 36.30, places=2)
+        self.assertAlmostEqual(detail["total"], 476.30, places=2)
+
+        # Deleting one persisted line recalculates totals.
+        line_id = detail["lines"][0]["id"]
+        r = self.client.delete(f"/api/quotes/{qid}/lines/{line_id}", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["line_count"], 1)
+        self.assertAlmostEqual(r.json()["subtotal"], 200.0, places=2)
+
+    def test_apply_assembly_persists_lines_and_tags_trade(self):
+        auth = self.register("assembly@acme.com")
+        qid = self.make_quote(auth)
+        r = self.client.post(f"/api/quotes/{qid}/apply-assembly", headers=auth, json={
+            "code": "WALL_STUD_PARTITION", "dimensions": {"length": 10, "height": 3},
+        })
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(len(r.json()["added_lines"]), 5)
+        self.assertGreater(r.json()["quote_subtotal"], 0)
+        # Persisted lines carry a trade tag from the lexicon.
+        detail = self.client.get(f"/api/quotes/{qid}", headers=auth).json()
+        self.assertTrue(all(l["trade"] for l in detail["lines"]))
+
+    def test_apply_assembly_rejects_bad_dimensions(self):
+        auth = self.register("assembly2@acme.com")
+        qid = self.make_quote(auth)
+        r = self.client.post(f"/api/quotes/{qid}/apply-assembly", headers=auth, json={
+            "code": "WALL_STUD_PARTITION", "dimensions": {"length": 10},  # height missing
+        })
+        self.assertEqual(r.status_code, 422)
+
+    def test_quote_export_pdf_is_an_attachment(self):
+        auth = self.register("export@acme.com")
+        qid = self.make_quote(auth)
+        self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
+            {"description": "Shingles", "item_type": "material", "quantity": 10,
+             "unit": "m2", "unit_cost": 20, "markup_percent": 20},
+        ])
+        r = self.client.get(f"/api/quotes/{qid}/export-pdf", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.headers["content-type"], "application/pdf")
+        self.assertIn("attachment", r.headers.get("content-disposition", ""))
+        self.assertTrue(r.content.startswith(b"%PDF"))
+        # The url endpoint still serves the download-history record.
+        r = self.client.get(f"/api/quotes/{qid}/pdf", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertTrue(r.json()["url"].startswith("/static/exports/pdf/"))
+
+
+    # ------------------------------------------------------------------
+    # Parser -> Quote pipeline
+    # ------------------------------------------------------------------
+    @staticmethod
+    def parsed_row(label, description, qty, unit_cost, include=True, material=True,
+                   trade="Carpentry", needs_review=False, margin=20):
+        return {
+            "#": label, "Include": include, "Trade": trade, "Section": "Scope",
+            "Description": description, "Qty": qty, "Unit": "m2",
+            "Unit Cost": unit_cost, "Margin %": margin, "Material": material,
+            "Insurance RCV": 0.0, "Insurance O&P": None, "Code Cite": False,
+            "Needs Review": needs_review, "Review Note": "", "Recoverable Depreciation": 0.0,
+        }
+
+    def test_from_parse_creates_quote_with_title_and_lines(self):
+        auth = self.register("parse@acme.com")
+        r = self.client.post("/api/quotes/from-parse", headers=auth, json={
+            "claim_fields": {"Policyholder": "Jane Doe", "Claim number": "CL-100",
+                             "Insurance Company": "State Farm"},
+            "rows": [
+                self.parsed_row("L1", "Roof shingles", 10, 25.0),
+                self.parsed_row("L2", "Ridge cap", 4, 30.0),
+            ],
+        })
+        self.assertEqual(r.status_code, 201, r.text)
+        quote = r.json()
+        self.assertEqual(quote["title"], "Estimate — Jane Doe (Claim CL-100)")
+        self.assertEqual(quote["line_count"], 2)
+        self.assertAlmostEqual(quote["subtotal"], 444.0, places=2)  # (10*25*1.2)+(4*30*1.2)
+        line = quote["lines"][0]
+        self.assertEqual(line["description"], "Roof shingles")
+        self.assertEqual(line["trade"], "Carpentry")
+        self.assertEqual(line["item_type"], "material")
+        self.assertEqual(line["quantity"], 10)
+        self.assertEqual(line["unit_cost"], 25.0)
+        self.assertEqual(line["markup_percent"], 20)
+
+    def test_from_parse_skips_unincluded_and_marks_review(self):
+        auth = self.register("parse2@acme.com")
+        r = self.client.post("/api/quotes/from-parse", headers=auth, json={
+            "claim_fields": {},
+            "rows": [
+                self.parsed_row("L1", "Keep me", 1, 10.0, include=True),
+                self.parsed_row("L2", "Drop me", 1, 10.0, include=False),
+                self.parsed_row("L3", "Check this", 1, 10.0, include=True, needs_review=True),
+            ],
+        })
+        self.assertEqual(r.status_code, 201, r.text)
+        quote = r.json()
+        self.assertEqual(quote["line_count"], 2)
+        self.assertEqual(quote["lines"][0]["description"], "Keep me")
+        self.assertTrue(quote["lines"][1]["description"].startswith("⚠ "))
+
+    def test_from_parse_client_ownership(self):
+        auth = self.register("parse3@acme.com")
+        r = self.client.post("/api/quotes/from-parse", headers=auth,
+                             json={"rows": [], "client_id": 9999})
+        self.assertEqual(r.status_code, 404)
+
+    def test_from_parse_orgless_user_rejected(self):
+        auth = self.register("parse4@acme.com", org="")
+        r = self.client.post("/api/quotes/from-parse", headers=auth,
+                             json={"rows": [self.parsed_row("L1", "X", 1, 1.0)]})
+        self.assertEqual(r.status_code, 400)
+
+    def test_cross_tenant_quote_is_forbidden(self):
+        auth_a = self.register("tenant-a@acme.com", org="Org A")
+        auth_b = self.register("tenant-b@acme.com", org="Org B")
+        qid = self.make_quote(auth_a)
+        r = self.client.get(f"/api/quotes/{qid}", headers=auth_b)
+        self.assertEqual(r.status_code, 403)
+        r = self.client.get(f"/api/quotes/{qid}", headers=auth_a)
+        self.assertEqual(r.status_code, 200)
+
+    def test_parse_pdf_endpoint_returns_rows_and_claim_fields(self):
+        auth = self.register("parsepdf@acme.com")
+        with open(os.path.join(_FIXTURES, "synthetic_sample.pdf"), "rb") as fh:
+            r = self.client.post("/api/parse", headers=auth,
+                                 files={"file": ("sample.pdf", fh, "application/pdf")})
+        self.assertEqual(r.status_code, 200, r.text)
+        body = r.json()
+        self.assertIsInstance(body["rows"], list)
+        self.assertGreaterEqual(len(body["rows"]), 1)
+        self.assertIn("claim_fields", body)
+        self.assertIn("warnings", body)
+
+
+if __name__ == "__main__":
+    unittest.main()
+

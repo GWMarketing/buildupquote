@@ -6,6 +6,27 @@
     <button class="bq-btn" @click="openModal()">＋ Add New Client</button>
   </div>
 
+  <div class="bq-card p-5">
+    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Import contacts</h2>
+    <p class="mb-3 text-xs text-slate-400">Upload a .vcf contacts file or a .csv (name, email, phone, address columns), or paste leads — one contact per blank line.</p>
+    <div class="grid gap-4 lg:grid-cols-2">
+      <div>
+        <div @click="$refs.importFile.click()" @dragover.prevent @drop.prevent="onDrop($event)"
+             class="flex h-28 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 text-center text-sm text-slate-400 hover:border-slate-400 dark:border-slate-600 dark:bg-slate-800">
+          <p class="px-4">Drop a <span class="font-medium text-slate-600 dark:text-slate-300">.vcf</span> or <span class="font-medium text-slate-600 dark:text-slate-300">.csv</span> file here, or click to browse</p>
+          <input type="file" x-ref="importFile" accept=".vcf,.csv,text/x-vcard,text/csv" class="hidden" @change="onFile($event)">
+        </div>
+      </div>
+      <div>
+        <textarea x-ref="pasteBox" class="bq-input h-28 w-full" placeholder="Jane Doe&#10;jane@example.com&#10;555-010-1234&#10;123 Main St&#10;&#10;Bob Smith&#10;bob@example.com"></textarea>
+        <button class="bq-btn-secondary mt-2" :disabled="importing" @click="quickPaste()"
+                x-text="importing ? 'Importing…' : 'Import pasted leads'"></button>
+      </div>
+    </div>
+    <p class="mt-2 text-sm text-emerald-600" x-show="importMsg" x-cloak x-text="importMsg"></p>
+    <p class="mt-1 text-sm text-red-600" x-show="importError" x-cloak x-text="importError"></p>
+  </div>
+
   <div class="bq-card overflow-x-auto">
     <table class="w-full grid-table">
       <thead>
@@ -75,6 +96,7 @@ function clientsPage() {
   return {
     clients: [], loading: true, modalOpen: false, saving: false,
     target: null, deleting: false, deleteError: '',
+    importing: false, importMsg: '', importError: '',
     form: { name: '', site_address: '', phone: '', email: '' },
     async init() {
       try { this.clients = await BQ.api('/api/clients'); } catch (e) { console.error(e); }
@@ -82,15 +104,16 @@ function clientsPage() {
     },
     openModal() { this.form = { name: '', site_address: '', phone: '', email: '' }; this.modalOpen = true; },
     async addClient() {
-      if (!this.form.name.trim()) { alert('Name is required'); return; }
+      if (!this.form.name.trim()) { BQ.toast('Name is required'); return; }
       this.saving = true;
       try {
         await BQ.api('/api/clients', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.form),
+          method: 'POST', body: this.form,
         });
         this.modalOpen = false;
         this.clients = await BQ.api('/api/clients');
-      } catch (e) { alert('Failed: ' + e.message); }
+        BQ.toast('Client added', 'success');
+      } catch (e) { BQ.toast('Failed: ' + e.message); }
       this.saving = false;
     },
     confirmDelete(c) { this.target = c; this.deleteError = ''; },
@@ -101,10 +124,45 @@ function clientsPage() {
         await BQ.api('/api/clients/' + this.target.id, { method: 'DELETE' });
         this.clients = this.clients.filter(c => c.id !== this.target.id);
         this.target = null;
+        BQ.toast('Client deleted', 'success');
       } catch (e) {
         this.deleteError = e.message;  // e.g. "Client has N active quote(s)…"
       }
       this.deleting = false;
+    },
+    async onFile(e) {
+      const file = e.target.files[0];
+      if (file) await this.uploadImport(file);
+      e.target.value = '';
+    },
+    async onDrop(e) {
+      const file = e.dataTransfer && e.dataTransfer.files[0];
+      if (file) await this.uploadImport(file);
+    },
+    async uploadImport(file) {
+      this.importing = true; this.importError = ''; this.importMsg = '';
+      try {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await BQ.api('/api/clients/import-file', { method: 'POST', body: form });
+        this.importMsg = 'Added ' + res.created + ', skipped ' + res.skipped;
+        this.clients = await BQ.api('/api/clients');
+      } catch (e) { this.importError = 'Import failed: ' + e.message; }
+      this.importing = false;
+    },
+    async quickPaste() {
+      const text = (this.$refs.pasteBox && this.$refs.pasteBox.value || '').trim();
+      if (!text) return;
+      this.importing = true; this.importError = ''; this.importMsg = '';
+      try {
+        const res = await BQ.api('/api/clients/quick-parse-text', {
+          method: 'POST', body: { text },
+        });
+        this.importMsg = 'Added ' + res.created + ', skipped ' + res.skipped;
+        if (this.$refs.pasteBox) this.$refs.pasteBox.value = '';
+        this.clients = await BQ.api('/api/clients');
+      } catch (e) { this.importError = 'Import failed: ' + e.message; }
+      this.importing = false;
     },
   };
 }
