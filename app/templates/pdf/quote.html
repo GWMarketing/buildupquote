@@ -228,7 +228,13 @@
         <tr>
             <td class="signoff-box">
                 <div class="box-title">Client Acceptance Signature</div>
-                <div style="margin-top: 30px; font-size: 7.5pt; color: #94a3b8;">Sign: __________________________ &nbsp;&nbsp; Date: ____________</div>
+                {% if signature_uri %}
+                    <img src="{{ signature_uri }}" style="max-height: 48px; max-width: 90%; margin-top: 2px;" alt="Client signature">
+                    <div style="margin-top: 2px; font-size: 8pt; font-weight: 600; color: #0f172a;">{{ signed_by or 'Signed' }}</div>
+                    {% if accepted_at %}<div style="font-size: 7.5pt; color: #94a3b8;">{{ accepted_at.strftime('%d %b %Y') }}</div>{% endif %}
+                {% else %}
+                    <div style="margin-top: 30px; font-size: 7.5pt; color: #94a3b8;">Sign: __________________________ &nbsp;&nbsp; Date: ____________</div>
+                {% endif %}
             </td>
             <td style="width: 4%;"></td>
             <td class="signoff-box">

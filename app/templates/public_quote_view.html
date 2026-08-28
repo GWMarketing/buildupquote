@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% if quote %}Proposal{% if quote.title %} — {{ quote.title }}{% endif %} | {{ organization.name if organization else "BuildUpQuote" }}{% else %}Proposal{% endif %}</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>[x-cloak]{display:none!important}</style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800 antialiased">
+  <div class="mx-auto max-w-3xl px-4 py-8">
+
+    {% if not_found %}
+    <!-- Unknown / invalid link -->
+    <div class="rounded-2xl bg-white p-10 text-center shadow-sm">
+      <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+        <i data-lucide="file-question" class="h-6 w-6"></i>
+      </span>
+      <h1 class="mt-4 text-xl font-extrabold text-slate-900">This proposal link isn't valid</h1>
+      <p class="mt-2 text-sm text-slate-500">It may have been mistyped or removed. Ask the contractor to send you a fresh link.</p>
+    </div>
+    {% else %}
+
+    <!-- Contractor header -->
+    <div class="flex flex-col gap-6 rounded-2xl bg-white p-6 shadow-sm sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        {% if organization %}
+          {% if organization.logo_url %}
+            <img src="{{ organization.logo_url }}" alt="{{ organization.name }}" class="max-h-14 max-w-[180px] object-contain">
+          {% else %}
+            <div class="text-lg font-extrabold text-slate-900">{{ organization.name }}</div>
+          {% endif %}
+          <div class="mt-2 space-y-0.5 text-xs text-slate-500">
+            {% if organization.bio %}<div><em>{{ organization.bio }}</em></div>{% endif %}
+            {% if organization.address %}<div>{{ organization.address }}</div>{% endif %}
+            {% if organization.phone or organization.email %}<div>{{ organization.phone or '—' }} · {{ organization.email or '—' }}</div>{% endif %}
+            {% if organization.website %}<div>{{ organization.website }}</div>{% endif %}
+            {% if organization.license_number %}<div>License #: {{ organization.license_number }}</div>{% endif %}
+            {% if organization.tax_id %}<div>Tax / VAT ID: {{ organization.tax_id }}</div>{% endif %}
+          </div>
+        {% else %}
+          <div class="text-lg font-extrabold text-slate-900">BuildUpQuote</div>
+        {% endif %}
+      </div>
+      <div class="shrink-0 text-left sm:text-right">
+        <div class="text-2xl font-black uppercase tracking-tight text-amber-500">Estimate</div>
+        <div class="mt-1 text-xs text-slate-500">
+          <div><strong>Ref:</strong> #Q-{{ quote.id }}</div>
+          <div><strong>Issued:</strong> {{ quote.created_at.strftime('%d %b %Y') if quote.created_at else 'Today' }}</div>
+        </div>
+        {% if quote.status == 'accepted' %}
+          <span class="mt-2 inline-block rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">Accepted</span>
+        {% elif quote.status == 'sent' %}
+          <span class="mt-2 inline-block rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-800">Sent</span>
+        {% else %}
+          <span class="mt-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">Draft</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Title bar -->
+    <div class="mt-4 rounded-xl bg-slate-900 px-5 py-4 text-white">
+      <div class="text-lg font-bold text-amber-500">{{ quote.title or 'Renovation & Construction Proposal' }}</div>
+    </div>
+
+    <!-- Client & site -->
+    <div class="mt-4 grid gap-4 sm:grid-cols-2">
+      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Client</div>
+        <div class="mt-1 text-sm font-bold text-slate-900">{{ client.name if client else 'Direct Client' }}</div>
+        {% if client %}
+          <div class="mt-1 space-y-0.5 text-xs text-slate-500">
+            {% if client.phone %}<div>{{ client.phone }}</div>{% endif %}
+            {% if client.email %}<div>{{ client.email }}</div>{% endif %}
+            {% if client.site_address %}<div>{{ client.site_address }}</div>{% endif %}
+          </div>
+        {% endif %}
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Site & Project Location</div>
+        <div class="mt-1 text-sm text-slate-600">{{ quote.site_address or (client.site_address if client else 'Specified as per project agreement') }}</div>
+      </div>
+    </div>
+
+    <!-- Itemized lines -->
+    <div class="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+          <tr>
+            <th class="px-4 py-2 text-left">Trade</th>
+            <th class="px-4 py-2 text-left">Description</th>
+            <th class="px-4 py-2 text-right">Qty</th>
+            <th class="px-4 py-2 text-left">Unit</th>
+            <th class="px-4 py-2 text-right">Rate</th>
+            <th class="px-4 py-2 text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for line in lines %}
+          <tr>
+            <td class="px-4 py-2.5 font-semibold text-slate-600">{{ line.trade or '' }}</td>
+            <td class="px-4 py-2.5 text-slate-800">{{ line.description }}</td>
+            <td class="px-4 py-2.5 text-right text-slate-600">{{ "%.3f"|format(line.quantity) }}</td>
+            <td class="px-4 py-2.5 text-slate-600">{{ line.unit }}</td>
+            <td class="px-4 py-2.5 text-right text-slate-600">{{ currency }}{{ "%.2f"|format(line.unit_cost) }}</td>
+            <td class="px-4 py-2.5 text-right font-bold text-slate-900">{{ currency }}{{ "%.2f"|format(line.line_total) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Totals & terms -->
+    <div class="mt-4 grid gap-4 sm:grid-cols-2">
+      <div class="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500 shadow-sm">
+        <div class="font-bold text-slate-900">Payment Terms</div>
+        <p class="mt-1">{{ organization.default_payment_terms if organization and organization.default_payment_terms else 'Standard terms: 30% deposit upon acceptance, 40% stage progress payment, and 30% final balance upon completion.' }}</p>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div class="space-y-1 text-sm">
+          <div class="flex justify-between text-slate-600"><span>Subtotal (Net)</span><span class="font-semibold">{{ currency }}{{ "%.2f"|format(quote.subtotal or 0) }}</span></div>
+          <div class="flex justify-between text-slate-600"><span>Tax / VAT{% if quote.tax_rate_percent is not none %} ({{ "%.2f"|format(quote.tax_rate_percent) }}%){% endif %}</span><span class="font-semibold">{{ currency }}{{ "%.2f"|format(quote.tax_amount or 0) }}</span></div>
+          <div class="flex justify-between border-t-2 border-slate-900 pt-2 text-base font-black text-slate-900"><span>Total Amount</span><span>{{ currency }}{{ "%.2f"|format(quote.total or 0) }}</span></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Sign-off -->
+    {% if quote.status == 'accepted' %}
+    <div class="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+      <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-white">
+        <i data-lucide="check" class="h-6 w-6"></i>
+      </span>
+      <h2 class="mt-3 text-lg font-extrabold text-emerald-800">Proposal Accepted</h2>
+      <p class="mt-1 text-sm text-emerald-700">
+        Signed{% if quote.signed_by %} by <strong>{{ quote.signed_by }}</strong>{% endif %}
+        {% if quote.accepted_at %} on {{ quote.accepted_at.strftime('%d %b %Y at %H:%M') }}{% endif %}.
+      </p>
+      {% if signature_uri %}
+        <img src="{{ signature_uri }}" alt="Client signature" class="mx-auto mt-3 max-h-16 object-contain">
+      {% endif %}
+      <a href="/view/quote/{{ public_uuid }}/download-pdf"
+         class="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow transition hover:bg-emerald-700">
+        <i data-lucide="download" class="h-4 w-4"></i> Download Signed Proposal (PDF)
+      </a>
+    </div>
+    {% else %}
+    <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" id="signPanel">
+      <h2 class="text-base font-extrabold text-slate-900">Accept Proposal</h2>
+      <p class="mt-1 text-xs text-slate-500">Sign below to accept this estimate. By signing you agree to the quoted scope and payment terms.</p>
+      <div class="mt-4">
+        <label class="mb-1 block text-xs font-bold text-slate-600">Your full name</label>
+        <input id="signerName" type="text" placeholder="e.g. Jane Doe" class="w-full rounded-lg border border-slate-300 p-2.5 text-sm">
+      </div>
+      <div class="mt-4">
+        <label class="mb-1 block text-xs font-bold text-slate-600">Signature</label>
+        <div class="relative overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-slate-50">
+          <canvas id="sigPad" width="600" height="200" class="block h-40 w-full cursor-crosshair touch-none"></canvas>
+          <span id="sigHint" class="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-300">Draw your signature here</span>
+        </div>
+        <div class="mt-2 flex justify-end">
+          <button type="button" id="clearSig" class="rounded border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50">Clear</button>
+        </div>
+      </div>
+      <p id="acceptError" class="mt-2 hidden text-sm text-red-600"></p>
+      <button id="acceptBtn" type="button"
+              class="mt-4 w-full rounded-lg bg-emerald-600 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-emerald-700 disabled:opacity-60">
+        Sign &amp; Accept Proposal
+      </button>
+    </div>
+    <div id="acceptSuccess" class="mt-6 hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+      <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-white"><i data-lucide="check" class="h-6 w-6"></i></span>
+      <h2 class="mt-3 text-lg font-extrabold text-emerald-800">Proposal Accepted</h2>
+      <p id="acceptMsg" class="mt-1 text-sm text-emerald-700"></p>
+      <a id="downloadLink" href="/view/quote/{{ public_uuid }}/download-pdf"
+         class="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow transition hover:bg-emerald-700">
+        <i data-lucide="download" class="h-4 w-4"></i> Download Signed Proposal (PDF)
+      </a>
+    </div>
+    {% endif %}
+
+    <p class="mt-8 text-center text-xs text-slate-400">Powered by BuildUpQuote</p>
+    {% endif %}
+  </div>
+
+
+<script>
+(function () {
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+
+  var PUBLIC_UUID = {{ public_uuid | tojson if public_uuid else 'null' }};
+  var pad = document.getElementById('sigPad');
+  var hint = document.getElementById('sigHint');
+  var acceptBtn = document.getElementById('acceptBtn');
+  var clearBtn = document.getElementById('clearSig');
+  var errorEl = document.getElementById('acceptError');
+  var signPanel = document.getElementById('signPanel');
+  var successPanel = document.getElementById('acceptSuccess');
+  var acceptMsg = document.getElementById('acceptMsg');
+  var signerName = document.getElementById('signerName');
+  if (!pad || !acceptBtn) return;  // already accepted / not found: nothing to do
+
+  var ctx = pad.getContext('2d');
+  var drawing = false, last = null;
+
+  function pos(e) {
+    var r = pad.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) * (pad.width / r.width),
+      y: (e.clientY - r.top) * (pad.height / r.height),
+    };
+  }
+  function inked() {
+    var data = ctx.getImageData(0, 0, pad.width, pad.height).data;
+    for (var i = 3; i < data.length; i += 4) if (data[i]) return true;
+    return false;
+  }
+  function paint(e) {
+    if (!drawing) return;
+    var p = pos(e);
+    ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#0f172a';
+    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+    last = p;
+    if (hint) hint.style.display = 'none';
+  }
+  pad.addEventListener('pointerdown', function (e) {
+    drawing = true; last = pos(e);
+    pad.setPointerCapture(e.pointerId);
+  });
+  pad.addEventListener('pointermove', paint);
+  function stop() { drawing = false; }
+  pad.addEventListener('pointerup', stop);
+  pad.addEventListener('pointercancel', stop);
+
+  clearBtn.addEventListener('click', function () {
+    ctx.clearRect(0, 0, pad.width, pad.height);
+    if (hint) hint.style.display = '';
+    errorEl.classList.add('hidden');
+  });
+
+  acceptBtn.addEventListener('click', async function () {
+    errorEl.classList.add('hidden');
+    if (!inked()) { errorEl.textContent = 'Please draw your signature first.'; errorEl.classList.remove('hidden'); return; }
+    var name = (signerName.value || '').trim();
+    if (!name) { errorEl.textContent = 'Please enter your full name.'; errorEl.classList.remove('hidden'); return; }
+    acceptBtn.disabled = true; acceptBtn.textContent = 'Accepting…';
+    try {
+      var res = await fetch('/api/public/quotes/' + encodeURIComponent(PUBLIC_UUID) + '/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signature_data: pad.toDataURL('image/png'), client_name: name }),
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error((typeof data.detail === 'string' ? data.detail : 'Could not accept') || 'Could not accept');
+      signPanel.classList.add('hidden');
+      acceptMsg.textContent = 'Signed by ' + name + '. Thank you — we will be in touch.';
+      successPanel.classList.remove('hidden');
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      location.hash = 'accepted';
+    } catch (e) {
+      errorEl.textContent = e.message; errorEl.classList.remove('hidden');
+      acceptBtn.disabled = false; acceptBtn.textContent = 'Sign & Accept Proposal';
+    }
+  });
+})();
+</script>
+</body>
+</html>
+

@@ -369,6 +369,9 @@ def export_quote_pdf(
         "estimator": current_user,
         "lines": sorted(quote.items, key=lambda i: i.position or 0),
         "today": time.strftime("%B %d, %Y"),
+        "signature_uri": quote_pdf.signature_uri(quote.client_signature),
+        "signed_by": quote.signed_by,
+        "accepted_at": quote.accepted_at,
     }
     quote_pdf.render_quote_pdf(context, out_path)
     return {"url": f"/static/exports/pdf/{filename}", "filename": filename}
@@ -396,6 +399,9 @@ def export_quote_pdf_download(
         "estimator": current_user,
         "lines": sorted(quote.items, key=lambda i: i.position or 0),
         "today": time.strftime("%B %d, %Y"),
+        "signature_uri": quote_pdf.signature_uri(quote.client_signature),
+        "signed_by": quote.signed_by,
+        "accepted_at": quote.accepted_at,
     }
     quote_pdf.render_quote_pdf(context, out_path)
     return FileResponse(

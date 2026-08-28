@@ -45,6 +45,17 @@ def _logo_data_uri(logo_url):
     return f"data:image/{mime};base64,{b64}"
 
 
+def signature_uri(client_signature):
+    """Normalize the stored client signature (data-URI or raw base64 PNG) into
+    an <img src>. Returns None when there is no signature yet."""
+    if not client_signature:
+        return None
+    sig = client_signature.strip()
+    if sig.startswith("data:image"):
+        return sig
+    return f"data:image/png;base64,{sig}"
+
+
 def render_quote_pdf(context: dict, output_path: str) -> str:
     organization = context.get("organization")
     render_context = dict(context)

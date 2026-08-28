@@ -38,14 +38,22 @@
         </div>
       </div>
       {% endif %}
-      <form id="loginForm" class="space-y-3">
+      <form id="loginForm" x-data="{ showPassword: false }" class="space-y-3">
         <div>
           <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Email</label>
           <input id="email" type="email" required class="bq-input">
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Password</label>
-          <input id="password" type="password" required class="bq-input">
+          <div class="relative">
+            <input id="password" :type="showPassword ? 'text' : 'password'" required class="bq-input" style="padding-right: 2.5rem;">
+            <button type="button" @click="showPassword = !showPassword"
+                    class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-300"
+                    tabindex="-1" title="Show or hide password" aria-label="Toggle password visibility">
+              <i data-lucide="eye" class="h-4 w-4" x-show="!showPassword"></i>
+              <i data-lucide="eye-off" class="h-4 w-4" x-show="showPassword" x-cloak></i>
+            </button>
+          </div>
         </div>
         <button type="submit" class="w-full rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 py-2 text-sm font-medium text-white shadow transition duration-150 hover:-translate-y-0.5 hover:from-amber-600 hover:to-orange-700 hover:shadow-lg">
           Sign in

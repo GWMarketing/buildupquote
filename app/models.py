@@ -6,6 +6,7 @@ an existing organization later via an invite/join flow), and `role` holds
 the RBAC level ("owner", "admin", "estimator", "viewer").
 """
 import re
+import uuid
 
 from sqlalchemy import (
     JSON,
@@ -195,6 +196,12 @@ class Quote(Base):
     tax_rate_percent = Column(Numeric(5, 2), nullable=True)  # flat rate; None = tax not set
     tax_amount = Column(Numeric(12, 2), default=0)
     total = Column(Numeric(12, 2), default=0)
+    # Public 1-click approval: an unguessable shareable link plus the digital
+    # sign-off record (signature image, signer name, accepted timestamp).
+    public_uuid = Column(String(36), unique=True, index=True, default=lambda: str(uuid.uuid4()))
+    client_signature = Column(Text, nullable=True)  # base64 PNG / data-URI from the signature pad
+    signed_by = Column(String, nullable=True)       # name the signer typed
+    accepted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("Client", back_populates="quotes")

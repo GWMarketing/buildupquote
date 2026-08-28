@@ -6,6 +6,7 @@ The fallback uses the same credentials against localhost so local
 development against a local postgres works out of the box.
 """
 import os
+import uuid
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -50,6 +51,7 @@ def ensure_legacy_columns(bind):
         return  # brand-new database: create_all already has the full schema
     existing = {c["name"] for c in inspector.get_columns("users")}
     statements = []
+    _needs_public_uuid_backfill = False
     if "organization_id" not in existing:
         statements.append("ALTER TABLE users ADD COLUMN organization_id INTEGER")
     if "role" not in existing:
@@ -72,6 +74,17 @@ def ensure_legacy_columns(bind):
             statements.append("ALTER TABLE quotes ADD COLUMN status VARCHAR DEFAULT 'draft'")
         if "tax_rate_percent" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN tax_rate_percent NUMERIC(5, 2)")
+        # Public 1-click approval (share link + digital sign-off). The model
+        # defaults public_uuid for new rows; existing rows get backfilled below.
+        if "public_uuid" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN public_uuid VARCHAR(36)")
+            _needs_public_uuid_backfill = True
+        if "client_signature" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN client_signature TEXT")
+        if "signed_by" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN signed_by VARCHAR")
+        if "accepted_at" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN accepted_at TIMESTAMP WITH TIME ZONE")
     # Organization profile fields landed after the first organizations
     # table was created -- same idempotent in-place upgrade. `bio` superseded
     # the old `description` column, so existing databases get an in-place
@@ -106,3 +119,15 @@ def ensure_legacy_columns(bind):
         with bind.begin() as conn:
             for statement in statements:
                 conn.execute(text(statement))
+    # Backfill public_uuid for rows that predate the column (the model's
+    # default only applies to new inserts), and lock the column down with a
+    # unique index so the share links stay unguessable.
+    if _needs_public_uuid_backfill:
+        with bind.begin() as conn:
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_quotes_public_uuid ON quotes (public_uuid)"))
+            rows = conn.execute(text("SELECT id FROM quotes WHERE public_uuid IS NULL")).fetchall()
+            for (qid,) in rows:
+                conn.execute(
+                    text("UPDATE quotes SET public_uuid = :u WHERE id = :id"),
+                    {"u": str(uuid.uuid4()), "id": qid},
+                )

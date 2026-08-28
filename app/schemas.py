@@ -225,6 +225,14 @@ class ClientImportResult(BaseModel):
     clients: list[ClientOut]
 
 
+class PublicQuoteAcceptRequest(BaseModel):
+    """POST /api/public/quotes/{public_uuid}/accept -- the client's digital
+    sign-off. signature_data is the canvas PNG (data-URI or raw base64)."""
+
+    signature_data: str
+    client_name: str = ""
+
+
 class QuoteCreate(BaseModel):
     title: str = "Untitled quote"
     client_id: Optional[int] = None

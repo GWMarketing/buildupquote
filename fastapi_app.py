@@ -38,6 +38,7 @@ from app.routers import dashboard as dashboard_router
 from app.routers import lexicon as lexicon_router
 from app.routers import organization as organization_router
 from app.routers import pages as pages_router
+from app.routers import public_quotes as public_quotes_router
 from app.routers import quotes as quotes_router
 from app.routers import users as users_router
 from app.seeds.assemblies_seed import seed_assemblies_and_lexicon
@@ -88,8 +89,29 @@ app.include_router(dashboard_router.router)
 app.include_router(assemblies_router.router)
 app.include_router(catalog_router.router)
 app.include_router(quotes_router.router)
+app.include_router(public_quotes_router.router)
 app.include_router(lexicon_router.router)
 app.include_router(users_router.router)
+
+
+# ---------------------------------------------------------------------------
+# Security & caching headers
+# ---------------------------------------------------------------------------
+# Security headers on every response. CORS is deliberately NOT configured:
+# the app is same-origin only, which is the secure default (no
+# Access-Control-Allow-Origin means browsers block cross-site reads).
+# Static assets get a short public cache so browsers revalidate after
+# deploys instead of serving stale JS/CSS.
+@app.middleware("http")
+async def security_and_cache_headers(request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if request.url.path.startswith("/static/"):
+        response.headers.setdefault("Cache-Control", "public, max-age=3600")
+    return response
+
 
 _WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 

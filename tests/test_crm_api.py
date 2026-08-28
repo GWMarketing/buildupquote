@@ -480,6 +480,107 @@ class CrmApiTestCase(unittest.TestCase):
                        "recent_quotes", "/quotes/new"):
             self.assertIn(needle, html)
 
+    # ------------------------------------------------------------------
+    # Production hardening: password toggle, security/caching headers
+    # ------------------------------------------------------------------
+    def test_auth_pages_have_password_visibility_toggle(self):
+        for path in ("/login", "/register"):
+            r = self.client.get(path)
+            self.assertEqual(r.status_code, 200, r.text)
+            html = r.text
+            self.assertIn('x-data="{ showPassword: false }"', html)
+            self.assertIn("showPassword ? 'text' : 'password'", html)
+            self.assertIn('@click="showPassword = !showPassword"', html)
+            self.assertIn('data-lucide="eye"', html)
+            self.assertIn('data-lucide="eye-off"', html)
+            self.assertIn('type="button"', html)  # toggle never submits the form
+
+    def test_security_and_caching_headers(self):
+        r = self.client.get("/")
+        self.assertEqual(r.headers.get("x-content-type-options"), "nosniff")
+        self.assertEqual(r.headers.get("x-frame-options"), "SAMEORIGIN")
+        self.assertIn("strict-origin-when-cross-origin", r.headers.get("referrer-policy", ""))
+        r = self.client.get("/static/js/app.js")
+        self.assertIn("max-age=", r.headers.get("cache-control", ""))
+
+    # ------------------------------------------------------------------
+    # Public 1-click quote approval
+    # ------------------------------------------------------------------
+    def _public_quote_fixture(self):
+        from app import models
+        from app.database import SessionLocal
+
+        auth = self.register(f"pub{id(self)}@acme.com")
+        qid = self.make_quote(auth, "Roof and Gutter Proposal")
+        self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
+            {"description": "Shingles", "item_type": "material", "quantity": 10,
+             "unit": "m2", "unit_cost": 20, "markup_percent": 20},
+        ])
+        session = SessionLocal()
+        quote = session.query(models.Quote).filter(models.Quote.id == qid).first()
+        public_uuid = quote.public_uuid
+        session.close()
+        self.assertTrue(public_uuid, "new quotes must get a public_uuid")
+        return public_uuid
+
+    def test_public_quote_view_resolves(self):
+        public_uuid = self._public_quote_fixture()
+        r = self.client.get(f"/view/quote/{public_uuid}")
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertIn("Roof and Gutter Proposal", r.text)
+        self.assertIn("Accept Proposal", r.text)
+        self.assertIn("sigPad", r.text)
+
+    def test_public_quote_view_unknown_link(self):
+        r = self.client.get("/view/quote/no-such-uuid")
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertIn("isn't valid", r.text)
+
+    def test_public_quote_accept_flow(self):
+        from app import models
+        from app.database import SessionLocal
+
+        public_uuid = self._public_quote_fixture()
+        # Missing signature -> 400.
+        r = self.client.post(f"/api/public/quotes/{public_uuid}/accept",
+                             json={"signature_data": "", "client_name": "Jane"})
+        self.assertEqual(r.status_code, 400, r.text)
+        # Accept with signature + name.
+        r = self.client.post(f"/api/public/quotes/{public_uuid}/accept",
+                             json={"signature_data": "data:image/png;base64,AAAA",
+                                   "client_name": "Jane Doe"})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["status"], "accepted")
+        # Persisted.
+        session = SessionLocal()
+        quote = session.query(models.Quote).filter(
+            models.Quote.public_uuid == public_uuid).first()
+        self.assertEqual(quote.status, "accepted")
+        self.assertEqual(quote.signed_by, "Jane Doe")
+        self.assertEqual(quote.client_signature, "data:image/png;base64,AAAA")
+        self.assertIsNotNone(quote.accepted_at)
+        session.close()
+        # The public page now shows the accepted state.
+        r = self.client.get(f"/view/quote/{public_uuid}")
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertIn("Proposal Accepted", r.text)
+        self.assertIn("Download Signed Proposal", r.text)
+        # Re-accepting is idempotent.
+        r = self.client.post(f"/api/public/quotes/{public_uuid}/accept",
+                             json={"signature_data": "x", "client_name": "y"})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertTrue(r.json()["already"])
+
+    def test_public_quote_download_pdf(self):
+        public_uuid = self._public_quote_fixture()
+        self.client.post(f"/api/public/quotes/{public_uuid}/accept",
+                         json={"signature_data": "data:image/png;base64,AAAA",
+                               "client_name": "Jane Doe"})
+        r = self.client.get(f"/view/quote/{public_uuid}/download-pdf")
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.headers["content-type"], "application/pdf")
+        self.assertTrue(r.content.startswith(b"%PDF"))
+
     def test_org_profile_update_all_fields(self):
         auth = self.register("profile@acme.com", full_name="Glenn Westman")
         r = self.client.put("/api/organization/me", headers=auth, json={
