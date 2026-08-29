@@ -4,6 +4,15 @@ on:
   push:
     branches: [ main ]
 
+# Two pushes in quick succession used to SSH in concurrently and fight over
+# the repo (git index.lock) and the compose stack -- that caused intermittent
+# deploy failures like the ones on 9c8b07d and f27dd55. Queue instead of
+# cancelling so a run is never killed mid-build; the queued run still ends up
+# on the latest commit because it re-pulls.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -17,5 +26,14 @@ jobs:
           script: |
             set -e
             cd /var/www/buildupquote
-            git pull origin main --ff-only
+            # Deploy-target sync: always land exactly on origin/main, immune
+            # to a dirty tree or a stale .git/index.lock from a previous run.
+            git fetch origin main
+            git reset --hard origin/main
             docker compose up -d --build --force-recreate
+            # Smoke test: fail the deploy (and leave a failed run in GitHub)
+            # if the app or its database isn't actually healthy.
+            sleep 5
+            curl -fsS --retry 3 --retry-delay 3 --retry-connrefused \
+              http://127.0.0.1:8000/api/db-check >/dev/null
+            echo "Deploy OK: $(git rev-parse --short HEAD)"
