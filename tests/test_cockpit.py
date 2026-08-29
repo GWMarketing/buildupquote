@@ -413,11 +413,15 @@ class CockpitApiTestCase(unittest.TestCase):
         self.assertIn("Payment Schedule", html)
         self.assertIn("50 / 50", html)
         self.assertIn("33 / 33 / 34", html)
-        # Hands-free voice-to-scope (Web Speech API), pinned to the top bar.
+        # Hands-free voice-to-scope (Web Speech API, continuous + natural
+        # conversational parser), pinned to the top bar.
         self.assertIn("Voice to Scope", html)
         self.assertIn("toggleVoice", html)
         self.assertIn("webkitSpeechRecognition", html)
-        self.assertIn("applyVoice", html)
+        self.assertIn("BQSmartVoice", html)
+        self.assertIn("handleVoiceCommand", html)
+        self.assertIn("activeField", html)
+        self.assertIn("rec.continuous = true", html)
         self.assertIn("previewAssembly", html)
         self.assertIn("applyRoomPreset", html)
         # Advanced estimating pack.
