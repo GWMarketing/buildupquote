@@ -226,8 +226,17 @@
         this.loadShell();
       },
       async refreshBadge() {
+        // Never use BQ.api() here: it redirects to /login on a 401, which
+        // would turn the login/register pages into an endless reload loop
+        // (and bounce authenticated users with an expired token). The badge
+        // is cosmetic, so fail silently with a plain fetch instead.
+        if (!localStorage.getItem('bq_token')) return;
         try {
-          const data = await BQ.api('/api/dashboard/stats');
+          const res = await fetch('/api/dashboard/stats', {
+            headers: { Authorization: 'Bearer ' + (localStorage.getItem('bq_token') || '') },
+          });
+          if (!res.ok) return;
+          const data = await res.json();
           if (data && data.stats) this.openCount = data.stats.open_quotes_count;
         } catch (e) { /* badge is optional */ }
       },

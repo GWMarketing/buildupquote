@@ -563,6 +563,16 @@ class CrmApiTestCase(unittest.TestCase):
                        "BQ_SHELL_STATS_CHANGED", "metaKey", "searchIndex"):
             self.assertIn(needle, js.text)
 
+    def test_login_page_has_no_shell_api_loop(self):
+        """appShell runs on /login and /register too, so its badge refresh must
+        use a plain fetch — BQ.api() redirects to /login on a 401, which would
+        reload the auth pages forever."""
+        for path in ("/login", "/register"):
+            html = self.client.get(path).text
+            self.assertIn("appShell()", html)
+            self.assertIn("fetch('/api/dashboard/stats'", html)
+            self.assertNotIn("BQ.api('/api/dashboard/stats')", html)
+
     # ------------------------------------------------------------------
     # Production hardening: password toggle, security/caching headers
     # ------------------------------------------------------------------
