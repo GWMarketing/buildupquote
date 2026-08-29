@@ -31,77 +31,209 @@
   }
 </script>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200" x-data="{ dark: localStorage.getItem('bq_theme') === 'dark' }" x-init="$watch('dark', v => { document.documentElement.classList.toggle('dark', v); localStorage.setItem('bq_theme', v ? 'dark' : 'light'); })" :class="{ 'dark': dark }">
+<body class="bg-slate-100 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200"
+      x-data="appShell()" x-init="init()" :class="{ 'dark': dark }">
+{% set nav = [
+  ('dashboard', '/dashboard', 'Dashboard', 'layout-dashboard', ''),
+  ('quotes', '/quotes', 'Quotes', 'file-pen-line', 'open'),
+  ('jobs', '/quotes?view=active', 'Jobs / Projects', 'hard-hat', ''),
+  ('clients', '/clients', 'Clients', 'users', ''),
+  ('crew', '/crew', 'Crew & Subcontractors', 'users-round', ''),
+  ('catalog', '/catalog', 'Rate Catalog', 'book-open', ''),
+  ('parser', '/parser', 'Parser', 'file-text', ''),
+] %}
+{% macro sidebar_link(key, href, label, icon, badge) %}
+  {% set is_active = (active == key) or (key == 'jobs' and active == 'quotes') %}
+  <a href="{{ href }}" id="nav-{{ key }}"
+     class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
+            {{ 'bg-amber-500 text-slate-950 shadow-sm' if is_active else 'text-slate-600 hover:bg-amber-50 hover:text-amber-700 dark:text-slate-300 dark:hover:bg-slate-800' }}"
+     title="{{ label }}">
+    <i data-lucide="{{ icon }}" class="h-5 w-5 shrink-0"></i>
+    <span class="min-w-0 flex-1 truncate" x-show="!sidebarCollapsed">{{ label }}</span>
+    {% if badge == 'open' %}
+    <span x-show="!sidebarCollapsed" x-cloak
+          class="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-200"
+          x-text="openCount != null ? openCount : ''"></span>
+    {% endif %}
+  </a>
+{% endmacro %}
 {% if active %}
-<nav class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
-  <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-    <a href="/dashboard" class="flex items-center gap-2 text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
-      <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+
+<!-- Left sidebar (desktop) -->
+<aside class="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-slate-200 bg-white transition-all duration-200 dark:border-slate-700 dark:bg-slate-900 lg:flex"
+       :class="sidebarCollapsed ? 'lg:w-[72px]' : 'lg:w-60'">
+  <div class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-700">
+    <a href="/dashboard" class="flex min-w-0 items-center gap-2 font-extrabold tracking-tight text-slate-900 dark:text-white">
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white">
         <i data-lucide="hard-hat" class="h-5 w-5"></i>
       </span>
-      BUILDUPQUOTE</a>
-    <div class="flex items-center gap-1">
-      {% set nav = [
-        ('dashboard', '/dashboard', 'Dashboard', 'layout-dashboard'),
-        ('parser', '/parser', 'Parser', 'file-text'),
-        ('quotes', '/quotes', 'Quotes', 'file-pen-line'),
-        ('clients', '/clients', 'Clients', 'users'),
-        ('crew', '/crew', 'Crew', 'users-round'),
-        ('catalog', '/catalog', 'Rate Catalog', 'book-open'),
-        ('settings', '/settings', 'Settings', 'settings'),
-        ('admin', '/admin', 'Admin', 'shield'),
-      ] %}
-      {% for key, href, label, icon in nav %}
-      <a href="{{ href }}" id="nav-{{ key }}" {% if key == 'admin' %}style="display:none"{% endif %}
-         class="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors
-                {{ 'bg-amber-500 text-white shadow-sm dark:bg-amber-500 dark:text-white' if active == key else 'text-slate-600 hover:bg-amber-50 hover:text-amber-700 dark:text-slate-300 dark:hover:bg-slate-800' }}">
-        <i data-lucide="{{ icon }}" class="h-4 w-4"></i>
-        <span class="hidden md:inline">{{ label }}</span>
-      </a>
-      {% endfor %}
-      <button @click="dark = !dark" class="ml-2 rounded-md p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" title="Toggle theme">
-        <i data-lucide="moon" x-show="!dark" class="h-4 w-4"></i>
-        <i data-lucide="sun" x-show="dark" x-cloak class="h-4 w-4"></i>
-      </button>
-      <button onclick="logout()" class="ml-1 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" title="Log out">
+      <span x-show="!sidebarCollapsed" class="whitespace-nowrap text-lg">BUILDUPQUOTE</span>
+    </a>
+    <button @click="sidebarCollapsed = !sidebarCollapsed" class="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-amber-600 dark:hover:bg-slate-800"
+            :title="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+      <i data-lucide="panel-left-close" x-show="!sidebarCollapsed" class="h-4 w-4"></i>
+      <i data-lucide="panel-left-open" x-show="sidebarCollapsed" x-cloak class="h-4 w-4"></i>
+    </button>
+  </div>
+
+  <div class="shrink-0 px-3 pt-3">
+    <a href="/quotes/new" class="flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow transition hover:bg-amber-600">
+      <i data-lucide="plus" class="h-4 w-4 shrink-0"></i>
+      <span x-show="!sidebarCollapsed" class="truncate">Create Quote</span>
+    </a>
+  </div>
+
+  <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+    {% for item in nav %}{{ sidebar_link(*item) }}{% endfor %}
+  </nav>
+
+  <div class="shrink-0 border-t border-slate-200 p-3 dark:border-slate-700">
+    {{ sidebar_link('settings', '/settings', 'Settings', 'settings', '') }}
+    <a href="/admin" id="nav-admin" style="display:none"
+       class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-amber-50 hover:text-amber-700 dark:text-slate-300 dark:hover:bg-slate-800"
+       title="Admin">
+      <i data-lucide="shield" class="h-5 w-5 shrink-0"></i>
+      <span class="min-w-0 flex-1 truncate" x-show="!sidebarCollapsed">Admin</span>
+    </a>
+    <div class="mt-2 flex items-center gap-2 rounded-lg border border-slate-200 p-2 dark:border-slate-700">
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-xs font-black text-white" x-text="initials()"></span>
+      <div class="min-w-0 flex-1" x-show="!sidebarCollapsed">
+        <p class="truncate text-sm font-bold text-slate-900 dark:text-white" x-text="me ? (me.full_name || me.email) : '…'"></p>
+        <p class="truncate text-[11px] text-slate-400" x-text="me ? roleLabel(me.role) : ''"></p>
+      </div>
+      <button onclick="logout()" class="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-red-600 dark:hover:bg-slate-800" title="Log out">
         <i data-lucide="log-out" class="h-4 w-4"></i>
-        <span class="hidden md:inline">Log out</span>
       </button>
     </div>
   </div>
-</nav>
-{% endif %}
+</aside>
+<!-- Mobile drawer -->
+<div x-show="mobileNav" x-cloak class="fixed inset-0 z-50 lg:hidden">
+  <div class="absolute inset-0 bg-black/50" @click="mobileNav = false"></div>
+  <div class="absolute inset-y-0 left-0 flex w-64 flex-col border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+    <div class="flex h-16 shrink-0 items-center justify-between px-4">
+      <a href="/dashboard" class="flex items-center gap-2 text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white"><i data-lucide="hard-hat" class="h-5 w-5"></i></span>
+        BUILDUPQUOTE
+      </a>
+      <button @click="mobileNav = false" class="rounded-md p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">✕</button>
+    </div>
+    <div class="shrink-0 px-3 pt-2">
+      <a href="/quotes/new" class="flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow hover:bg-amber-600">
+        <i data-lucide="plus" class="h-4 w-4"></i> Create Quote
+      </a>
+    </div>
+    <!-- Nested scope: the drawer always shows full labels. -->
+    <div class="flex-1 overflow-y-auto px-3 py-4" x-data="{ sidebarCollapsed: false }">
+      <nav class="space-y-1">
+        {% for item in nav %}{{ sidebar_link(*item) }}{% endfor %}
+        {{ sidebar_link('settings', '/settings', 'Settings', 'settings', '') }}
+        <a href="/admin" id="nav-admin-m" style="display:none"
+           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-amber-50 hover:text-amber-700 dark:text-slate-300 dark:hover:bg-slate-800">
+          <i data-lucide="shield" class="h-5 w-5 shrink-0"></i>
+          <span>Admin</span>
+        </a>
+      </nav>
+    </div>
+  </div>
+</div>
 
-<main class="mx-auto max-w-7xl px-4 py-6">
+<!-- Content column -->
+<div class="flex min-h-screen flex-col transition-[padding] duration-200 lg:pl-60" :class="sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-60'">
+  <!-- Top header -->
+  <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
+    <div class="flex items-center gap-2 px-4 py-3 sm:gap-3">
+      <button @click="mobileNav = true" class="rounded-md p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 lg:hidden" title="Menu">
+        <i data-lucide="menu" class="h-5 w-5"></i>
+      </button>
+      <div class="relative w-full max-w-xl">
+        <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+        <input type="text" x-model="search" @keydown.enter="goSearch()" placeholder="Search quotes, clients, addresses…"
+               class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:focus:bg-slate-800">
+      </div>
+      <div class="ml-auto flex items-center gap-1">
+        <button @click="BQ.toast('No new notifications')" class="rounded-md p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" title="Notifications">
+          <i data-lucide="bell" class="h-5 w-5"></i>
+        </button>
+        <button @click="dark = !dark" class="rounded-md p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" title="Toggle theme">
+          <i data-lucide="moon" x-show="!dark" class="h-5 w-5"></i>
+          <i data-lucide="sun" x-show="dark" x-cloak class="h-5 w-5"></i>
+        </button>
+        <button onclick="window.open('/pricing','_blank')" class="rounded-md p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" title="Help & Feedback">
+          <i data-lucide="circle-help" class="h-5 w-5"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+{% endif %}
+<main class="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
   {% block content %}{% endblock %}
 </main>
+{% if active %}
+</div>
+{% endif %}
 
 <style>[x-cloak]{display:none!important}</style>
 <script>
-  // Reveal the Admin nav item only for platform admins. The server enforces
-  // this on every /api/admin/* call (403); this just keeps non-admins from
-  // ever seeing the link. Crew accounts (field hands) instead lose the office
-  // tools entirely and keep only their own Crew calendar + logout.
-  (async function () {
-    try {
-      const res = await fetch('/api/users/me', {
-        headers: { Authorization: 'Bearer ' + (localStorage.getItem('bq_token') || '') },
-      });
-      const data = await res.json();
-      if (!res.ok) return;
-      if (data.is_admin) {
-        const link = document.getElementById('nav-admin');
-        if (link) link.style.display = '';
-      }
-      if (data.role === 'crew') {
-        ['dashboard', 'parser', 'quotes', 'clients', 'catalog', 'settings', 'admin']
-          .forEach(k => {
-            const el = document.getElementById('nav-' + k);
-            if (el) el.style.display = 'none';
+  // App shell: theme persistence, sidebar collapse, mobile drawer, user
+  // profile pill, open-quote badge, and role-based nav visibility.
+  function appShell() {
+    return {
+      dark: localStorage.getItem('bq_theme') === 'dark',
+      sidebarCollapsed: localStorage.getItem('bq_sidebar') === 'collapsed',
+      mobileNav: false,
+      me: null,
+      openCount: null,
+      search: '',
+      init() {
+        this.$watch('dark', v => {
+          document.documentElement.classList.toggle('dark', v);
+          localStorage.setItem('bq_theme', v ? 'dark' : 'light');
+        });
+        document.documentElement.classList.toggle('dark', this.dark);
+        this.$watch('sidebarCollapsed', v => localStorage.setItem('bq_sidebar', v ? 'collapsed' : 'open'));
+        this.loadShell();
+      },
+      async loadShell() {
+        try {
+          const res = await fetch('/api/users/me', {
+            headers: { Authorization: 'Bearer ' + (localStorage.getItem('bq_token') || '') },
           });
-      }
-    } catch (e) { /* offline: leave as-is */ }
-  })();
+          this.me = await res.json();
+          if (res.ok && this.me.is_admin) {
+            ['nav-admin', 'nav-admin-m'].forEach(id => {
+              const el = document.getElementById(id);
+              if (el) el.style.display = '';
+            });
+          }
+          if (res.ok && this.me.role === 'crew') {
+            ['dashboard', 'parser', 'quotes', 'jobs', 'clients', 'catalog', 'settings', 'admin']
+              .forEach(k => {
+                const el = document.getElementById('nav-' + k);
+                if (el) el.style.display = 'none';
+              });
+          }
+        } catch (e) { /* offline: leave as-is */ }
+        try {
+          const data = await BQ.api('/api/dashboard/stats');
+          if (data && data.stats) this.openCount = data.stats.open_quotes_count;
+        } catch (e) { /* badge is optional */ }
+      },
+      initials() {
+        const name = (this.me && (this.me.full_name || '')) || '';
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        if (!parts.length) return '?';
+        return ((parts[0][0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+      },
+      roleLabel(role) {
+        return ({ owner: 'Owner', admin: 'Admin', estimator: 'Estimator', viewer: 'Viewer', crew: 'Crew' })[role] || (role || '');
+      },
+      goSearch() {
+        const q = this.search.trim();
+        if (q) location.href = '/quotes?q=' + encodeURIComponent(q);
+      },
+    };
+  }
 </script>
 </body>
 </html>

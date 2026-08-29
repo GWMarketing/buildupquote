@@ -3,7 +3,7 @@
 <div x-data="quotesPage()" x-init="init()" class="space-y-4">
   <div class="bq-hero flex flex-wrap items-center justify-between gap-4">
     <div class="hero-content">
-      <p class="hero-eyebrow">Quotes</p>
+      <p class="hero-eyebrow" x-text="viewLabel">Quotes</p>
       <h1>Every estimate, one place</h1>
       <p class="hero-sub">Build, price, and export branded quotes for your clients.</p>
     </div>
@@ -107,8 +107,26 @@ function quotesPage() {
   return {
     quotes: [], loading: true, target: null, deleting: false,
     shareTarget: null, shareCopyState: '', sharePreview: '',
+    viewLabel: 'All quotes',
     async init() {
-      try { this.quotes = await BQ.api('/api/quotes'); } catch (e) { console.error(e); }
+      try {
+        let all = await BQ.api('/api/quotes');
+        const params = new URLSearchParams(location.search);
+        const q = (params.get('q') || '').toLowerCase();
+        const view = params.get('view') || '';
+        if (view === 'active') {
+          all = all.filter(x => ['sent', 'accepted'].includes(x.status));
+          this.viewLabel = 'Active jobs';
+        }
+        if (q) {
+          all = all.filter(x =>
+            (x.title || '').toLowerCase().includes(q) ||
+            (x.client_name || '').toLowerCase().includes(q) ||
+            (x.site_address || '').toLowerCase().includes(q));
+          this.viewLabel = 'Search: "' + (params.get('q') || '') + '"';
+        }
+        this.quotes = all;
+      } catch (e) { console.error(e); }
       this.loading = false;
       this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
     },

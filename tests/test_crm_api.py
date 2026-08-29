@@ -438,7 +438,11 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         body = r.json()
         self.assertEqual(body["stats"]["active_quotes_count"], 0)
+        self.assertEqual(body["stats"]["open_quotes_count"], 0)
         self.assertEqual(body["stats"]["pipeline_total"], "0.00")
+        self.assertEqual(body["stats"]["open_quotes_total"], "0.00")
+        self.assertEqual(body["stats"]["pending_deposits_count"], 0)
+        self.assertEqual(body["stats"]["pending_deposits_total"], "0.00")
         self.assertEqual(body["stats"]["currency"], "$")  # USD default
         self.assertEqual(body["recent_quotes"], [])
 
@@ -452,18 +456,31 @@ class CrmApiTestCase(unittest.TestCase):
         self.client.patch(f"/api/quotes/{q2}", headers=auth, json={"status": "sent"})
         q3 = self.make_quote(auth, "Accepted roof")
         self.client.put(f"/api/quotes/{q3}/lines", headers=auth, json=line)
-        self.client.patch(f"/api/quotes/{q3}", headers=auth, json={"status": "accepted"})
+        self.client.patch(f"/api/quotes/{q3}", headers=auth, json={
+            "status": "accepted",
+            "payment_schedule": [
+                {"label": "Deposit", "percent": 50},
+                {"label": "Rough-in", "percent": 50},
+            ],
+        })
 
         r = self.client.get("/api/dashboard/stats", headers=auth)
         self.assertEqual(r.status_code, 200, r.text)
         body = r.json()
         stats = body["stats"]
         self.assertEqual(stats["active_quotes_count"], 2)  # draft + sent
+        self.assertEqual(stats["open_quotes_count"], 2)
         self.assertEqual(stats["accepted_quotes_count"], 1)
+        self.assertEqual(stats["active_jobs_count"], 1)
         self.assertEqual(stats["win_rate"], 50.0)  # 1 accepted of 2 decided
         self.assertGreater(float(stats["pipeline_total"]), 0)
+        self.assertGreater(float(stats["open_quotes_total"]), 0)
         self.assertGreater(float(stats["won_revenue"]), 0)
         self.assertGreater(stats["avg_margin"], 0)
+        # Accepted job with an unreleased 50% deposit -> 1 pending deposit.
+        self.assertEqual(stats["pending_deposits_count"], 1)
+        self.assertAlmostEqual(float(stats["pending_deposits_total"]),
+                               0.5 * float(stats["won_revenue"]), places=2)
         recent = body["recent_quotes"]
         self.assertEqual(len(recent), 3)
         self.assertEqual(recent[0]["status"], "Accepted")  # newest first
@@ -472,13 +489,60 @@ class CrmApiTestCase(unittest.TestCase):
             self.assertIn("title", q)
             self.assertIn("total_amount", q)
 
+    def test_dashboard_stats_released_deposit_not_pending(self):
+        auth = self.register("dashpaid@acme.com")
+        qid = self.make_quote(auth, "Paid job")
+        self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[{
+            "description": "Paint", "item_type": "material",
+            "quantity": 1, "unit": "gal", "unit_cost": 100, "markup_percent": 10,
+        }])
+        self.client.patch(f"/api/quotes/{qid}", headers=auth, json={
+            "status": "accepted",
+            "payment_schedule": [{"label": "Deposit", "percent": 100, "released": True}],
+        })
+        r = self.client.get("/api/dashboard/stats", headers=auth)
+        stats = r.json()["stats"]
+        self.assertEqual(stats["active_jobs_count"], 1)
+        self.assertEqual(stats["pending_deposits_count"], 0)
+        self.assertEqual(stats["pending_deposits_total"], "0.00")
+
+    def test_dashboard_stats_range_filter(self):
+        from datetime import datetime, timedelta, timezone
+        from app.database import SessionLocal
+        from app import models
+
+        auth = self.register("dashrange@acme.com")
+        qid = self.make_quote(auth, "Old quote")
+        self.client.patch(f"/api/quotes/{qid}", headers=auth, json={"status": "sent"})
+
+        # Backdate the quote past the month window.
+        db = SessionLocal()
+        try:
+            row = db.query(models.Quote).filter(models.Quote.id == qid).first()
+            row.created_at = datetime.now(timezone.utc) - timedelta(days=45)
+            db.commit()
+        finally:
+            db.close()
+
+        all_time = self.client.get("/api/dashboard/stats", headers=auth).json()
+        self.assertEqual(all_time["stats"]["active_quotes_count"], 1)
+        self.assertEqual(len(all_time["recent_quotes"]), 1)
+
+        for rng in ("month", "week"):
+            resp = self.client.get(f"/api/dashboard/stats?range={rng}", headers=auth)
+            self.assertEqual(resp.status_code, 200, resp.text)
+            stats = resp.json()["stats"]
+            self.assertEqual(stats["active_quotes_count"], 0, rng)
+            self.assertEqual(resp.json()["recent_quotes"], [], rng)
+
     def test_dashboard_page_renders_analytics(self):
         r = self.client.get("/dashboard")
         self.assertEqual(r.status_code, 200, r.text)
         html = r.text
-        for needle in ("dashboardAnalytics", "/api/dashboard/stats", "Active Pipeline",
-                       "Won Revenue", "Win Rate", "Contractor Quick Cockpit",
-                       "recent_quotes", "/quotes/new"):
+        for needle in ("dashboardAnalytics", "/api/dashboard/stats", "Recent proposals",
+                       "open_quotes_count", "active_jobs_count", "pending_deposits_count",
+                       "Week to date", "statusPill", "statusLabel", "appShell",
+                       "sidebarCollapsed", "Jobs / Projects", "Search quotes, clients", "recent_quotes"):
             self.assertIn(needle, html)
 
     # ------------------------------------------------------------------
