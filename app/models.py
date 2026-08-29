@@ -230,6 +230,15 @@ class Quote(Base):
     # Payment milestones: [{"label": "Deposit upon signing", "percent": 50}, ...]
     # Built in the quote builder, rendered on the public proposal page + PDF.
     payment_schedule = Column(JSON, nullable=True)
+    # Change orders: an accepted quote can spawn child quotes (CO1, CO2...)
+    # that inherit client/project info but carry their own scope + sign-off.
+    parent_quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=True, index=True)
+    change_order_code = Column(String, nullable=True)
+    # Contingency / unforeseen-conditions buffer (0-20%). Applied to the
+    # project subtotal and added to the total. contingency_visible controls
+    # whether a "Contingency Reserve" line is shown to the client.
+    contingency_percent = Column(Numeric(5, 2), nullable=False, default=0)
+    contingency_visible = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("Client", back_populates="quotes")

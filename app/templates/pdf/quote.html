@@ -214,6 +214,12 @@
                         <td style="color: #64748b;">Tax / VAT{% if quote.tax_rate_percent is not none %} ({{ "%.2f"|format(quote.tax_rate_percent) }}%){% endif %}:</td>
                         <td style="text-align: right; font-weight: 600;">{{ currency }}{{ "%.2f"|format(quote.tax_amount or 0) }}</td>
                     </tr>
+                    {% if quote.contingency_visible and (quote.contingency_percent or 0) %}
+                    <tr>
+                        <td style="color: #64748b;">Contingency Reserve ({{ "%.0f"|format(quote.contingency_percent) }}%):</td>
+                        <td style="text-align: right; font-weight: 600;">{{ currency }}{{ "%.2f"|format((quote.subtotal | float) * (quote.contingency_percent | float) / 100) }}</td>
+                    </tr>
+                    {% endif %}
                     <tr class="grand-total">
                         <td>Total Amount:</td>
                         <td style="text-align: right; color: #0f172a;">{{ currency }}{{ "%.2f"|format(quote.total or 0) }}</td>

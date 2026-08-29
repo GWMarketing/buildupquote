@@ -60,24 +60,42 @@ def _quote_out(quote: models.Quote) -> dict:
         "include_contract": quote.include_contract if quote.include_contract is not None else True,
         "custom_contract_override": quote.custom_contract_override,
         "payment_schedule": quote.payment_schedule,
+        "parent_quote_id": quote.parent_quote_id,
+        "change_order_code": quote.change_order_code,
+        "contingency_percent": float(quote.contingency_percent or 0),
+        "contingency_visible": bool(quote.contingency_visible),
         "created_at": quote.created_at,
         "line_count": len(quote.items or []),
     }
 
 
-def _quote_detail_out(quote: models.Quote) -> dict:
-    return {
+def _quote_detail_out(quote: models.Quote, db: Session) -> dict:
+    out = {
         **_quote_out(quote),
         "lines": [
             schemas.QuoteLineOut.model_validate(item)
             for item in sorted(quote.items, key=lambda i: i.position or 0)
         ],
     }
+    # Change-order summary: base contract amount (parent total), this CO's
+    # own total, and the revised project total.
+    if quote.parent_quote_id:
+        parent = db.query(models.Quote).filter(models.Quote.id == quote.parent_quote_id).first()
+        base = float(parent.total or 0) if parent else 0.0
+        co = float(quote.total or 0)
+        out["base_amount"] = round(base, 2)
+        out["co_total"] = round(co, 2)
+        out["revised_total"] = round(base + co, 2)
+    return out
 
 
 def _recalculate_quote_totals(db: Session, quote: models.Quote) -> None:
-    """Refresh a quote's subtotal/tax/total from its stored line items and
-    its persisted flat tax rate."""
+    """Refresh a quote's subtotal/tax/total from its stored line items, its
+    persisted flat tax rate, and its contingency buffer.
+
+    Subtotal is the priced line-item total; tax applies to the subtotal; the
+    contingency reserve (0-20%) is applied to the subtotal and added on top,
+    so the grand total = subtotal + tax + contingency."""
     subtotal = (
         db.query(func.coalesce(func.sum(models.QuoteLineItem.line_total), 0))
         .filter(models.QuoteLineItem.quote_id == quote.id)
@@ -86,7 +104,8 @@ def _recalculate_quote_totals(db: Session, quote: models.Quote) -> None:
     quote.subtotal = round(float(subtotal), 2)
     rate = float(quote.tax_rate_percent or 0)
     quote.tax_amount = round(quote.subtotal * rate / 100.0, 2)
-    quote.total = round(quote.subtotal + quote.tax_amount, 2)
+    contingency = round(quote.subtotal * float(quote.contingency_percent or 0) / 100.0, 2)
+    quote.total = round(quote.subtotal + quote.tax_amount + contingency, 2)
     db.add(quote)
 
 
@@ -243,7 +262,7 @@ def create_quote_from_parse(
     db.flush()  # totals SUM must see the new rows (autoflush is off)
     _recalculate_quote_totals(db, quote)
     db.commit()
-    return _quote_detail_out(_get_owned_quote(db, current_user, quote.id))
+    return _quote_detail_out(_get_owned_quote(db, current_user, quote.id), db)
 
 
 
@@ -254,7 +273,7 @@ def get_quote(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    return _quote_detail_out(_get_owned_quote(db, current_user, quote_id))
+    return _quote_detail_out(_get_owned_quote(db, current_user, quote_id), db)
 
 
 @router.patch("/{quote_id}", response_model=schemas.QuoteOut)
@@ -267,7 +286,8 @@ def update_quote(
     quote = _get_owned_quote(db, current_user, quote_id)
     _ensure_editable(quote)
     for field in ("title", "site_address", "status", "client_id", "tax_rate_percent",
-                  "include_contract", "custom_contract_override"):
+                  "include_contract", "custom_contract_override",
+                  "contingency_percent", "contingency_visible"):
         value = getattr(payload, field, None)
         if value is not None:
             setattr(quote, field, value)
@@ -276,7 +296,9 @@ def update_quote(
             {"label": (m.label or "").strip() or "Stage", "percent": round(float(m.percent or 0), 2)}
             for m in payload.payment_schedule
         ]
-    if payload.tax_rate_percent is not None:
+    if (payload.tax_rate_percent is not None
+            or payload.contingency_percent is not None
+            or payload.contingency_visible is not None):
         _recalculate_quote_totals(db, quote)
     db.commit()
     db.refresh(quote)
@@ -317,7 +339,7 @@ def save_lines(
     db.commit()
     # Re-query so the response reflects the freshly written lines (rows
     # were added by FK, not via the relationship collection).
-    return _quote_detail_out(_get_owned_quote(db, current_user, quote_id))
+    return _quote_detail_out(_get_owned_quote(db, current_user, quote_id), db)
 
 
 @router.delete("/{quote_id}")
@@ -370,7 +392,7 @@ def delete_quote_line(
     db.flush()
     _recalculate_quote_totals(db, quote)
     db.commit()
-    return _quote_detail_out(_get_owned_quote(db, current_user, quote_id))
+    return _quote_detail_out(_get_owned_quote(db, current_user, quote_id), db)
 
 
 @router.get("/{quote_id}/pdf")
@@ -409,6 +431,50 @@ def export_quote_pdf(
     }
     quote_pdf.render_quote_pdf(context, out_path)
     return {"url": f"/static/exports/pdf/{filename}", "filename": filename}
+
+
+@router.post("/{quote_id}/change-orders", response_model=schemas.QuoteOut,
+             status_code=status.HTTP_201_CREATED)
+def create_change_order(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """One-click change order on an accepted (signed) quote.
+
+    Creates a linked child quote (CO1, CO2...) inheriting the client and
+    base project info, with its own line items, assemblies, and an
+    independent digital sign-off link (its own public_uuid)."""
+    parent = _get_owned_quote(db, current_user, quote_id)
+    if parent.status != "accepted":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Change orders can only be added to accepted (signed) quotes",
+        )
+    co_number = (
+        db.query(func.count(models.Quote.id))
+        .filter(models.Quote.parent_quote_id == parent.id)
+        .scalar()
+    ) + 1
+
+    change_order = models.Quote(
+        organization_id=parent.organization_id,
+        client_id=parent.client_id,
+        title=f"{parent.title or 'Quote'} — Change Order CO{co_number}",
+        site_address=parent.site_address,
+        status="draft",
+        parent_quote_id=parent.id,
+        change_order_code=f"CO{co_number}",
+        include_contract=parent.include_contract if parent.include_contract is not None else True,
+        custom_contract_override=parent.custom_contract_override,
+        payment_schedule=parent.payment_schedule,
+        contingency_percent=parent.contingency_percent or 0,
+        contingency_visible=bool(parent.contingency_visible),
+    )
+    db.add(change_order)
+    db.commit()
+    db.refresh(change_order)
+    return _quote_out(change_order)
 
 
 @router.post("/{quote_id}/send-email")

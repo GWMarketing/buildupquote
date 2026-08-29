@@ -190,6 +190,99 @@ class CockpitApiTestCase(unittest.TestCase):
     # ------------------------------------------------------------------
     # Builder UI
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Change orders
+    # ------------------------------------------------------------------
+    def test_change_order_requires_accepted_parent(self):
+        auth = self.register("ckp-co-draft@acme.com")
+        qid = self.make_quote(auth)
+        r = self.client.post(f"/api/quotes/{qid}/change-orders", headers=auth)
+        self.assertEqual(r.status_code, 400, r.text)
+
+    def test_change_order_creates_linked_child_with_summary(self):
+        auth = self.register("ckp-co@acme.com")
+        cid = self.make_client(auth)
+        qid = self.make_quote(auth, client_id=cid)
+        self.add_line(auth, qid)
+
+        # Sign the parent via the public link (locks it).
+        detail = self.client.get(f"/api/quotes/{qid}", headers=auth).json()
+        r = self.client.post(f"/api/public/quotes/{detail['public_uuid']}/accept", json={
+            "signature_data": "data:image/png;base64,AAAA",
+            "client_name": "Joan Smith",
+        })
+        self.assertEqual(r.status_code, 200, r.text)
+
+        # One-click change order.
+        r = self.client.post(f"/api/quotes/{qid}/change-orders", headers=auth)
+        self.assertEqual(r.status_code, 201, r.text)
+        co = r.json()
+        self.assertEqual(co["change_order_code"], "CO1")
+        self.assertEqual(co["parent_quote_id"], qid)
+        self.assertEqual(co["client_id"], cid)
+        self.assertIsNotNone(co["public_uuid"])
+
+        # The CO detail carries the summary header figures.
+        detail = self.client.get(f"/api/quotes/{co['id']}", headers=auth).json()
+        self.assertIsNotNone(detail["base_amount"])
+        self.assertIsNotNone(detail["co_total"])
+        self.assertAlmostEqual(detail["revised_total"],
+                               detail["base_amount"] + detail["co_total"], places=2)
+
+        # The CO has its own independent public sign-off link.
+        r = self.client.get(f"/view/quote/{co['public_uuid']}")
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertIn("CO1", r.text)
+
+        # Next one is CO2.
+        r2 = self.client.post(f"/api/quotes/{qid}/change-orders", headers=auth)
+        self.assertEqual(r2.status_code, 201, r.text)
+        self.assertEqual(r2.json()["change_order_code"], "CO2")
+
+    # ------------------------------------------------------------------
+    # Contingency / unforeseen conditions
+    # ------------------------------------------------------------------
+    def test_contingency_included_in_total_and_rendered(self):
+        auth = self.register("ckp-cont@acme.com")
+        cid = self.make_client(auth)
+        qid = self.make_quote(auth, client_id=cid)
+        self.add_line(auth, qid)
+
+        # subtotal = 10 x 20 x 1.2 = 240 (no tax).
+        r = self.client.patch(f"/api/quotes/{qid}", headers=auth, json={
+            "contingency_percent": 10, "contingency_visible": True,
+        })
+        self.assertEqual(r.status_code, 200, r.text)
+        updated = r.json()
+        self.assertEqual(updated["contingency_percent"], 10.0)
+        self.assertTrue(updated["contingency_visible"])
+        # total = subtotal + contingency = 240 + 24.
+        self.assertAlmostEqual(updated["total"], 264.0, places=2)
+
+        # Visible reserve appears on the public page + PDF.
+        detail = self.client.get(f"/api/quotes/{qid}", headers=auth).json()
+        r = self.client.get(f"/view/quote/{detail['public_uuid']}")
+        self.assertIn("Contingency Reserve", r.text)
+
+        import pdfplumber
+        r = self.client.get(f"/api/quotes/{qid}/export-pdf", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        with pdfplumber.open(io.BytesIO(r.content)) as pdf:
+            text = "\n".join(p.extract_text() or "" for p in pdf.pages)
+        self.assertIn("Contingency Reserve", text)
+
+    def test_contingency_hidden_internal_does_not_render(self):
+        auth = self.register("ckp-contint@acme.com")
+        cid = self.make_client(auth)
+        qid = self.make_quote(auth, client_id=cid)
+        self.add_line(auth, qid)
+        self.client.patch(f"/api/quotes/{qid}", headers=auth, json={
+            "contingency_percent": 10, "contingency_visible": False,
+        })
+        detail = self.client.get(f"/api/quotes/{qid}", headers=auth).json()
+        r = self.client.get(f"/view/quote/{detail['public_uuid']}")
+        self.assertNotIn("Contingency Reserve", r.text)
+
     def test_builder_renders_cockpit_controls(self):
         r = self.client.get("/quotes/new")
         self.assertEqual(r.status_code, 200, r.text)
@@ -205,9 +298,21 @@ class CockpitApiTestCase(unittest.TestCase):
         self.assertIn("33 / 33 / 34", html)
         self.assertIn("previewAssembly", html)
         self.assertIn("applyRoomPreset", html)
+        # Advanced estimating pack.
+        self.assertIn("Add Change Order", html)
+        self.assertIn("addChangeOrder", html)
+        self.assertIn("Export Material Takeoff", html)
+        self.assertIn("takeoffByCategory", html)
+        self.assertIn("Contingency Buffer", html)
+        self.assertIn("contingencyAmount", html)
+        self.assertIn("Contractor Financials", html)
+        self.assertIn("netProfitPct", html)
+        self.assertIn("Voice-to-Scope", html)
+        self.assertIn("applyVoice", html)
 
 
 if __name__ == "__main__":
     unittest.main()
+
 
 

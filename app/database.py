@@ -100,6 +100,15 @@ def ensure_legacy_columns(bind):
         # Payment milestones landed with the cockpit payment-schedule feature.
         if "payment_schedule" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN payment_schedule JSON")
+        # Change orders + contingency landed with the advanced estimating pack.
+        if "parent_quote_id" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN parent_quote_id INTEGER")
+        if "change_order_code" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN change_order_code VARCHAR")
+        if "contingency_percent" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN contingency_percent NUMERIC(5, 2) DEFAULT 0")
+        if "contingency_visible" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN contingency_visible BOOLEAN DEFAULT FALSE")
     # Organization profile fields landed after the first organizations
     # table was created -- same idempotent in-place upgrade. `bio` superseded
     # the old `description` column, so existing databases get an in-place

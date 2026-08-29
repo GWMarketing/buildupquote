@@ -277,6 +277,9 @@ class QuoteUpdate(BaseModel):
     custom_contract_override: Optional[str] = None
     # Deposit & payment milestones (cockpit payment-schedule generator).
     payment_schedule: Optional[list[PaymentMilestone]] = None
+    # Contingency / unforeseen-conditions buffer.
+    contingency_percent: Optional[float] = None
+    contingency_visible: Optional[bool] = None
 
 
 class SendQuoteEmailRequest(BaseModel):
@@ -328,12 +331,21 @@ class QuoteOut(BaseModel):
     include_contract: bool = True
     custom_contract_override: Optional[str] = None
     payment_schedule: Optional[list[PaymentMilestone]] = None
+    # Change-order linkage + contingency buffer.
+    parent_quote_id: Optional[int] = None
+    change_order_code: Optional[str] = None
+    contingency_percent: float = 0
+    contingency_visible: bool = False
     created_at: datetime
     line_count: int = 0
 
 
 class QuoteDetailOut(QuoteOut):
     lines: list[QuoteLineOut] = []
+    # Change-order summary (present when this quote IS a change order):
+    base_amount: Optional[float] = None   # parent (base contract) total
+    co_total: Optional[float] = None      # this change order's own total
+    revised_total: Optional[float] = None  # base + co
 
 
 class ParseToQuoteRequest(BaseModel):

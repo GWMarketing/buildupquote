@@ -44,7 +44,7 @@
         {% endif %}
       </div>
       <div class="shrink-0 text-left sm:text-right">
-        <div class="text-2xl font-black uppercase tracking-tight text-amber-500">Estimate</div>
+        <div class="text-2xl font-black uppercase tracking-tight text-amber-500">Estimate{% if quote.change_order_code %} — {{ quote.change_order_code }}{% endif %}</div>
         <div class="mt-1 text-xs text-slate-500">
           <div><strong>Ref:</strong> #Q-{{ quote.id }}</div>
           <div><strong>Issued:</strong> {{ quote.created_at.strftime('%d %b %Y') if quote.created_at else 'Today' }}</div>
@@ -120,6 +120,9 @@
       <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div class="space-y-1 text-sm">
           <div class="flex justify-between text-slate-600"><span>Subtotal (Net)</span><span class="font-semibold">{{ currency }}{{ "%.2f"|format(quote.subtotal or 0) }}</span></div>
+          {% if quote.contingency_visible and (quote.contingency_percent or 0) %}
+          <div class="flex justify-between text-slate-600"><span>Contingency Reserve ({{ "%.0f"|format(quote.contingency_percent) }}%)</span><span class="font-semibold">{{ currency }}{{ "%.2f"|format((quote.subtotal | float) * (quote.contingency_percent | float) / 100) }}</span></div>
+          {% endif %}
           <div class="flex justify-between text-slate-600"><span>Tax / VAT{% if quote.tax_rate_percent is not none %} ({{ "%.2f"|format(quote.tax_rate_percent) }}%){% endif %}</span><span class="font-semibold">{{ currency }}{{ "%.2f"|format(quote.tax_amount or 0) }}</span></div>
           <div class="flex justify-between border-t-2 border-slate-900 pt-2 text-base font-black text-slate-900"><span>Total Amount</span><span>{{ currency }}{{ "%.2f"|format(quote.total or 0) }}</span></div>
         </div>

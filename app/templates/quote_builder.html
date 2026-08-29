@@ -11,6 +11,16 @@
                placeholder="Project Name / Quote Reference">
         <p class="text-sm text-slate-500 dark:text-slate-400"
            x-text="'Status: ' + (quote.status || 'draft').charAt(0).toUpperCase() + (quote.status || 'draft').slice(1)"></p>
+        <!-- Change-order summary header (this quote IS a change order) -->
+        <div x-show="isCO" x-cloak class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+          <span class="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-black text-slate-950" x-text="quote.change_order_code"></span>
+          <span class="text-xs text-slate-500 dark:text-slate-400">Base Contract</span>
+          <span class="text-sm font-bold text-white" x-text="fmt(quote.base_amount || 0)"></span>
+          <span class="text-xs text-slate-500 dark:text-slate-400">+ Change Order</span>
+          <span class="text-sm font-bold text-amber-400" x-text="fmt(quote.co_total || 0)"></span>
+          <span class="text-xs text-slate-500 dark:text-slate-400">= Revised</span>
+          <span class="text-sm font-bold text-emerald-400" x-text="fmt(quote.revised_total || 0)"></span>
+        </div>
       </div>
       <div class="flex flex-wrap items-center gap-3">
         <button class="bq-btn-secondary" @click="openAssemblyDrawer = true">
@@ -20,10 +30,20 @@
           <span x-show="saving" x-cloak class="mr-1 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
           <i data-lucide="save" class="h-4 w-4"></i> Save
         </button>
+        <button x-show="quote.status === 'accepted'" x-cloak
+                class="flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-orange-600"
+                :disabled="addingCO" @click="addChangeOrder()" title="Create a change order on this signed proposal">
+          <i data-lucide="file-plus-2" class="h-4 w-4"></i>
+          <span x-text="addingCO ? 'Creating…' : '+ Add Change Order'"></span>
+        </button>
         <button class="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition duration-150 hover:-translate-y-px hover:bg-emerald-700 hover:shadow-md"
                 :disabled="!lines.length || exporting" @click="exportPdf()">
           <i data-lucide="file-text" class="h-4 w-4"></i>
           <span x-text="exporting ? 'Building…' : 'Export PDF'"></span>
+        </button>
+        <button class="bq-btn-secondary" :disabled="!lines.length" @click="openTakeoff()"
+                title="Roll up all materials for a supply run">
+          <i data-lucide="clipboard-list" class="h-4 w-4 text-amber-500"></i> Export Material Takeoff
         </button>
         <button class="bq-btn-secondary" :disabled="!lines.length || !quote.client_id" @click="openSendModal()"
                 title="Email the proposal to the client">
@@ -181,6 +201,40 @@
         <input type="number" min="0" step="0.25" x-model.number="taxRate" @change="onTaxRateChange()"
                class="w-20 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-right text-white focus:border-amber-500 focus:outline-none">
       </div>
+
+      <!-- Contingency / unforeseen conditions buffer -->
+      <div class="mt-4">
+        <div class="flex items-center justify-between">
+          <label class="text-sm font-semibold text-slate-300">Contingency Buffer</label>
+          <span class="text-lg font-bold text-amber-400" x-text="contingency + '%'"></span>
+        </div>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <template x-for="p in contingencyOptions" :key="p">
+            <button @click="setContingency(p)"
+                    class="rounded-lg px-2.5 py-1 text-xs font-bold transition"
+                    :class="contingency === p ? 'bg-amber-500 text-slate-950' : 'border border-slate-600 bg-slate-800 text-white hover:border-amber-500'">
+              <span x-text="p + '%'"></span>
+            </button>
+          </template>
+        </div>
+        <input type="range" min="0" max="20" step="1" x-model.number="contingency" @input="onContingencyChange()"
+               class="mt-2 w-full cursor-pointer accent-amber-500">
+        <p class="mt-1 text-xs text-slate-400" x-text="'Reserve: ' + fmt(contingencyAmount())"></p>
+        <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs text-slate-400">
+          <input type="checkbox" x-model="contingencyVisible" @change="onContingencyChange()" class="accent-amber-500">
+          <span x-text="contingencyVisible ? 'Show as visible reserve (Client)' : 'Hide inside line items (Internal)'"></span>
+        </label>
+      </div>
+
+      <!-- Live margin & labor split (contractor-only badge) -->
+      <div class="mt-4 rounded-lg border border-slate-700 bg-[#0B0F17] p-3 text-xs">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Contractor Financials</p>
+        <div class="mt-2 space-y-1.5">
+          <div class="flex justify-between"><span class="text-slate-400">Materials (inc. waste)</span><span class="font-semibold text-white" x-text="fmt(materialsCost())"></span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Labor &amp; Subcontractor Payout</span><span class="font-semibold text-white" x-text="fmt(laborCost())"></span></div>
+          <div class="flex justify-between border-t border-slate-700 pt-1.5"><span class="text-slate-400">Estimated Net Profit</span><span class="font-semibold text-emerald-400" x-text="netProfit() + ' (' + netProfitPct() + '%)'"></span></div>
+        </div>
+      </div>
     </div>
     <div class="grid grid-cols-2 gap-4 border-t border-slate-800 pt-4 text-right md:border-l md:border-t-0 md:pl-6 md:pt-0">
       <div>
@@ -196,8 +250,8 @@
         <p class="text-lg font-bold text-emerald-400" x-text="fmt(grossProfit())"></p>
       </div>
       <div>
-        <p class="text-xs text-slate-400">Grand Total (Inc. Tax)</p>
-        <p class="text-2xl font-black text-amber-400" x-text="fmt(grandTotal())"></p>
+        <p class="text-xs text-slate-400">Grand Total (Inc. Tax &amp; Contingency)</p>
+        <p class="text-2xl font-black text-amber-400" x-text="fmt(finalTotal())"></p>
       </div>
     </div>
   </div>
@@ -248,7 +302,7 @@
         <div class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
           <span class="text-sm text-slate-600 dark:text-slate-300" x-text="m.label"></span>
           <span class="text-sm font-bold text-amber-600 dark:text-amber-400"
-                x-text="m.label + ' (' + m.percent + '%): ' + fmt(grandTotal() * m.percent / 100)"></span>
+                x-text="m.label + ' (' + m.percent + '%): ' + fmt(finalTotal() * m.percent / 100)"></span>
         </div>
       </template>
       <p class="text-[11px] text-slate-400">Shown on the client's proposal page and the signed PDF.</p>
@@ -283,6 +337,25 @@
             <option :value="a.code" x-text="a.name + ' (' + a.category + ')'"></option>
           </template>
         </select>
+      </div>
+
+      <!-- Hands-free voice-to-scope -->
+      <div x-show="selectedInputs.length" x-cloak>
+        <div class="flex items-center justify-between">
+          <p class="text-xs font-semibold text-slate-400">Voice-to-Scope</p>
+          <button @click="toggleVoice()"
+                  class="rounded-full p-2 transition"
+                  :class="voiceOn ? 'bg-red-500/20 text-red-400 animate-pulse' : 'border border-slate-600 bg-slate-800 text-slate-300 hover:border-amber-500 hover:text-amber-400'"
+                  title="Speak the scope — e.g. '12 by 14 with 9 foot ceilings' or 'drywall partition'">
+            <i data-lucide="mic" class="h-5 w-5"></i>
+          </button>
+        </div>
+        <div x-show="voiceOn" x-cloak class="mt-2 flex items-center gap-2 text-xs text-red-400">
+          <span class="inline-block h-2.5 w-2.5 animate-ping rounded-full bg-red-500"></span>
+          <span>Listening…</span>
+        </div>
+        <p x-show="voiceTranscript" x-cloak class="mt-2 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs text-slate-300"
+           x-text="voiceTranscript"></p>
       </div>
 
       <!-- 1-Tap room presets -->
@@ -448,6 +521,54 @@
       </div>
     </div>
   </div>
+
+  <!-- Material takeoff & cut list modal -->
+  <div x-show="takeoffOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-[#0B0F17]/80 p-4"
+       @keydown.escape.window="takeoffOpen = false">
+    <div class="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border border-slate-700 bg-[#0B0F17] p-6 text-white shadow-2xl">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold">Material Takeoff</h2>
+          <p class="text-xs text-slate-400" x-text="(quote.title || 'Quote') + ' — materials only, waste factor included'"></p>
+        </div>
+        <button class="rounded-lg p-2 text-slate-400 transition hover:text-white" @click="takeoffOpen = false">✕</button>
+      </div>
+
+      <div x-show="!takeoffHasMaterials" x-cloak class="rounded-xl border border-slate-700 bg-slate-900/60 p-4 text-sm text-slate-400">
+        No material line items yet — add assemblies or manual material rows first.
+      </div>
+
+      <template x-for="g in takeoffByCategory" :key="g.category">
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400" x-text="g.category"></h3>
+          <table class="mt-2 w-full text-sm">
+            <thead class="text-left text-[10px] uppercase tracking-wider text-slate-500">
+              <tr><th class="py-1">Item</th><th class="py-1 text-right">Qty</th><th class="py-1 text-right">Unit</th></tr>
+            </thead>
+            <tbody>
+              <template x-for="row in g.rows" :key="row.key">
+                <tr class="border-t border-slate-800">
+                  <td class="py-1.5 text-slate-200" x-text="row.description"></td>
+                  <td class="py-1.5 text-right font-semibold text-white" x-text="row.quantity.toFixed(2)"></td>
+                  <td class="py-1.5 text-right text-slate-400" x-text="row.unit"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </template>
+
+      <div class="flex flex-wrap justify-end gap-2 pt-2">
+        <button class="rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-medium text-white transition hover:border-slate-500"
+                @click="copyTakeoff()">
+          <span x-text="takeoffCopied ? '✓ Copied!' : 'Copy Checklist to Clipboard'"></span>
+        </button>
+        <button class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-amber-600" @click="printTakeoff()">
+          <i data-lucide="printer" class="mr-1 inline h-4 w-4"></i> Print / Save PDF
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
 
@@ -496,12 +617,38 @@ function quoteBuilder(quoteId) {
       ] },
     ],
     paymentMode: '', paymentStages: [], paymentCustom: false,
+    // ---- Change orders ----
+    addingCO: false,
+    // ---- Contingency buffer ----
+    contingency: 10, contingencyVisible: false,
+    contingencyOptions: [0, 5, 10, 15, 20],
+    // ---- Voice-to-scope ----
+    voiceOn: false, voiceRec: null, voiceTranscript: '',
+    // ---- Material takeoff ----
+    takeoffOpen: false, takeoffCopied: false,
+
+    get isCO() { return !!this.quote.parent_quote_id; },
 
     get roomDerived() {
       const L = Number(this.dims.length || 0);
       const W = Number(this.dims.width || 0);
       const H = Number(this.dims.height || 0);
       return { floor: L * W, perimeter: 2 * (L + W), wall: 2 * (L + W) * H };
+    },
+    get takeoffByCategory() {
+      const map = {};
+      this.lines.forEach(r => {
+        if (r.item_type !== 'material' || !(Number(r.quantity) > 0)) return;
+        const cat = this.takeoffCategory(r);
+        const key = ((r.description || '').trim() + '|' + (r.unit || '')).toLowerCase();
+        map[cat] = map[cat] || {};
+        map[cat][key] = map[cat][key] || { key: key, description: r.description, unit: r.unit, quantity: 0 };
+        map[cat][key].quantity += Number(r.quantity) || 0;
+      });
+      return Object.keys(map).map(cat => ({ category: cat, rows: Object.values(map[cat]) }));
+    },
+    get takeoffHasMaterials() {
+      return this.lines.some(r => r.item_type === 'material' && Number(r.quantity) > 0);
     },
     wasteActive(o) {
       if (o.value === null) return this.customWasteOpen;
@@ -567,6 +714,9 @@ function quoteBuilder(quoteId) {
         this.paymentCustom = true;
         this.paymentMode = 'custom';
       }
+      // Contingency buffer + change-order fields.
+      this.contingency = Number(detail.contingency_percent) || 0;
+      this.contingencyVisible = !!detail.contingency_visible;
       this.refreshIcons();
     },
 
@@ -667,6 +817,156 @@ function quoteBuilder(quoteId) {
       this._payTimer = setTimeout(() => {
         this.patch({ payment_schedule: this.paymentStages });
       }, 400);
+    },
+
+    // ---- One-click change order ----
+    async addChangeOrder() {
+      this.addingCO = true;
+      try {
+        const co = await BQ.api('/api/quotes/' + this.quoteId + '/change-orders', {
+          method: 'POST',
+        });
+        BQ.toast('Change order ' + co.change_order_code + ' created', 'success');
+        location.href = '/quotes/' + co.id;
+      } catch (e) { BQ.toast('Could not create change order: ' + e.message); }
+      this.addingCO = false;
+    },
+
+    // ---- Contingency buffer ----
+    setContingency(p) { this.contingency = Number(p); this.onContingencyChange(); },
+    onContingencyChange() {
+      clearTimeout(this._contTimer);
+      this._contTimer = setTimeout(() => {
+        this.patch({
+          contingency_percent: Number(this.contingency) || 0,
+          contingency_visible: !!this.contingencyVisible,
+        });
+      }, 350);
+    },
+    contingencyAmount() { return this.subtotal() * (Number(this.contingency) || 0) / 100; },
+    finalTotal() { return this.grandTotal() + this.contingencyAmount(); },
+    materialsCost() {
+      return this.lines.filter(r => r.item_type === 'material')
+        .reduce((s, r) => s + Number(r.quantity || 0) * Number(r.unit_cost || 0), 0);
+    },
+    laborCost() {
+      return this.lines.filter(r => ['labor', 'subcontractor', 'plant'].includes(r.item_type))
+        .reduce((s, r) => s + Number(r.quantity || 0) * Number(r.unit_cost || 0), 0);
+    },
+    netProfit() {
+      return (this.subtotal() + this.contingencyAmount()) - this.materialsCost() - this.laborCost();
+    },
+    netProfitPct() {
+      const rev = this.subtotal() + this.contingencyAmount();
+      return rev > 0 ? Math.round(this.netProfit() / rev * 100) : 0;
+    },
+
+    // ---- Hands-free voice-to-scope ----
+    toggleVoice() { this.voiceOn ? this.stopVoice() : this.startVoice(); },
+    startVoice() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) { BQ.toast('Voice input is not supported in this browser'); return; }
+      this.voiceTranscript = 'Listening… try "12 by 14 with 9 foot ceilings" or "drywall partition"';
+      this.voiceOn = true;
+      const rec = new SR();
+      this.voiceRec = rec;
+      rec.lang = 'en-US';
+      rec.interimResults = true;
+      rec.continuous = false;
+      rec.onresult = (e) => {
+        let t = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
+        this.voiceTranscript = t;
+        this.applyVoice(t);
+      };
+      rec.onend = () => { this.voiceOn = false; };
+      rec.onerror = () => { this.voiceOn = false; this.voiceTranscript = 'Could not hear you — try again or type the scope.'; };
+      try { rec.start(); } catch (e) { this.voiceOn = false; }
+    },
+    stopVoice() {
+      this.voiceOn = false;
+      if (this.voiceRec) { try { this.voiceRec.stop(); } catch (e) { /* ignore */ } }
+    },
+    applyVoice(text) {
+      const t = (text || '').toLowerCase();
+      // "12 by 14" / "12 x 14" -> length x width
+      const dim = t.match(/(\d+(?:\.\d+)?)\s*(?:by|x|\*)\s*(\d+(?:\.\d+)?)/);
+      // "with 9 foot ceilings" / "9-foot ceiling"
+      const height = t.match(/(\d+(?:\.\d+)?)\s*-?\s*(?:foot|feet|ft)?\s*(?:ceiling|ceilings|high)/);
+      if (dim) {
+        if (this.selectedInputs.includes('length')) this.dims.length = parseFloat(dim[1]);
+        if (this.selectedInputs.includes('width')) this.dims.width = parseFloat(dim[2]);
+      }
+      if (height && this.selectedInputs.includes('height')) this.dims.height = parseFloat(height[1]);
+      // Keyword -> matching assembly.
+      const words = ['drywall', 'framing', 'stud', 'partition', 'tile', 'flooring', 'paint'];
+      for (const a of this.assemblies) {
+        const hay = ((a.name || '') + ' ' + (a.category || '')).toLowerCase();
+        for (const w of words) {
+          if (t.includes(w) && hay.includes(w)) {
+            this.selectedCode = a.code;
+            this.previewAssembly();
+            BQ.toast('Matched assembly: ' + a.name, 'success');
+            return;
+          }
+        }
+      }
+      if (dim || height) this.previewAssembly();
+    },
+
+    // ---- Material takeoff & cut list ----
+    takeoffCategory(row) {
+      const t = ((row.trade || '') + ' ' + (row.description || '')).toLowerCase();
+      if (/(carpentry|framing|lumber|stud|joist|timber|track|runner)/.test(t)) return 'Lumber / Framing';
+      if (/(drywall|plasterboard|gypsum|board)/.test(t)) return 'Drywall';
+      if (/(tile|grout|adhesive|paint|primer|finish)/.test(t)) return 'Finishes';
+      if (/(screw|nail|fastener|fixing|anchor)/.test(t)) return 'Fasteners';
+      return 'General Materials';
+    },
+    openTakeoff() {
+      this.takeoffCopied = false;
+      this.takeoffOpen = true;
+      this.refreshIcons();
+    },
+    copyTakeoff() {
+      const lines = [];
+      lines.push('MATERIAL TAKEOFF — ' + (this.quote.title || 'Quote'));
+      lines.push('Materials only · waste factor included');
+      lines.push('');
+      this.takeoffByCategory.forEach(g => {
+        lines.push(g.category.toUpperCase());
+        g.rows.forEach(r => lines.push('  • ' + r.quantity.toFixed(2) + ' ' + r.unit + ' — ' + r.description));
+        lines.push('');
+      });
+      BQShare.copyText(lines.join('\n'))
+        .then(() => { this.takeoffCopied = true; setTimeout(() => { this.takeoffCopied = false; }, 2000); })
+        .catch(e => BQ.toast('Could not copy: ' + e.message));
+    },
+    printTakeoff() {
+      const w = window.open('', '_blank', 'width=820,height=640');
+      if (!w) { BQ.toast('Pop-ups blocked — allow them to print the takeoff'); return; }
+      let html = '<!doctype html><html><head><title>Material Takeoff</title><style>'
+        + 'body{font-family:Arial,Helvetica,sans-serif;padding:28px;color:#0f172a}'
+        + 'h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;margin:20px 0 6px;color:#b45309;text-transform:uppercase}'
+        + 'p{margin:0;color:#64748b;font-size:12px}'
+        + 'table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}'
+        + 'th,td{border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:left}'
+        + 'th{font-size:10px;text-transform:uppercase;color:#64748b}'
+        + 'td.qty,th.qty{text-align:right}</style></head><body>';
+      html += '<h1>Material Takeoff</h1><p>' + (this.quote.title || 'Quote') + ' · materials only, waste factor included</p>';
+      this.takeoffByCategory.forEach(g => {
+        html += '<h2>' + g.category + '</h2><table><tr><th>Item</th><th class="qty">Qty</th><th class="qty">Unit</th></tr>';
+        g.rows.forEach(r => {
+          html += '<tr><td>' + (r.description || '') + '</td><td class="qty">' + r.quantity.toFixed(2) + '</td><td class="qty">' + (r.unit || '') + '</td></tr>';
+        });
+        html += '</table>';
+      });
+      html += '</body></html>';
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      setTimeout(() => { w.print(); }, 300);
     },
 
     async insertAssembly() {
