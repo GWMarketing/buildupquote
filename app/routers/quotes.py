@@ -68,6 +68,8 @@ def _quote_out(quote: models.Quote) -> dict:
         "include_contract": quote.include_contract if quote.include_contract is not None else True,
         "custom_contract_override": quote.custom_contract_override,
         "payment_schedule": quote.payment_schedule,
+        "exclusions": quote.exclusions,
+        "payment_instructions": quote.payment_instructions,
         "parent_quote_id": quote.parent_quote_id,
         "change_order_code": quote.change_order_code,
         "contingency_percent": float(quote.contingency_percent or 0),
@@ -298,7 +300,7 @@ def update_quote(
     for field in ("title", "site_address", "status", "client_id", "tax_rate_percent",
                   "include_contract", "custom_contract_override",
                   "contingency_percent", "contingency_visible",
-                  "expiration_days"):
+                  "expiration_days", "exclusions", "payment_instructions"):
         value = getattr(payload, field, None)
         if value is not None:
             setattr(quote, field, value)

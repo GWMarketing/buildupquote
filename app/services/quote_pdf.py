@@ -95,6 +95,21 @@ def contract_for_quote(quote, organization, currency: str, date_str: str):
     return True, process_contract_text(raw, values)
 
 
+def deposit_for_quote(quote):
+    """The active deposit milestone -- the first entry of the payment
+    schedule -- as {label, percent, amount}. None when no schedule is set."""
+    schedule = quote.payment_schedule or []
+    if not schedule:
+        return None
+    first = schedule[0]
+    percent = float(first.get("percent") or 0)
+    return {
+        "label": first.get("label") or "Deposit",
+        "percent": percent,
+        "amount": round(float(quote.total or 0) * percent / 100.0, 2),
+    }
+
+
 def format_money(value, symbol="$"):
     """'$1,234.56' -- USD-style thousands grouping with the org's symbol.
 

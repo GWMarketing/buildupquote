@@ -107,6 +107,12 @@ def ensure_legacy_columns(bind):
         # Payment milestones landed with the cockpit payment-schedule feature.
         if "payment_schedule" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN payment_schedule JSON")
+        # Scope exclusions + post-sign deposit instructions (trade legal
+        # safeguards / instant deposit prompt feature pack).
+        if "exclusions" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN exclusions JSON")
+        if "payment_instructions" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN payment_instructions JSON")
         # Change orders + contingency landed with the advanced estimating pack.
         if "parent_quote_id" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN parent_quote_id INTEGER")

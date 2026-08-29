@@ -130,6 +130,12 @@ def apply_assembly(
     except assembly_service.AssemblyFormulaError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
+    # Labor-only install ("client supplies materials"): keep the labor lines
+    # (hours, hourly rate, gross margin) but skip every material line so the
+    # quote bills zero material quantity/cost for this assembly.
+    if payload.labor_only:
+        lines = [line for line in lines if line["item_type"] == "labor"]
+
     # Remember the room dimensions for the crew work order.
     quote.scope_dimensions = {k: float(v) for k, v in (payload.dimensions or {}).items()}
     db.add(quote)

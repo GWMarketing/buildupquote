@@ -259,6 +259,13 @@ class Quote(Base):
     # Payment milestones: [{"label": "Deposit upon signing", "percent": 50}, ...]
     # Built in the quote builder, rendered on the public proposal page + PDF.
     payment_schedule = Column(JSON, nullable=True)
+    # Standard exclusions (trade legal safeguards): display strings picked in
+    # the builder's "Standard Exclusions" panel, rendered verbatim as a scope
+    # exclusions section on the public proposal page and PDF.
+    exclusions = Column(JSON, nullable=True)
+    # Post-sign deposit prompt: payment instructions for the client --
+    # {"payment_link": "https://...", "venmo": "handle", "bank_wire": "..."}.
+    payment_instructions = Column(JSON, nullable=True)
     # Change orders: an accepted quote can spawn child quotes (CO1, CO2...)
     # that inherit client/project info but carry their own scope + sign-off.
     parent_quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=True, index=True)

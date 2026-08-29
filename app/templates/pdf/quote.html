@@ -253,6 +253,24 @@
     </table>
     {% endif %}
 
+    <!-- Standard scope exclusions (trade legal safeguards) -->
+    {% if quote.exclusions %}
+    <table class="summary-wrapper" style="margin-top: 10px;">
+        <tr>
+            <td class="terms-box">
+                <div style="font-weight: 700; margin-bottom: 3px; color: #0f172a;">Scope Exclusions</div>
+                <p style="margin: 0 0 4px 0; color: #64748b; font-size: 8pt;">Work and materials not included in this proposal:</p>
+                <ul style="margin: 0; padding-left: 14px; font-size: 8.5pt; color: #334155;">
+                    {% for e in quote.exclusions %}
+                    <li style="margin-bottom: 2px;">{{ e }}</li>
+                    {% endfor %}
+                </ul>
+            </td>
+            <td style="width: 45%; vertical-align: top;"></td>
+        </tr>
+    </table>
+    {% endif %}
+
     <!-- Acceptance Sign-off (rendered on the contract page when terms are
          attached, so the signature legally binds scope + pricing + terms) -->
     {% macro signoff() %}

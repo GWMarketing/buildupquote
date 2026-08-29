@@ -99,6 +99,8 @@ def public_quote_view(
         "expires_at": expires_at,
         "is_expired": is_expired,
         "contractor_name": (organization.name if organization else "your contractor"),
+        "deposit": quote_pdf.deposit_for_quote(quote),
+        "payment_instructions": quote.payment_instructions or {},
     })
 
 
@@ -151,6 +153,10 @@ def public_quote_accept(
         "status": quote.status,
         "signed_by": quote.signed_by,
         "signer_ip": client_ip,
+        # Instant-deposit prompt: the active milestone + payment instructions
+        # so the success modal can show the deposit due and a pay button.
+        "deposit": quote_pdf.deposit_for_quote(quote),
+        "payment_instructions": quote.payment_instructions or {},
     }
 
 

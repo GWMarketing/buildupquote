@@ -194,6 +194,9 @@ class ApplyAssemblyRequest(BaseModel):
     code: str
     dimensions: dict[str, float]
     waste_percent: float = 10.0
+    # Labor-only install: client supplies materials. When true, the assembly's
+    # material lines are skipped entirely (labor hours, rates, and margin kept).
+    labor_only: bool = False
 
 
 class AssemblyBuildRequest(BaseModel):
@@ -335,6 +338,10 @@ class QuoteUpdate(BaseModel):
     contingency_visible: Optional[bool] = None
     # Expiration window (7 / 14 / 30 days, or None for no expiry).
     expiration_days: Optional[int] = None
+    # Standard scope exclusions (display strings) + post-sign payment
+    # instructions ({payment_link, venmo, bank_wire}).
+    exclusions: Optional[list[str]] = None
+    payment_instructions: Optional[dict] = None
 
 
 class SendQuoteEmailRequest(BaseModel):
@@ -393,6 +400,8 @@ class QuoteOut(BaseModel):
     contingency_visible: bool = False
     expiration_days: Optional[int] = None  # pricing validity window (null = no expiry)
     scope_dimensions: Optional[dict] = None
+    exclusions: Optional[list[str]] = None
+    payment_instructions: Optional[dict] = None
     created_at: datetime
     line_count: int = 0
 
