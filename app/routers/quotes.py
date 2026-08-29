@@ -70,11 +70,14 @@ def _quote_out(quote: models.Quote) -> dict:
         "payment_schedule": quote.payment_schedule,
         "exclusions": quote.exclusions,
         "payment_instructions": quote.payment_instructions,
+        "warranty_terms": quote.warranty_terms,
         "selected_optional_line_ids": quote.selected_optional_line_ids,
+        "rooms": quote.rooms,
         "parent_quote_id": quote.parent_quote_id,
         "change_order_code": quote.change_order_code,
         "contingency_percent": float(quote.contingency_percent or 0),
         "contingency_visible": bool(quote.contingency_visible),
+        "permit_fee": float(quote.permit_fee) if quote.permit_fee is not None else None,
         "expiration_days": quote.expiration_days,
         "scope_dimensions": quote.scope_dimensions,
         "created_at": quote.created_at,
@@ -292,19 +295,22 @@ def update_quote(
     _ensure_editable(quote)
     for field in ("title", "site_address", "status", "client_id", "tax_rate_percent",
                   "include_contract", "custom_contract_override",
-                  "contingency_percent", "contingency_visible",
-                  "expiration_days", "exclusions", "payment_instructions"):
+                  "contingency_percent", "contingency_visible", "permit_fee",
+                  "expiration_days", "exclusions", "payment_instructions", "warranty_terms"):
         value = getattr(payload, field, None)
         if value is not None:
             setattr(quote, field, value)
     if payload.payment_schedule is not None:
         quote.payment_schedule = [
-            {"label": (m.label or "").strip() or "Stage", "percent": round(float(m.percent or 0), 2)}
+            {"label": (m.label or "").strip() or "Stage",
+             "percent": round(float(m.percent or 0), 2),
+             "released": bool(getattr(m, "released", False))}
             for m in payload.payment_schedule
         ]
     if (payload.tax_rate_percent is not None
             or payload.contingency_percent is not None
-            or payload.contingency_visible is not None):
+            or payload.contingency_visible is not None
+            or payload.permit_fee is not None):
         _recalculate_quote_totals(db, quote)
     db.commit()
     db.refresh(quote)

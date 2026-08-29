@@ -984,10 +984,11 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         detail = r.json()
         self.assertEqual(detail["line_count"], 2)
-        # (10*20*1.2) + (4*50*1.0) = 240 + 200 = 440 subtotal; tax 8.25% = 36.30
+        # (10*20*1.2) + (4*50*1.0) = 240 + 200 = 440 subtotal. Material tax is
+        # material-only: 240 x 8.25% = 19.80 (labor stays tax-exempt).
         self.assertAlmostEqual(detail["subtotal"], 440.0, places=2)
-        self.assertAlmostEqual(detail["tax_amount"], 36.30, places=2)
-        self.assertAlmostEqual(detail["total"], 476.30, places=2)
+        self.assertAlmostEqual(detail["tax_amount"], 19.80, places=2)
+        self.assertAlmostEqual(detail["total"], 459.80, places=2)
 
         # Deleting one persisted line recalculates totals.
         line_id = detail["lines"][0]["id"]

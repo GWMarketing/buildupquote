@@ -211,9 +211,15 @@
                         <td style="text-align: right; font-weight: 600;">{{ (quote.subtotal or 0)|money(currency) }}</td>
                     </tr>
                     <tr>
-                        <td style="color: #64748b;">Tax / VAT{% if quote.tax_rate_percent is not none %} ({{ "%.2f"|format(quote.tax_rate_percent) }}%){% endif %}:</td>
+                        <td style="color: #64748b;">Material Tax{% if quote.tax_rate_percent is not none %} ({{ "%.2f"|format(quote.tax_rate_percent) }}% on materials){% endif %}:</td>
                         <td style="text-align: right; font-weight: 600;">{{ (quote.tax_amount or 0)|money(currency) }}</td>
                     </tr>
+                    {% if quote.permit_fee %}
+                    <tr>
+                        <td style="color: #64748b;">Permit &amp; Municipal Fee:</td>
+                        <td style="text-align: right; font-weight: 600;">{{ (quote.permit_fee|float)|money(currency) }}</td>
+                    </tr>
+                    {% endif %}
                     {% if quote.contingency_visible and (quote.contingency_percent or 0) %}
                     <tr>
                         <td style="color: #64748b;">Contingency Reserve ({{ "%.0f"|format(quote.contingency_percent) }}%):</td>
@@ -263,6 +269,23 @@
                 <ul style="margin: 0; padding-left: 14px; font-size: 8.5pt; color: #334155;">
                     {% for e in quote.exclusions %}
                     <li style="margin-bottom: 2px;">{{ e }}</li>
+                    {% endfor %}
+                </ul>
+            </td>
+            <td style="width: 45%; vertical-align: top;"></td>
+        </tr>
+    </table>
+    {% endif %}
+
+    <!-- Warranty & guarantee clauses -->
+    {% if quote.warranty_terms %}
+    <table class="summary-wrapper" style="margin-top: 10px;">
+        <tr>
+            <td class="terms-box">
+                <div style="font-weight: 700; margin-bottom: 3px; color: #0f172a;">Warranty & Guarantee</div>
+                <ul style="margin: 0; padding-left: 14px; font-size: 8.5pt; color: #334155;">
+                    {% for w in quote.warranty_terms %}
+                    <li style="margin-bottom: 2px;">{{ w }}</li>
                     {% endfor %}
                 </ul>
             </td>

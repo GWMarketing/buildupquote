@@ -113,10 +113,20 @@ def ensure_legacy_columns(bind):
             statements.append("ALTER TABLE quotes ADD COLUMN exclusions JSON")
         if "payment_instructions" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN payment_instructions JSON")
+        # Warranty & guarantee clauses.
+        if "warranty_terms" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN warranty_terms JSON")
         # Interactive optional add-ons: the client's selections, folded into
         # the totals at signature.
         if "selected_optional_line_ids" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN selected_optional_line_ids JSON")
+        # Batch room replicator: applied assemblies recorded per-room.
+        if "rooms" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN rooms JSON")
+        # Municipal permit / city fee (flat, no markup). tax_rate_percent is
+        # the material-only tax rate.
+        if "permit_fee" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN permit_fee NUMERIC(10, 2)")
     # Optional client add-ons flag on quote line items.
     if "quote_line_items" in existing_tables:
         line_cols = {c["name"] for c in inspector.get_columns("quote_line_items")}

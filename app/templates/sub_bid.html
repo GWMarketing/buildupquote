@@ -130,7 +130,7 @@
       var notes = document.getElementById('bidNotes');
       var errorEl = document.getElementById('bidError');
       if (!btn) return; // not_found / already submitted
-      var TOKEN = {{ sub_bid.token | tojson if sub_bid else 'null' }};
+      var TOKEN = {{ sub_bid.token | tojson if sub_bid is defined and sub_bid else 'null' }};
 
       btn.addEventListener('click', async function () {
         errorEl.classList.add('hidden');

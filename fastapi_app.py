@@ -42,6 +42,7 @@ from app.routers import clients as clients_router
 from app.routers import crew as crew_router
 from app.routers import dashboard as dashboard_router
 from app.routers import lexicon as lexicon_router
+from app.routers import milestones as milestones_router
 from app.routers import organization as organization_router
 from app.routers import pages as pages_router
 from app.routers import public_quotes as public_quotes_router
@@ -118,6 +119,7 @@ app.include_router(quotes_router.router)
 app.include_router(sub_bids_router.router)
 app.include_router(public_quotes_router.router)
 app.include_router(lexicon_router.router)
+app.include_router(milestones_router.router)
 app.include_router(users_router.router)
 
 

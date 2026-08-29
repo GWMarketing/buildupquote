@@ -160,7 +160,7 @@
         {% for u in optional_upgrades %}
         <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2 transition hover:border-amber-400">
           <span class="flex items-center gap-2 text-sm text-amber-900">
-            <input type="checkbox" class="upgrade-cb h-4 w-4 accent-amber-500" data-total="{{ u.total }}" data-id="{{ u.id }}">
+            <input type="checkbox" class="upgrade-cb h-4 w-4 accent-amber-500" data-total="{{ u.total }}" data-id="{{ u.id }}" data-type="{{ u.item_type }}">
             <span>{% if u.trade %}<strong>{{ u.trade }}:</strong> {% endif %}{{ u.description }}</span>
           </span>
           <span class="text-sm font-bold text-amber-900">{{ u.total|money(currency) }}</span>
@@ -182,7 +182,10 @@
           {% if quote.contingency_visible and (quote.contingency_percent or 0) %}
           <div class="flex justify-between text-slate-600"><span>Contingency Reserve ({{ "%.0f"|format(quote.contingency_percent) }}%)</span><span class="font-semibold">{{ ((quote.subtotal | float) * (quote.contingency_percent | float) / 100)|money(currency) }}</span></div>
           {% endif %}
-          <div class="flex justify-between text-slate-600"><span>Tax / VAT{% if quote.tax_rate_percent is not none %} ({{ "%.2f"|format(quote.tax_rate_percent) }}%){% endif %}</span><span class="font-semibold" id="totTax">{{ (quote.tax_amount or 0)|money(currency) }}</span></div>
+          <div class="flex justify-between text-slate-600"><span>Material Tax{% if quote.tax_rate_percent is not none %} ({{ "%.2f"|format(quote.tax_rate_percent) }}% on materials){% endif %}</span><span class="font-semibold" id="totTax">{{ (quote.tax_amount or 0)|money(currency) }}</span></div>
+          {% if quote.permit_fee %}
+          <div class="flex justify-between text-slate-600"><span>Permit &amp; Municipal Fee</span><span class="font-semibold" id="totPermit">{{ (quote.permit_fee|float)|money(currency) }}</span></div>
+          {% endif %}
           <div class="flex justify-between border-t-2 border-slate-900 pt-2 text-base font-black text-slate-900"><span>Total Amount</span><span id="totTotal">{{ (quote.total or 0)|money(currency) }}</span></div>
         </div>
       </div>
@@ -195,7 +198,9 @@
       <div class="mt-2 space-y-1.5">
         {% for m in quote.payment_schedule %}
         <div class="flex items-center justify-between text-sm">
-          <span class="text-slate-600">{{ m.label }}{% if m.percent is not none %} ({{ "%.0f"|format(m.percent) }}%){% endif %}</span>
+          <span class="flex items-center gap-2 text-slate-600">{{ m.label }}{% if m.percent is not none %} ({{ "%.0f"|format(m.percent) }}%){% endif %}
+            {% if m.get('released') %}<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Released</span>{% endif %}
+          </span>
           <span class="font-semibold text-slate-900" data-milestone-pct="{{ m.percent }}">{{ ((quote.total | float) * m.percent / 100)|money(currency) }}</span>
         </div>
         {% endfor %}
@@ -212,6 +217,19 @@
       <ul class="mt-2 space-y-1.5 text-sm text-slate-600">
         {% for e in quote.exclusions %}
         <li class="flex gap-2"><span class="text-amber-500">•</span><span>{{ e }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+
+    {% if quote.warranty_terms %}
+    <!-- Warranty & guarantee clauses -->
+    <div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+      <div class="font-bold text-emerald-900">Warranty &amp; Guarantee</div>
+      <ul class="mt-2 space-y-1.5 text-sm text-emerald-800">
+        {% for w in quote.warranty_terms %}
+        <li class="flex gap-2"><span class="text-emerald-600">✓</span><span>{{ w }}</span></li>
         {% endfor %}
       </ul>
     </div>
@@ -331,11 +349,15 @@
     baseTotal: {{ (quote.total or 0)|float }},
   };
   function recalc() {
-    var upgradeNet = 0;
+    var upgradeNet = 0, upgradeMatNet = 0;
     document.querySelectorAll('.upgrade-cb').forEach(function (cb) {
-      if (cb.checked) upgradeNet += Number(cb.dataset.total || 0);
+      if (cb.checked) {
+        upgradeNet += Number(cb.dataset.total || 0);
+        if (cb.dataset.type === 'material') upgradeMatNet += Number(cb.dataset.total || 0);
+      }
     });
-    var upgradeTax = upgradeNet * PROPOSAL_DATA.taxRate / 100;
+    // Material tax applies to material upgrades only (labor is tax-exempt).
+    var upgradeTax = upgradeMatNet * PROPOSAL_DATA.taxRate / 100;
     var upgradeContingency = upgradeNet * PROPOSAL_DATA.contingencyPct / 100;
     var total = PROPOSAL_DATA.baseTotal + upgradeNet + upgradeTax + upgradeContingency;
     var taxEl = document.getElementById('totTax');

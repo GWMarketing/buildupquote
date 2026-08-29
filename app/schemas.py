@@ -197,6 +197,17 @@ class ApplyAssemblyRequest(BaseModel):
     # Labor-only install: client supplies materials. When true, the assembly's
     # material lines are skipped entirely (labor hours, rates, and margin kept).
     labor_only: bool = False
+    # Room name for the batch replicator (defaults to the assembly name).
+    room_name: Optional[str] = None
+
+
+class DuplicateRoomRequest(BaseModel):
+    """POST /api/quotes/{id}/duplicate-room -- re-run a recorded assembly
+    against new dimensions and append the result as a new room."""
+
+    room_key: int
+    name: str
+    dimensions: dict[str, float]
 
 
 class AssemblyBuildRequest(BaseModel):
@@ -350,10 +361,38 @@ class QuoteCreate(BaseModel):
 
 class PaymentMilestone(BaseModel):
     """One stage of a quote's payment schedule: a label plus the percentage
-    of the grand total due at that stage."""
+    of the grand total due at that stage. `released` tracks whether a
+    milestone-draw approval has released the payment."""
 
     label: str
     percent: float
+    released: bool = False
+
+
+class MilestoneDrawCreate(BaseModel):
+    """POST /api/quotes/{id}/milestone-draws -- request a draw on an
+    unreleased payment stage. photos: up to 3 client-resized JPEG data-URIs."""
+
+    milestone_index: int
+    notes: str = ""
+    photos: list[str] = []
+
+
+class MilestoneDrawOut(BaseModel):
+    id: int
+    quote_id: int
+    token: str
+    milestone_index: int
+    milestone_label: str
+    milestone_percent: float
+    status: str  # requested / approved
+    notes: Optional[str] = None
+    photos: Optional[list[str]] = None
+    created_at: datetime
+    approved_at: Optional[datetime] = None
+    url: str = ""
+
+    model_config = {"from_attributes": True}
 
 
 class QuoteUpdate(BaseModel):
@@ -370,12 +409,16 @@ class QuoteUpdate(BaseModel):
     # Contingency / unforeseen-conditions buffer.
     contingency_percent: Optional[float] = None
     contingency_visible: Optional[bool] = None
+    # Municipal permit / city fee (flat, no markup).
+    permit_fee: Optional[float] = None
     # Expiration window (7 / 14 / 30 days, or None for no expiry).
     expiration_days: Optional[int] = None
     # Standard scope exclusions (display strings) + post-sign payment
     # instructions ({payment_link, venmo, bank_wire}).
     exclusions: Optional[list[str]] = None
     payment_instructions: Optional[dict] = None
+    # Warranty & guarantee clauses (display strings).
+    warranty_terms: Optional[list[str]] = None
 
 
 class SendQuoteEmailRequest(BaseModel):
@@ -436,11 +479,14 @@ class QuoteOut(BaseModel):
     change_order_code: Optional[str] = None
     contingency_percent: float = 0
     contingency_visible: bool = False
+    permit_fee: Optional[float] = None
     expiration_days: Optional[int] = None  # pricing validity window (null = no expiry)
     scope_dimensions: Optional[dict] = None
     exclusions: Optional[list[str]] = None
     payment_instructions: Optional[dict] = None
+    warranty_terms: Optional[list[str]] = None
     selected_optional_line_ids: Optional[list[int]] = None
+    rooms: Optional[list] = None
     created_at: datetime
     line_count: int = 0
 

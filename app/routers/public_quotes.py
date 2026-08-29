@@ -105,7 +105,7 @@ def public_quote_view(
         # recalculation: id + line total, never pricing internals.
         "optional_upgrades": [
             {"id": l.id, "description": l.description, "total": float(l.line_total),
-             "trade": l.trade or ""}
+             "trade": l.trade or "", "item_type": l.item_type}
             for l in sorted(quote.items, key=lambda i: i.position or 0)
             if l.is_optional
         ],

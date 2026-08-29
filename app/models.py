@@ -263,6 +263,9 @@ class Quote(Base):
     # the builder's "Standard Exclusions" panel, rendered verbatim as a scope
     # exclusions section on the public proposal page and PDF.
     exclusions = Column(JSON, nullable=True)
+    # Warranty & guarantee clauses (display strings), rendered as a
+    # "Warranty & Guarantee" section on the public proposal and PDF.
+    warranty_terms = Column(JSON, nullable=True)
     # Post-sign deposit prompt: payment instructions for the client --
     # {"payment_link": "https://...", "venmo": "handle", "bank_wire": "..."}.
     payment_instructions = Column(JSON, nullable=True)
@@ -281,6 +284,14 @@ class Quote(Base):
     # The room dimensions last used to scope this quote -- shown on the crew
     # work order (sanitized print view).
     scope_dimensions = Column(JSON, nullable=True)
+    # Batch room replicator: every applied assembly is recorded as a room --
+    # [{key, name, assembly_code, dimensions, waste_percent, line_ids}] -- so
+    # the contractor can duplicate a room with new dimensions.
+    rooms = Column(JSON, nullable=True)
+    # Flat municipal permit / city fee, added straight to the grand total with
+    # no margin markup. tax_rate_percent is the MATERIAL tax rate: applied to
+    # the post-waste material subtotal only (labor stays tax-exempt).
+    permit_fee = Column(Numeric(10, 2), nullable=True)
     # Optional add-ons the client actually selected on the public proposal and
     # included at signature (line-item ids). Folded into the totals on accept.
     selected_optional_line_ids = Column(JSON, nullable=True)
@@ -361,4 +372,30 @@ class SubBid(Base):
     submitted_at = Column(DateTime(timezone=True), nullable=True)
 
     quote = relationship("Quote", back_populates="sub_bids")
+
+
+class MilestoneDraw(Base):
+    """A payment-milestone draw request for an in-progress job.
+
+    The contractor requests a draw for an unreleased payment stage, attaches
+    up to 3 completion photos + short notes, and the homeowner approves it via
+    a secure /milestone/<token> link -- which releases the payment stage."""
+
+    __tablename__ = "milestone_draws"
+
+    id = Column(Integer, primary_key=True, index=True)
+    quote_id = Column(Integer, ForeignKey("quotes.id", ondelete="CASCADE"), nullable=False, index=True)
+    token = Column(String(36), unique=True, index=True, nullable=False)
+    # Snapshot of the stage this draw is for (so approval stays meaningful
+    # even if the schedule is later edited).
+    milestone_index = Column(Integer, nullable=False)
+    milestone_label = Column(String, nullable=False)
+    milestone_percent = Column(Numeric(5, 2), nullable=False, default=0)
+    status = Column(String, nullable=False, default="requested")  # requested / approved
+    notes = Column(Text, nullable=True)
+    photos = Column(JSON, nullable=True)  # up to 3 client-resized JPEG data-URIs
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+
+    quote = relationship("Quote")
 

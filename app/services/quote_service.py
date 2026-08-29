@@ -34,8 +34,21 @@ def recalculate_quote_totals(db: Session, quote: models.Quote) -> None:
         .scalar()
     )
     quote.subtotal = round(float(subtotal), 2)
+    # Material tax: applied to the post-waste MATERIAL subtotal only (labor
+    # and subcontractors stay tax-exempt). Waste already inflates material
+    # quantity/line totals when an assembly is applied.
+    material_subtotal = (
+        db.query(func.coalesce(func.sum(models.QuoteLineItem.line_total), 0))
+        .filter(
+            models.QuoteLineItem.quote_id == quote.id,
+            models.QuoteLineItem.item_type == "material",
+            or_(*included),
+        )
+        .scalar()
+    )
     rate = float(quote.tax_rate_percent or 0)
-    quote.tax_amount = round(quote.subtotal * rate / 100.0, 2)
+    quote.tax_amount = round(float(material_subtotal or 0) * rate / 100.0, 2)
     contingency = round(quote.subtotal * float(quote.contingency_percent or 0) / 100.0, 2)
-    quote.total = round(quote.subtotal + quote.tax_amount + contingency, 2)
+    permit = round(float(quote.permit_fee or 0), 2)
+    quote.total = round(quote.subtotal + quote.tax_amount + contingency + permit, 2)
     db.add(quote)
