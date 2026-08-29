@@ -13,7 +13,7 @@
     }},
   };
 </script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.16.3/dist/cdn.min.js"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
@@ -21,7 +21,7 @@
   });
 </script>
 <link rel="stylesheet" href="/static/css/app.css">
-<script src="/static/js/app.js" defer></script>
+<script src="/static/js/app.js"></script>
 <script>
   // Auth guard: every page except /login and /register requires a token.
   if (!localStorage.getItem('bq_token') && !['/login', '/register'].includes(location.pathname)) {
