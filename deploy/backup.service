@@ -1,0 +1,10 @@
+[Unit]
+Description=BuildUpQuote PostgreSQL backup (one-shot)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/buildupquote
+EnvironmentFile=-/var/www/buildupquote/.env
+ExecStart=/var/www/buildupquote/scripts/backup_db.sh

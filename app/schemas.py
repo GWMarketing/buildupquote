@@ -263,6 +263,13 @@ class QuoteUpdate(BaseModel):
     custom_contract_override: Optional[str] = None
 
 
+class SendQuoteEmailRequest(BaseModel):
+    """POST /api/quotes/{id}/send-email -- optional personal message that
+    rides along in the client-facing proposal email."""
+
+    message: str = ""
+
+
 class QuoteLineWrite(BaseModel):
     description: str
     item_type: str = "material"  # material / labor / plant / subcontractor

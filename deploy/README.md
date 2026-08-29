@@ -110,3 +110,54 @@ line, and download both the branded proposal PDF and the CSV.
 | `POST /api/totals` | JSON `{rows, tax_rule, tax_rate_pct}` -> live totals |
 | `POST /api/csv` | JSON rows -> scope CSV |
 | `POST /api/proposal` | JSON rows + business + tax -> branded proposal PDF |
+
+## Automated database backups
+
+`scripts/backup_db.sh` dumps the Postgres database from the `db` compose
+service, gzips it to `backups/buildupquote_backup_<UTC timestamp>.sql.gz`,
+prunes local copies older than 7 days, and (when configured) uploads to an
+S3-compatible bucket.
+
+Run it manually to verify:
+
+```bash
+cd /var/www/buildupquote
+./scripts/backup_db.sh
+```
+
+Then schedule it daily at 02:00 UTC with systemd (preferred):
+
+```bash
+sudo cp deploy/backup.service deploy/backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now backup.timer
+```
+
+Or with cron: `0 2 * * * cd /var/www/buildupquote && ./scripts/backup_db.sh >> backups/backup.log 2>&1`.
+
+**Optional off-site copy** (Cloudflare R2 example): set these in the `.env`
+next to `docker-compose.yml` and install the AWS CLI (`sudo apt install awscli`):
+
+```
+S3_BACKUP_BUCKET=buildupquote-backups
+S3_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=auto
+```
+
+## Transactional email (proposal -> client, signed-quote notifications)
+
+Add SMTP credentials to the `.env` and recreate the web container:
+
+```
+SMTP_HOST=smtp.postmarkapp.com        # any SMTP server works
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASSWORD=...
+EMAILS_FROM_EMAIL=quotes@glennwestman.com
+```
+
+Without `SMTP_HOST` the feature is disabled: the buttons still work and
+mark quotes as sent, but no mail goes out (the app logs a warning and keeps
+moving). See `app/services/email_service.py` for the full variable list.

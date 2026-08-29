@@ -10,7 +10,7 @@ import os
 import tempfile
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.services import quote_pdf
+from app.services import email_service, quote_pdf
 
 router = APIRouter(tags=["public"])
 
@@ -89,12 +89,14 @@ def public_quote_accept(
     public_uuid: str,
     payload: schemas.PublicQuoteAcceptRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """The client's digital sign-off: persists the signature image, the signer
     name/email, the acceptance timestamp, and the audit trail (IP + user agent
     from the request). Flips the quote to accepted; accepted quotes are then
-    locked against any edits."""
+    locked against any edits. A background task emails the contractor and the
+    client (with the signed PDF) right after signing."""
     quote = _get_quote_by_uuid(db, public_uuid)
     if quote.status == "accepted":
         return {"accepted": True, "already": True, "status": quote.status}
@@ -117,6 +119,9 @@ def public_quote_accept(
     quote.signer_user_agent = user_agent
     quote.accepted_at = func.now()
     db.commit()
+    # Post-signing emails: contractor alert + client confirmation with the
+    # signed PDF, dispatched after the response so signing stays instant.
+    background_tasks.add_task(email_service.queue_quote_accepted_notification, quote.id)
     return {
         "accepted": True,
         "status": quote.status,

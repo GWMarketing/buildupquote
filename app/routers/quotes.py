@@ -7,7 +7,7 @@ PDF. The assembly math (apply-assembly) lives in app/routers/assemblies.py.
 import os
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 from app import models, schemas
 from app.auth import get_current_user
 from app.database import get_db
-from app.services import quote_pdf
+from app.services import email_service, quote_pdf
 
 router = APIRouter(prefix="/api/quotes", tags=["quotes"])
 
@@ -401,6 +401,48 @@ def export_quote_pdf(
     }
     quote_pdf.render_quote_pdf(context, out_path)
     return {"url": f"/static/exports/pdf/{filename}", "filename": filename}
+
+
+@router.post("/{quote_id}/send-email")
+def send_quote_email(
+    quote_id: int,
+    payload: schemas.SendQuoteEmailRequest = schemas.SendQuoteEmailRequest(),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Email the proposal to the linked client.
+
+    Requires a client with an email address and at least one line item.
+    Flips the quote to 'sent' (draft -> sent; accepted quotes stay locked)
+    and dispatches the branded proposal email in the background so the
+    request returns instantly. `delivered` reports whether SMTP is actually
+    configured (so the UI can say 'sent' vs 'queued')."""
+    quote = _get_owned_quote(db, current_user, quote_id)
+    if not quote.items:
+        raise HTTPException(status_code=400, detail="Add line items before sending")
+    client = quote.client
+    if client is None or not (client.email or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail="This quote has no client with an email address",
+        )
+    if quote.status == "draft":
+        quote.status = "sent"
+        db.add(quote)
+        db.commit()
+
+    background_tasks.add_task(
+        email_service.queue_send_quote_to_client,
+        quote.id,
+        (payload.message or "").strip(),
+    )
+    return {
+        "ok": True,
+        "status": quote.status,
+        "delivered": email_service.is_configured(),
+        "to": client.email,
+    }
 
 
 @router.get("/{quote_id}/export-pdf")

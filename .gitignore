@@ -15,3 +15,6 @@ app/static/uploads/logos/*
 # uploaded contract files (never commit)
 app/static/uploads/contracts/*
 !app/static/uploads/contracts/.gitkeep
+
+# automated database backups (local archives)
+backups/

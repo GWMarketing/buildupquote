@@ -25,6 +25,10 @@
           <i data-lucide="file-text" class="h-4 w-4"></i>
           <span x-text="exporting ? 'Building…' : 'Export PDF'"></span>
         </button>
+        <button class="bq-btn-secondary" :disabled="!lines.length || !quote.client_id" @click="openSendModal()"
+                title="Email the proposal to the client">
+          <i data-lucide="mail" class="h-4 w-4 text-amber-500"></i> Send to Client
+        </button>
       </div>
     </div>
 
@@ -257,6 +261,38 @@
       </div>
     </div>
   </div>
+
+  <!-- Send-to-client modal -->
+  <div x-show="sendModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+       @keydown.escape.window="sendModalOpen = false">
+    <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
+      <h2 class="text-base font-semibold text-slate-900 dark:text-white">Send proposal to client</h2>
+      <p class="mt-1 text-xs text-slate-400">A branded email with a link your client can use to review and sign the proposal online.</p>
+      <div class="mt-4 space-y-3 text-sm">
+        <div class="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800">
+          <span class="text-xs font-medium text-slate-500">To</span>
+          <p class="font-semibold text-slate-900 dark:text-white" x-text="clientEmail || '—'"></p>
+        </div>
+        <div class="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800">
+          <span class="text-xs font-medium text-slate-500">Subject</span>
+          <p class="font-semibold text-slate-900 dark:text-white" x-text="'Your proposal for ' + (quote.title || 'this project')"></p>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-slate-500">Personal message (optional)</label>
+          <textarea class="bq-input w-full" rows="3" x-model="sendForm.message"
+                    placeholder="e.g. Thanks for the chat today — let me know if you have any questions!"></textarea>
+        </div>
+        <p class="text-xs text-red-600" x-show="sendError" x-cloak x-text="sendError"></p>
+      </div>
+      <div class="mt-5 flex justify-end gap-2">
+        <button class="bq-btn-secondary" @click="sendModalOpen = false">Cancel</button>
+        <button class="bq-btn" :disabled="sendingEmail" @click="sendToClient()">
+          <span x-show="sendingEmail" x-cloak class="mr-1 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+          <span x-text="sendingEmail ? 'Sending…' : 'Send Proposal'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
 
@@ -273,6 +309,13 @@ function quoteBuilder(quoteId) {
     pdfUrl: '', downloads: JSON.parse(localStorage.getItem('bq_downloads') || '[]'),
     openAssemblyDrawer: false, clientModalOpen: false, savingClient: false,
     clientForm: { name: '', site_address: '', phone: '', email: '' },
+    sendModalOpen: false, sendingEmail: false, sendError: '',
+    sendForm: { message: '' },
+
+    get clientEmail() {
+      const c = this.clients.find(c => c.id === this.quote.client_id);
+      return c ? (c.email || '') : '';
+    },
 
     get selectedInputs() {
       const a = this.assemblies.find(a => a.code === this.selectedCode);
@@ -489,6 +532,29 @@ function quoteBuilder(quoteId) {
         BQ.toast('Client added', 'success');
       } catch (e) { BQ.toast('Could not add client: ' + e.message); }
       this.savingClient = false;
+    },
+
+    // ---- Send proposal to client ----
+    openSendModal() {
+      this.sendError = '';
+      this.sendForm.message = '';
+      if (!this.quote.client_id) { BQ.toast('Select a client first'); return; }
+      if (!this.clientEmail) { BQ.toast('The selected client has no email address'); return; }
+      this.sendModalOpen = true;
+      this.refreshIcons();
+    },
+    async sendToClient() {
+      this.sendingEmail = true; this.sendError = '';
+      try {
+        const data = await BQ.api('/api/quotes/' + this.quoteId + '/send-email', {
+          method: 'POST', body: { message: this.sendForm.message },
+        });
+        this.quote.status = data.status || this.quote.status;
+        this.sendModalOpen = false;
+        if (data.delivered) BQ.toast('Proposal emailed to ' + data.to, 'success');
+        else BQ.toast('Saved & marked as sent — email dispatch not configured yet', 'error');
+      } catch (e) { this.sendError = e.message; BQ.toast('Could not send: ' + e.message); }
+      this.sendingEmail = false;
     },
   };
 }
