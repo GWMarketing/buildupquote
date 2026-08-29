@@ -118,6 +118,13 @@ def ensure_legacy_columns(bind):
             ("license_number", "ALTER TABLE organizations ADD COLUMN license_number VARCHAR"),
             ("master_contract_text", "ALTER TABLE organizations ADD COLUMN master_contract_text TEXT"),
             ("master_contract_pdf_url", "ALTER TABLE organizations ADD COLUMN master_contract_pdf_url VARCHAR"),
+            # Stripe subscription tracking landed with the SaaS landing page +
+            # billing engine. Same idempotent in-place upgrade.
+            ("stripe_customer_id", "ALTER TABLE organizations ADD COLUMN stripe_customer_id VARCHAR"),
+            ("stripe_subscription_id", "ALTER TABLE organizations ADD COLUMN stripe_subscription_id VARCHAR"),
+            ("subscription_tier", "ALTER TABLE organizations ADD COLUMN subscription_tier VARCHAR DEFAULT 'starter'"),
+            ("subscription_status", "ALTER TABLE organizations ADD COLUMN subscription_status VARCHAR DEFAULT 'trialing'"),
+            ("trial_ends_at", "ALTER TABLE organizations ADD COLUMN trial_ends_at TIMESTAMP WITH TIME ZONE"),
         ):
             if col not in org_cols:
                 statements.append(ddl)

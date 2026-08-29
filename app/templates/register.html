@@ -95,6 +95,21 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     // The register endpoint issues a JWT directly, so we can land on the
     // dashboard without a second login round-trip.
     BQ.setToken(data.access_token);
+    // If they came from the landing page's pricing buttons (?plan=&interval=),
+    // resume straight into the Stripe checkout for the plan they picked.
+    const plan = new URLSearchParams(location.search).get('plan');
+    const interval = new URLSearchParams(location.search).get('interval') || 'month';
+    if (plan) {
+      try {
+        const chk = await fetch('/api/billing/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + data.access_token },
+          body: JSON.stringify({ tier: plan, interval: interval }),
+        });
+        const chkData = await chk.json();
+        if (chk.ok && chkData.url) { location.href = chkData.url; return; }
+      } catch (ex) { /* fall through to the dashboard below */ }
+    }
     location.href = '/dashboard';
   } catch (ex) {
     err.textContent = ex.message;

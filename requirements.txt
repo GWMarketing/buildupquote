@@ -37,6 +37,12 @@ pydantic[email]
 # app/services/contact_import.py keeps import working even if it's missing.
 vobject>=0.9.9
 
+# Step 2e -- Stripe subscriptions (landing page checkout, webhooks, portal)
+# Drive it from env vars: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET and one
+# STRIPE_PRICE_{TIER}_{INTERVAL} id per plan (see app/routers/billing.py).
+# Unset keys cleanly disable the feature (503) rather than failing hard.
+stripe>=9.0
+
 # Step 3 -- branded proposal PDF export (proposal/)
 jinja2>=3.1
 weasyprint>=60

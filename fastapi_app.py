@@ -32,6 +32,7 @@ import app.models  # noqa: E402 -- registers the User table with Base.metadata
 from app.database import Base, SessionLocal, engine, ensure_legacy_columns, get_db
 from app.routers import assemblies as assemblies_router
 from app.routers import auth as auth_router
+from app.routers import billing as billing_router
 from app.routers import catalog as catalog_router
 from app.routers import clients as clients_router
 from app.routers import dashboard as dashboard_router
@@ -83,6 +84,7 @@ app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
 app.include_router(pages_router.router)
 app.include_router(auth_router.router)
+app.include_router(billing_router.router)
 app.include_router(organization_router.router)
 app.include_router(clients_router.router)
 app.include_router(dashboard_router.router)

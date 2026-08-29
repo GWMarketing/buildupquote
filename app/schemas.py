@@ -48,6 +48,12 @@ class OrganizationOut(BaseModel):
     logo_url: Optional[str] = None
     master_contract_text: Optional[str] = None
     master_contract_pdf_url: Optional[str] = None
+    # Stripe subscription state (server-managed via the billing webhook).
+    stripe_customer_id: Optional[str] = None
+    stripe_subscription_id: Optional[str] = None
+    subscription_tier: str = "starter"  # starter / pro / enterprise
+    subscription_status: str = "trialing"  # trialing / active / past_due / canceled
+    trial_ends_at: Optional[datetime] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

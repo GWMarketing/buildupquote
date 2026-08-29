@@ -35,6 +35,10 @@
             class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
             :class="tab === 'contracts' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'">
       Master Contract</button>
+    <button @click="tab = 'billing'"
+            class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            :class="tab === 'billing' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'">
+      Billing &amp; Plan</button>
   </div>
 
   <!-- Card 1: Company Branding & Identity -->
@@ -200,13 +204,57 @@
       <p class="mt-1 text-xs text-emerald-600" x-show="contractSaved" x-cloak>Uploaded ✓</p>
     </div>
   </div>
+
+  <!-- Card 4: Billing & Plan -->
+  <div class="bq-card p-6" x-show="tab === 'billing'" x-cloak>
+    <h2 class="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Billing &amp; Plan</h2>
+    <p class="mb-5 text-xs text-slate-400">Your subscription, invoices, and payment methods — managed through Stripe.</p>
+
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-400"
+            x-text="'Current plan: ' + (billing.tier || 'starter').replace(/^./, c => c.toUpperCase())"></span>
+      <span class="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider"
+            :class="{
+              'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400': billing.status === 'active',
+              'bg-sky-500/15 text-sky-600 dark:text-sky-400': billing.status === 'trialing',
+              'bg-red-500/15 text-red-600 dark:text-red-400': billing.status === 'past_due',
+              'bg-slate-500/15 text-slate-500 dark:text-slate-400': billing.status === 'canceled'
+            }"
+            x-text="billing.status || 'trialing'"></span>
+      <span class="text-xs text-slate-400" x-show="billing.trial_ends_at" x-cloak>
+        Trial ends <span x-text="new Date(billing.trial_ends_at).toLocaleDateString()"></span>
+      </span>
+    </div>
+
+    <p class="mt-3 text-xs text-slate-400" x-show="!billing.hasCustomer" x-cloak>
+      No subscription yet — every plan starts with a free 7-day trial. No credit card required.
+    </p>
+
+    <div class="mt-5 flex flex-wrap items-center gap-3">
+      <button class="bq-btn" :disabled="portalBusy" @click="openPortal()">
+        <span x-show="portalBusy" x-cloak class="mr-1 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+        <i data-lucide="credit-card" class="mr-1 inline h-4 w-4"></i> Manage Subscription &amp; Invoices
+      </button>
+      <a href="/pricing" class="bq-btn-secondary">Choose a plan</a>
+      <a href="/pricing?canceled=1" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" x-show="billing.hasCustomer" x-cloak>
+        Upgrade or change billing interval
+      </a>
+    </div>
+
+    <p class="mt-4 text-xs text-slate-400">
+      Subscriptions are billed through Stripe Checkout. You'll receive email invoices after each payment,
+      and can cancel or change plans any time from the customer portal.
+    </p>
+  </div>
 </div>
 
 
 <script>
 function settingsPage() {
   return {
-    tab: 'brand', hasOrg: false, saving: false, saved: false, logoSaved: false, contractSaved: false, error: '',
+    tab: 'brand', hasOrg: false, saving: false, saved: false, logoSaved: false, contractSaved: false,
+    portalBusy: false, error: '',
+    billing: { tier: 'starter', status: 'trialing', trial_ends_at: null, hasCustomer: false },
     logoPreview: '', masterContractUrl: '', contractFileName: '',
     contractTokens: [
       { tag: 'client_name' }, { tag: 'project_total' }, { tag: 'site_address' },
@@ -219,6 +267,12 @@ function settingsPage() {
       try {
         const org = await BQ.api('/api/organization/me');
         this.hasOrg = true;
+        this.billing = {
+          tier: org.subscription_tier || 'starter',
+          status: org.subscription_status || 'trialing',
+          trial_ends_at: org.trial_ends_at || null,
+          hasCustomer: !!(org.stripe_customer_id),
+        };
         this.profile = {
           name: org.name || '',
           bio: org.bio || '',
@@ -250,6 +304,17 @@ function settingsPage() {
         setTimeout(() => this.saved = false, 1500);
       } catch (e) { this.error = e.message; BQ.toast('Save failed: ' + e.message); }
       this.saving = false;
+    },
+    async openPortal() {
+      this.portalBusy = true; this.error = '';
+      try {
+        const data = await BQ.api('/api/billing/customer-portal', { method: 'POST' });
+        window.location.href = data.url;
+      } catch (e) {
+        this.error = e.message;
+        BQ.toast('Could not open billing portal: ' + e.message);
+      }
+      this.portalBusy = false;
     },
     async onLogo(e) {
       const file = e.target.files[0];

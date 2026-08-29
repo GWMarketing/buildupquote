@@ -3,6 +3,13 @@
 Pages are thin shells -- the real data is fetched client-side against the
 REST API using the JWT stored in localStorage. A small script in base.html
 redirects to /login when no token is present.
+
+The marketing landing page (/) is the one page that does NOT extend
+base.html: base.html's auth guard would bounce anonymous visitors to /login,
+and the landing page is a standalone document by design (see landing.html).
+Its own script redirects authenticated visitors (localStorage bq_token) to
+/dashboard, which is how "/ renders for visitors, redirects for users" works
+in this client-side-auth architecture.
 """
 import os
 
@@ -21,9 +28,18 @@ templates = Jinja2Templates(directory=_TEMPLATES_DIR)
 
 @router.get("/")
 def home(request: Request):
-    """Serve the dashboard directly on the root URL -- always 200, with no
-    307 hop that clients, health checks, or proxies must follow."""
-    return templates.TemplateResponse(request, "dashboard.html", {"active": "dashboard"})
+    """The marketing landing page for anonymous visitors. Logged-in users
+    (a bq_token in localStorage) are redirected to /dashboard by landing.html
+    itself -- the server can't see localStorage, so the check is client-side,
+    consistent with the app's existing auth pattern."""
+    return templates.TemplateResponse(request, "landing.html", {"active": ""})
+
+
+@router.get("/pricing")
+def pricing(request: Request):
+    """Public pricing page -- also the Stripe checkout cancel destination
+    (/pricing?canceled=1 shows an inline notice on the landing page)."""
+    return templates.TemplateResponse(request, "landing.html", {"active": ""})
 
 
 @router.get("/login")

@@ -53,6 +53,15 @@ class Organization(Base):
     # it in Settings; a PDF (or DOCX) version can also be attached.
     master_contract_text = Column(Text, nullable=True)
     master_contract_pdf_url = Column(String, nullable=True)
+    # Stripe billing / subscriptions. stripe_customer_id links the tenant to
+    # its Stripe customer; tier + status are kept in sync by the webhook in
+    # app/routers/billing.py. subscription_status is the Stripe state mapped
+    # to our vocabulary: trialing / active / past_due / canceled.
+    stripe_customer_id = Column(String, nullable=True)
+    stripe_subscription_id = Column(String, nullable=True)
+    subscription_tier = Column(String, nullable=False, default="starter")  # starter / pro / enterprise
+    subscription_status = Column(String, nullable=False, default="trialing")  # trialing / active / past_due / canceled
+    trial_ends_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users = relationship("User", back_populates="organization")

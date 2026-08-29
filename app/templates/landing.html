@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BuildUpQuote — Parametric Estimating for Trade Contractors</title>
+<meta name="description" content="Price renovation projects in seconds. Parametric assemblies, trade autocorrect, legally binding digital sign-offs, and branded PDF proposals — built for trade contractors.">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+    }},
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () { if (window.lucide) lucide.createIcons(); });
+</script>
+<style>
+  [x-cloak] { display: none !important; }
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(148,163,184,0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148,163,184,0.07) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  .glow-amber { box-shadow: 0 0 80px -20px rgba(245,158,11,0.45); }
+</style>
+</head>
+<body class="bg-slate-950 font-sans text-slate-200 antialiased" x-data="{ annual: false, mobileOpen: false }">
+
+<!-- Top nav -->
+<header class="fixed inset-x-0 top-0 z-50 border-b border-slate-800/70 bg-slate-950/85 backdrop-blur">
+  <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+    <a href="/" class="flex items-center gap-2 text-lg font-extrabold tracking-tight text-white">
+      <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+        <i data-lucide="hard-hat" class="h-5 w-5"></i>
+      </span>
+      BUILDUPQUOTE
+    </a>
+    <div class="hidden items-center gap-6 text-sm font-medium text-slate-300 md:flex">
+      <a href="#features" class="transition hover:text-amber-400">Features</a>
+      <a href="#pricing" class="transition hover:text-amber-400">Pricing</a>
+      <a href="#testimonials" class="transition hover:text-amber-400">Testimonials</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="/login" class="hidden rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white sm:block">Sign In</a>
+      <a href="/register?plan=starter&interval=month"
+         class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 shadow transition hover:bg-amber-600 hover:shadow-lg">
+        Start Free Trial
+      </a>
+      <button @click="mobileOpen = !mobileOpen" class="rounded-lg p-2 text-slate-300 hover:bg-slate-800 md:hidden" aria-label="Menu">
+        <i data-lucide="menu" class="h-5 w-5"></i>
+      </button>
+    </div>
+  </nav>
+  <div x-show="mobileOpen" x-cloak @click.away="mobileOpen = false" class="border-t border-slate-800 bg-slate-950 px-4 py-3 md:hidden">
+    <div class="flex flex-col gap-3 text-sm font-medium text-slate-300">
+      <a href="#features" @click="mobileOpen = false" class="transition hover:text-amber-400">Features</a>
+      <a href="#pricing" @click="mobileOpen = false" class="transition hover:text-amber-400">Pricing</a>
+      <a href="#testimonials" @click="mobileOpen = false" class="transition hover:text-amber-400">Testimonials</a>
+      <a href="/login" class="transition hover:text-amber-400">Sign In</a>
+    </div>
+  </div>
+</header>
+
+<!-- Hero -->
+<section class="relative overflow-hidden pt-28 pb-16 sm:pt-32 sm:pb-20">
+  <div class="bg-grid pointer-events-none absolute inset-0"></div>
+  <div class="pointer-events-none absolute -top-40 left-1/2 h-96 w-[48rem] -translate-x-1/2 rounded-full bg-amber-500/10 blur-3xl"></div>
+  <div class="relative mx-auto grid max-w-7xl items-center gap-12 px-4 lg:grid-cols-2">
+
+    <!-- Left: copy -->
+    <div>
+      <span class="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-400">
+        <i data-lucide="zap" class="h-3.5 w-3.5"></i> Built for trade contractors
+      </span>
+      <h1 class="mt-5 text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
+        Stop wasting evenings on bids. <span class="text-amber-500">Price renovation projects in seconds.</span>
+      </h1>
+      <p class="mt-5 max-w-xl text-lg text-slate-400">
+        Type in room dimensions, pick an assembly, and BuildUpQuote instantly prices materials and labor —
+        then send a legally binding proposal your client can sign online.
+      </p>
+      <div class="mt-8 flex flex-wrap items-center gap-4">
+        <button onclick="startCheckout('starter','month')"
+                class="group flex items-center gap-2 rounded-xl bg-amber-500 px-6 py-3.5 text-base font-bold text-slate-950 shadow-lg shadow-amber-500/25 transition hover:-translate-y-0.5 hover:bg-amber-600 hover:shadow-xl">
+          <i data-lucide="rocket" class="h-5 w-5 transition group-hover:-translate-y-0.5"></i>
+          Start 7-Day Free Trial
+        </button>
+        <a href="#features" class="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 px-6 py-3.5 text-base font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white">
+          <i data-lucide="play-circle" class="h-5 w-5 text-amber-400"></i>
+          Watch 2-Min Demo
+        </a>
+      </div>
+      <p class="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
+        <span class="flex items-center gap-1.5"><i data-lucide="check" class="h-3.5 w-3.5 text-amber-500"></i> No credit card required</span>
+        <span class="flex items-center gap-1.5"><i data-lucide="check" class="h-3.5 w-3.5 text-amber-500"></i> 7-day free trial</span>
+        <span class="flex items-center gap-1.5"><i data-lucide="check" class="h-3.5 w-3.5 text-amber-500"></i> Cancel anytime</span>
+      </p>
+    </div>
+
+    <!-- Right: quote-builder cockpit mockup -->
+    <div class="relative">
+      <div class="glow-amber rounded-2xl border border-slate-800 bg-slate-900/90 p-5">
+        <div class="flex items-center gap-2 border-b border-slate-800 pb-3">
+          <span class="h-3 w-3 rounded-full bg-red-500/70"></span>
+          <span class="h-3 w-3 rounded-full bg-amber-500/70"></span>
+          <span class="h-3 w-3 rounded-full bg-emerald-500/70"></span>
+          <span class="ml-3 text-xs font-bold uppercase tracking-wider text-slate-400">Quote Builder Cockpit</span>
+        </div>
+
+        <!-- Assembly drawer -->
+        <div class="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-bold text-white">Stud Partition Assembly</span>
+            <span class="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-slate-950">12&prime; &times; 8&prime;</span>
+          </div>
+          <div class="mt-3 space-y-1.5 text-xs text-slate-400">
+            <div class="flex justify-between"><span>2&times;4 studs &mdash; 16&quot; o.c. &times; 14</span><span class="text-slate-200">$196.00</span></div>
+            <div class="flex justify-between"><span>1/2&quot; drywall &mdash; 6 sheets</span><span class="text-slate-200">$178.80</span></div>
+            <div class="flex justify-between"><span>Labor &mdash; 12.5 hrs</span><span class="text-slate-200">$468.75</span></div>
+          </div>
+          <div class="mt-3 flex items-center justify-between border-t border-amber-500/20 pt-2 text-xs">
+            <span class="text-slate-400">Assembly subtotal</span>
+            <span class="font-black text-amber-500">$843.55</span>
+          </div>
+        </div>
+
+        <!-- Line items -->
+        <div class="mt-4 overflow-hidden rounded-xl border border-slate-800">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-800/70 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <tr>
+                <th class="px-3 py-2">Trade</th>
+                <th class="px-3 py-2">Description</th>
+                <th class="px-3 py-2 text-right">Qty</th>
+                <th class="px-3 py-2 text-right">Unit Cost</th>
+                <th class="px-3 py-2 text-right">Your Price</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800 text-slate-300">
+              <tr>
+                <td class="px-3 py-2">Framing</td>
+                <td class="px-3 py-2">Interior wall framing</td>
+                <td class="px-3 py-2 text-right">14</td>
+                <td class="px-3 py-2 text-right">$14.00</td>
+                <td class="px-3 py-2 text-right font-bold text-white">$235.20</td>
+              </tr>
+              <tr>
+                <td class="px-3 py-2">Drywall</td>
+                <td class="px-3 py-2">Hang &amp; finish drywall</td>
+                <td class="px-3 py-2 text-right">6</td>
+                <td class="px-3 py-2 text-right">$29.80</td>
+                <td class="px-3 py-2 text-right font-bold text-white">$214.56</td>
+              </tr>
+              <tr>
+                <td class="px-3 py-2">Labor</td>
+                <td class="px-3 py-2">Skilled labor crew</td>
+                <td class="px-3 py-2 text-right">12.5</td>
+                <td class="px-3 py-2 text-right">$37.50</td>
+                <td class="px-3 py-2 text-right font-bold text-white">$562.50</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Gross margin slider -->
+        <div class="mt-4 rounded-xl border border-slate-800 p-4">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-semibold text-slate-300"><i data-lucide="percent" class="mr-1 inline h-3.5 w-3.5 text-amber-400"></i>Gross margin</span>
+            <span class="font-black text-amber-500">35%</span>
+          </div>
+          <input type="range" min="0" max="60" value="35" disabled class="mt-3 h-1.5 w-full cursor-not-allowed accent-amber-500">
+          <div class="mt-2 flex justify-between text-[10px] text-slate-500"><span>0%</span><span>60%</span></div>
+        </div>
+
+        <!-- Totals bar -->
+        <div class="mt-4 flex items-center justify-between rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-3 text-sm font-black text-slate-950">
+          <span>Grand Total</span>
+          <span>$4,286.40</span>
+        </div>
+      </div>
+
+      <!-- Floating acceptance badge -->
+      <div class="absolute -bottom-5 -left-4 flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 shadow-2xl">
+        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
+          <i data-lucide="check-check" class="h-5 w-5"></i>
+        </span>
+        <div>
+          <p class="text-xs font-bold text-white">Signed electronically</p>
+          <p class="text-[10px] text-slate-400">IP &amp; timestamp logged &middot; legally binding</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Problem vs Solution -->
+<section class="relative border-y border-slate-800 bg-slate-900/40 py-14">
+  <div class="mx-auto max-w-6xl px-4">
+    <h2 class="text-center text-2xl font-black tracking-tight text-white sm:text-3xl">The old way vs. the BuildUpQuote way</h2>
+    <div class="mt-10 grid gap-6 md:grid-cols-2">
+      <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-6">
+        <div class="flex items-center gap-2 text-sm font-bold text-slate-400">
+          <i data-lucide="x-circle" class="h-5 w-5 text-red-500"></i> The spreadsheet shuffle
+        </div>
+        <ul class="mt-4 space-y-3 text-sm text-slate-400">
+          <li class="flex gap-2"><i data-lucide="alert-circle" class="mt-0.5 h-4 w-4 shrink-0 text-red-500"></i> Flat, error-prone quote sheets that are a pain to reprice</li>
+          <li class="flex gap-2"><i data-lucide="alert-circle" class="mt-0.5 h-4 w-4 shrink-0 text-red-500"></i> Evenings lost rebuilding the same line items by hand</li>
+          <li class="flex gap-2"><i data-lucide="alert-circle" class="mt-0.5 h-4 w-4 shrink-0 text-red-500"></i> Emailing PDFs back and forth, waiting days for a signature</li>
+        </ul>
+      </div>
+      <div class="rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-500/10 to-transparent p-6">
+        <div class="flex items-center gap-2 text-sm font-bold text-amber-400">
+          <i data-lucide="check-circle-2" class="h-5 w-5"></i> The BuildUpQuote way
+        </div>
+        <ul class="mt-4 space-y-3 text-sm text-slate-300">
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Dynamic assembly calculations priced instantly from room dimensions</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Trade slang and typos auto-corrected against a live rate catalog</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Digital sign-offs with IP &amp; timestamp logging — no chase-up calls</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section id="features" class="relative py-20">
+  <div class="bg-grid pointer-events-none absolute inset-0 opacity-60"></div>
+  <div class="relative mx-auto max-w-6xl px-4">
+    <p class="text-center text-xs font-bold uppercase tracking-widest text-amber-500">Everything you need to win the job</p>
+    <h2 class="mt-3 text-center text-3xl font-black tracking-tight text-white sm:text-4xl">Priced fast. Sent branded. Signed online.</h2>
+    <div class="mt-12 grid gap-6 sm:grid-cols-2">
+      <div class="group rounded-2xl border border-slate-800 bg-slate-900/70 p-7 transition hover:border-amber-500/40 hover:bg-slate-900">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400"><i data-lucide="calculator" class="h-6 w-6"></i></span>
+        <h3 class="mt-4 text-lg font-bold text-white">Parametric Assembly Calculator</h3>
+        <p class="mt-2 text-sm text-slate-400">Instant materials and labor priced from room dimensions. Add a stud partition in one click — BuildUpQuote does the take-off math for you.</p>
+      </div>
+      <div class="group rounded-2xl border border-slate-800 bg-slate-900/70 p-7 transition hover:border-amber-500/40 hover:bg-slate-900">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400"><i data-lucide="sparkles" class="h-6 w-6"></i></span>
+        <h3 class="mt-4 text-lg font-bold text-white">Trade Autocorrect Lexicon</h3>
+        <p class="mt-2 text-sm text-slate-400">Type "sheetrock" or "2x4" — a PostgreSQL-powered lexicon matches the trade slang and typos contractors actually use.</p>
+      </div>
+      <div class="group rounded-2xl border border-slate-800 bg-slate-900/70 p-7 transition hover:border-amber-500/40 hover:bg-slate-900">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400"><i data-lucide="pen-line" class="h-6 w-6"></i></span>
+        <h3 class="mt-4 text-lg font-bold text-white">1-Click Client Sign-Off</h3>
+        <p class="mt-2 text-sm text-slate-400">A secure approval portal with a digital signature pad, plus IP, user-agent and timestamp logging for a legally defensible record.</p>
+      </div>
+      <div class="group rounded-2xl border border-slate-800 bg-slate-900/70 p-7 transition hover:border-amber-500/40 hover:bg-slate-900">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400"><i data-lucide="file-check-2" class="h-6 w-6"></i></span>
+        <h3 class="mt-4 text-lg font-bold text-white">Branded PDF Proposals</h3>
+        <p class="mt-2 text-sm text-slate-400">High-resolution PDFs with your logo, contractor licence number, payment terms, and master contract attached — ready to send in seconds.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section id="pricing" class="relative border-t border-slate-800 bg-slate-900/40 py-20">
+  <div class="mx-auto max-w-6xl px-4">
+    <p class="text-center text-xs font-bold uppercase tracking-widest text-amber-500">Simple, honest pricing</p>
+    <h2 class="mt-3 text-center text-3xl font-black tracking-tight text-white sm:text-4xl">Pick a plan. Start your 7-day free trial.</h2>
+    <p class="mx-auto mt-3 max-w-xl text-center text-sm text-slate-400">Every plan starts free for 7 days — no credit card required. Cancel anytime.</p>
+
+    <!-- Billing toggle -->
+    <div class="mt-10 flex items-center justify-center gap-3 text-sm font-semibold text-slate-400">
+      <span :class="annual ? 'text-slate-500' : 'text-white'">Monthly</span>
+      <button type="button" role="switch" :aria-checked="annual" @click="annual = !annual"
+              class="relative h-7 w-14 rounded-full transition-colors" :class="annual ? 'bg-amber-500' : 'bg-slate-700'">
+        <span class="absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all" :class="annual ? 'left-8' : 'left-1'"></span>
+      </button>
+      <span :class="annual ? 'text-white' : 'text-slate-500'">Annual</span>
+      <span x-show="annual" x-cloak class="rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-400">2 Months Free</span>
+    </div>
+
+    <div class="mt-10 grid gap-6 lg:grid-cols-3">
+      <!-- Starter -->
+      <div class="flex flex-col rounded-2xl border border-slate-800 bg-slate-950/70 p-7 transition hover:border-slate-600">
+        <h3 class="text-lg font-bold text-white">Starter</h3>
+        <p class="mt-1 text-sm text-slate-400">For solo contractors getting off spreadsheets.</p>
+        <div class="mt-5 flex items-baseline gap-1">
+          <span class="text-4xl font-black text-white">$<span x-text="annual ? '24' : '29'">29</span></span>
+          <span class="text-sm text-slate-400">/mo</span>
+        </div>
+        <p class="mt-1 h-4 text-xs text-slate-500" x-show="annual" x-cloak>billed annually ($290/yr)</p>
+        <ul class="mt-6 flex-1 space-y-3 text-sm text-slate-300">
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> 25 quotes / month</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Parametric assemblies</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Branded PDF proposals</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> 1-click digital sign-off</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Basic clients list</li>
+        </ul>
+        <button @click="startCheckout('starter', annual ? 'year' : 'month')"
+                class="mt-6 rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:border-amber-500 hover:text-amber-400">
+          Start Free Trial
+        </button>
+      </div>
+
+      <!-- Pro -->
+      <div class="relative flex flex-col rounded-2xl border-2 border-amber-500 bg-gradient-to-b from-amber-500/10 to-slate-950/80 p-7 shadow-2xl shadow-amber-500/10">
+        <span class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-1 text-xs font-black uppercase tracking-wider text-slate-950">Most Popular</span>
+        <h3 class="text-lg font-bold text-white">Pro</h3>
+        <p class="mt-1 text-sm text-slate-400">For growing crews quoting every day.</p>
+        <div class="mt-5 flex items-baseline gap-1">
+          <span class="text-4xl font-black text-white">$<span x-text="annual ? '58' : '69'">69</span></span>
+          <span class="text-sm text-slate-400">/mo</span>
+        </div>
+        <p class="mt-1 h-4 text-xs text-slate-500" x-show="annual" x-cloak>billed annually ($690/yr)</p>
+        <ul class="mt-6 flex-1 space-y-3 text-sm text-slate-200">
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Unlimited quotes</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Insurance PDF parser</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Rate catalog + trade autocorrect</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Google Contacts sync &amp; CSV/vCard import</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Master contract attachments</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Analytics dashboard</li>
+        </ul>
+        <button @click="startCheckout('pro', annual ? 'year' : 'month')"
+                class="mt-6 rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-slate-950 shadow-lg shadow-amber-500/25 transition hover:-translate-y-0.5 hover:bg-amber-600 hover:shadow-xl">
+          Start Free Trial
+        </button>
+      </div>
+
+      <!-- Enterprise -->
+      <div class="flex flex-col rounded-2xl border border-slate-800 bg-slate-950/70 p-7 transition hover:border-slate-600">
+        <h3 class="text-lg font-bold text-white">Enterprise</h3>
+        <p class="mt-1 text-sm text-slate-400">For multi-crew companies and restoration firms.</p>
+        <div class="mt-5 flex items-baseline gap-1">
+          <span class="text-4xl font-black text-white">$<span x-text="annual ? '124' : '149'">149</span></span>
+          <span class="text-sm text-slate-400">/mo</span>
+        </div>
+        <p class="mt-1 h-4 text-xs text-slate-500" x-show="annual" x-cloak>billed annually ($1,490/yr)</p>
+        <ul class="mt-6 flex-1 space-y-3 text-sm text-slate-300">
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Everything in Pro</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Unlimited team members</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Custom assembly library</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Priority support</li>
+          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Onboarding &amp; data migration</li>
+        </ul>
+        <button @click="startCheckout('enterprise', annual ? 'year' : 'month')"
+                class="mt-6 rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:border-amber-500 hover:text-amber-400">
+          Start Free Trial
+        </button>
+      </div>
+    </div>
+
+    <p id="checkoutError" class="mx-auto mt-6 hidden max-w-lg rounded-lg bg-red-500/10 px-4 py-3 text-center text-sm text-red-400"></p>
+    <p class="mt-6 text-center text-xs text-slate-500">Prices in USD. Yearly billing includes 2 months free.</p>
+  </div>
+</section>
+
+<!-- Trust badges -->
+<section class="border-y border-slate-800 bg-slate-950 py-10">
+  <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-10 gap-y-4 px-4 text-sm font-semibold text-slate-400">
+    <span class="flex items-center gap-2"><i data-lucide="shield-check" class="h-5 w-5 text-emerald-500"></i> Licensed-trade compliant</span>
+    <span class="flex items-center gap-2"><i data-lucide="lock" class="h-5 w-5 text-emerald-500"></i> SSL-secured &amp; encrypted</span>
+    <span class="flex items-center gap-2"><i data-lucide="zap" class="h-5 w-5 text-amber-500"></i> Instant PDF turnaround</span>
+    <span class="flex items-center gap-2"><i data-lucide="badge-check" class="h-5 w-5 text-emerald-500"></i> Legally binding e-signatures</span>
+  </div>
+</section>
+
+<!-- Testimonials -->
+<section id="testimonials" class="py-20">
+  <div class="mx-auto max-w-6xl px-4">
+    <p class="text-center text-xs font-bold uppercase tracking-widest text-amber-500">Trusted by trade pros</p>
+    <h2 class="mt-3 text-center text-3xl font-black tracking-tight text-white sm:text-4xl">Contractors who stopped guessing</h2>
+    <div class="mt-12 grid gap-6 md:grid-cols-3">
+      <figure class="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <div class="flex gap-1 text-amber-500">
+          <i data-lucide="star" class="h-4 w-4 fill-amber-500"></i><i data-lucide="star" class="h-4 w-4 fill-amber-500"></i><i data-lucide="star" class="h-4 w-4 fill-amber-500"></i><i data-lucide="star" class="h-4 w-4 fill-amber-500"></i><i data-lucide="star" class="h-4 w-4 fill-amber-500"></i>
+        </div>
+        <blockquote class="mt-3 text-sm text-slate-300">"Assembly pricing cut my estimating time in half. I type in a room and it prices itself."</blockquote>
+        <figcaption class="mt-4 text-xs text-slate-500">— <span class="font-bold text-slate-300">Drywall &amp; Framing Co.</span>, Ontario</figcaption>
+      </figure>
+      <figure class="rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-500/10 to-slate-900/70 p-6">
+        <div class="flex gap-1 text-amber-500">
+          <i data-lucide="star" class="h-4 w-4 fill-amber-500"></i><i data-lucide="star" class="h-4 w-4 fill-amber-500"></i><i data-lucide="star" class="h-4 w-4 fill-amber-500"></i><i data-lucide="star" class="h-4 w-4 fill-amber-500"></i><i data-lucide="star" class="h-4 w-4 fill-amber-500"></i>
+        </div>
+        <blockquote class="mt-3 text-sm text-slate-300">"Clients sign the proposal on their phone the same evening. No more chasing signatures."</blockquote>
+        <figcaption class="mt-4 text-xs text-slate-500">— <span class="font-bold text-slate-300">Restoration Services Inc.</span>, Florida</figcaption>
+      </figure>
+      <figure class="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <div class="flex gap-1 text-amber-500">
+          <i data-lucide="star" class="h-4 w-4 fill-amber-500"></i><i data-lucide="star" class="h-4 w-4 fill-amber-500"></i><i data-lucide="star" class="h-4 w-4 fill-amber-500"></i><i data-lucide="star" class="h-4 w-4 fill-amber-500"></i><i data-lucide="star" class="h-4 w-4 fill-amber-500"></i>
+        </div>
+        <blockquote class="mt-3 text-sm text-slate-300">"The PDFs look like I hired a design agency. My win rate went up the first month."</blockquote>
+        <figcaption class="mt-4 text-xs text-slate-500">— <span class="font-bold text-slate-300">Renovation Builders</span>, Texas</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- Final CTA -->
+<section class="relative overflow-hidden border-t border-slate-800 py-20">
+  <div class="bg-grid pointer-events-none absolute inset-0"></div>
+  <div class="pointer-events-none absolute left-1/2 top-0 h-64 w-[40rem] -translate-x-1/2 rounded-full bg-amber-500/10 blur-3xl"></div>
+  <div class="relative mx-auto max-w-3xl px-4 text-center">
+    <h2 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Ready to win more jobs in half the time?</h2>
+    <p class="mt-4 text-slate-400">Start your 7-day free trial. No credit card. No spreadsheets. No more evenings wasted on bids.</p>
+    <button onclick="startCheckout('starter','month')"
+            class="mt-8 inline-flex items-center gap-2 rounded-xl bg-amber-500 px-8 py-4 text-lg font-black text-slate-950 shadow-lg shadow-amber-500/25 transition hover:-translate-y-0.5 hover:bg-amber-600 hover:shadow-xl">
+      <i data-lucide="rocket" class="h-5 w-5"></i> Start 7-Day Free Trial
+    </button>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="border-t border-slate-800 bg-slate-950 pb-10 pt-14">
+  <div class="mx-auto max-w-7xl px-4">
+    <div class="grid gap-10 md:grid-cols-4">
+      <!-- Brand + contact -->
+      <div class="md:col-span-2">
+        <a href="/" class="flex items-center gap-2 text-lg font-extrabold tracking-tight text-white">
+          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+            <i data-lucide="hard-hat" class="h-5 w-5"></i>
+          </span>
+          BUILDUPQUOTE
+        </a>
+        <p class="mt-3 max-w-sm text-sm text-slate-400">Parametric estimating, branded proposals, and legally binding digital sign-offs for trade contractors.</p>
+
+        <!--
+          BUSINESS CONTACT INFO -- UPDATE ME LATER.
+          These are placeholders. Change the name, email, phone and address
+          to your real business details whenever you're ready.
+        -->
+        <address class="mt-5 space-y-1.5 text-sm not-italic text-slate-400">
+          <p class="font-semibold text-slate-200">BuildUpQuote</p>
+          <p>123 Trade Street, Suite 100</p>
+          <p>Anytown, ST 12345</p>
+          <p><a href="mailto:hello@buildupquote.com" class="text-amber-500 hover:underline">hello@buildupquote.com</a></p>
+          <p><a href="tel:+15550101234" class="text-amber-500 hover:underline">(555) 010-1234</a></p>
+        </address>
+      </div>
+
+      <!-- Product -->
+      <div>
+        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Product</h4>
+        <ul class="mt-4 space-y-2.5 text-sm text-slate-400">
+          <li><a href="#features" class="transition hover:text-amber-400">Features</a></li>
+          <li><a href="#pricing" class="transition hover:text-amber-400">Pricing</a></li>
+          <li><a href="/register" class="transition hover:text-amber-400">Start Free Trial</a></li>
+          <li><a href="/login" class="transition hover:text-amber-400">Sign In</a></li>
+        </ul>
+      </div>
+
+      <!-- Legal -->
+      <div>
+        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Legal</h4>
+        <ul class="mt-4 space-y-2.5 text-sm text-slate-400">
+          <li><a href="#" class="transition hover:text-amber-400">Privacy Policy</a></li>
+          <li><a href="#" class="transition hover:text-amber-400">Terms of Service</a></li>
+          <li><a href="#" class="transition hover:text-amber-400">Acceptable Use</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-10 flex flex-col items-center justify-between gap-3 border-t border-slate-800 pt-6 text-xs text-slate-500 sm:flex-row">
+      <p>&copy; 2026 BuildUpQuote. All rights reserved.</p>
+      <p class="max-w-xl text-center sm:text-right">Trade compliance notice: contractors are responsible for verifying that all work and pricing comply with local licensing, codes, and regulations.</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Checkout: logged-in users go straight to Stripe; visitors create an
+  // account first (and the register page resumes the checkout for them).
+  async function startCheckout(tier, interval) {
+    const err = document.getElementById('checkoutError');
+    if (err) err.classList.add('hidden');
+    const token = localStorage.getItem('bq_token');
+    if (!token) {
+      location.href = '/register?plan=' + encodeURIComponent(tier) + '&interval=' + encodeURIComponent(interval);
+      return;
+    }
+    try {
+      const res = await fetch('/api/billing/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ tier: tier, interval: interval }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error((typeof data.detail === 'string' ? data.detail : 'Could not start checkout') || 'Could not start checkout');
+      window.location.href = data.url;
+    } catch (ex) {
+      if (err) { err.textContent = ex.message; err.classList.remove('hidden'); }
+      else { alert(ex.message); }
+    }
+  }
+
+  // Logged-in users hitting the landing page go straight to their workspace.
+  if (localStorage.getItem('bq_token') && location.pathname !== '/pricing') {
+    location.href = '/dashboard';
+  }
+
+  // Stripe cancel redirects to /pricing?canceled=1 -- show a gentle notice.
+  (function () {
+    const params = new URLSearchParams(location.search);
+    if (params.get('canceled') === '1') {
+      const banner = document.createElement('div');
+      banner.className = 'fixed inset-x-0 top-16 z-40 mx-auto max-w-md rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-center text-sm text-slate-300 shadow-2xl';
+      banner.textContent = 'Checkout canceled — your trial is still waiting. No problem, pick a plan whenever you\'re ready.';
+      document.body.appendChild(banner);
+      setTimeout(function () { banner.remove(); }, 6000);
+    }
+  })();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
