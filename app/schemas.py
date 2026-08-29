@@ -300,6 +300,8 @@ class QuoteOut(BaseModel):
     organization_id: Optional[int]
     client_id: Optional[int] = None
     client_name: Optional[str] = None
+    client_phone: Optional[str] = None
+    public_uuid: Optional[str] = None  # unguessable shareable link key
     title: str
     site_address: Optional[str] = None
     status: str

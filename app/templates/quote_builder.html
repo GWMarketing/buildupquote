@@ -29,6 +29,10 @@
                 title="Email the proposal to the client">
           <i data-lucide="mail" class="h-4 w-4 text-amber-500"></i> Send to Client
         </button>
+        <button class="bq-btn-secondary" @click="openShareModal()" :disabled="!quote.id"
+                title="Share via WhatsApp, SMS, or a direct link">
+          <i data-lucide="share-2" class="h-4 w-4 text-amber-500"></i> Share Proposal
+        </button>
       </div>
     </div>
 
@@ -293,6 +297,42 @@
       </div>
     </div>
   </div>
+
+  <!-- Share proposal modal -->
+  <div x-show="shareModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-[#0B0F17]/70 p-4"
+       @keydown.escape.window="shareModalOpen = false">
+    <div class="w-full max-w-md rounded-2xl border border-slate-700 bg-[#0B0F17] p-6 shadow-2xl">
+      <h2 class="text-base font-bold text-white">Share proposal</h2>
+      <p class="mt-1 text-xs text-slate-400">Send this proposal to your client any way they like to receive it.</p>
+
+      <!-- Message preview -->
+      <div class="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+        <p class="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Message preview</p>
+        <p class="break-words text-xs text-slate-400" x-text="sharePreview"></p>
+      </div>
+
+      <div class="mt-4 grid gap-2.5">
+        <button @click="shareVia('whatsapp')"
+                class="flex items-center gap-3 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-bold text-[#0B0F17] transition hover:-translate-y-px hover:brightness-110">
+          <i data-lucide="message-circle" class="h-5 w-5"></i> Send via WhatsApp
+        </button>
+        <button @click="shareVia('sms')"
+                class="flex items-center gap-3 rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 text-sm font-semibold text-white transition hover:border-slate-500 hover:bg-slate-700">
+          <i data-lucide="smartphone" class="h-5 w-5"></i> Send via Text (SMS)
+        </button>
+        <button @click="shareVia('copy')"
+                class="flex items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-400 transition hover:bg-amber-500/20">
+          <i data-lucide="link" class="h-5 w-5"></i>
+          <span x-text="copyState === 'copied' ? '✓ Copied!' : 'Copy Link'"></span>
+        </button>
+      </div>
+
+      <div class="mt-4 flex justify-end">
+        <button class="rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition hover:text-white"
+                @click="shareModalOpen = false">Close</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 
@@ -311,10 +351,18 @@ function quoteBuilder(quoteId) {
     clientForm: { name: '', site_address: '', phone: '', email: '' },
     sendModalOpen: false, sendingEmail: false, sendError: '',
     sendForm: { message: '' },
+    shareModalOpen: false, copyState: '', sharePreview: '',
 
     get clientEmail() {
       const c = this.clients.find(c => c.id === this.quote.client_id);
       return c ? (c.email || '') : '';
+    },
+    get shareClient() {
+      if (!this.quote.client_id) return null;
+      return this.clients.find(c => c.id === this.quote.client_id) || null;
+    },
+    get shareUrl() {
+      return window.location.origin + '/view/quote/' + (this.quote.public_uuid || '');
     },
 
     get selectedInputs() {
@@ -555,6 +603,45 @@ function quoteBuilder(quoteId) {
         else BQ.toast('Saved & marked as sent — email dispatch not configured yet', 'error');
       } catch (e) { this.sendError = e.message; BQ.toast('Could not send: ' + e.message); }
       this.sendingEmail = false;
+    },
+
+    // ---- Share proposal (WhatsApp / SMS / copy link) ----
+    openShareModal() {
+      if (!this.quote.public_uuid) { BQ.toast('This quote has no share link yet'); return; }
+      const client = this.shareClient;
+      this.sharePreview = BQShare.buildMessage({
+        clientName: client ? client.name : '',
+        projectName: this.quote.title,
+        quoteUrl: this.shareUrl,
+      });
+      this.copyState = '';
+      this.shareModalOpen = true;
+      this.refreshIcons();
+    },
+    async shareVia(method) {
+      const client = this.shareClient;
+      const links = BQShare.buildLinks({
+        clientName: client ? client.name : '',
+        projectName: this.quote.title,
+        quoteUrl: this.shareUrl,
+        clientPhone: client ? client.phone : '',
+      });
+      if (method === 'copy') {
+        try {
+          await BQShare.copyText(this.shareUrl);
+          this.copyState = 'copied';
+          setTimeout(() => { this.copyState = ''; }, 2000);
+        } catch (e) { BQ.toast('Could not copy link: ' + e.message); return; }
+      } else {
+        BQShare.openLink(method === 'whatsapp' ? links.whatsapp : links.sms);
+      }
+      BQShare.track(method, this.quoteId);
+      // First share moves a draft to 'sent' (fire-and-forget PATCH).
+      if (this.quote.status === 'draft') {
+        this.quote.status = 'sent';
+        this.patch({ status: 'sent' });
+      }
+      BQ.toast('Proposal link ready', 'success');
     },
   };
 }

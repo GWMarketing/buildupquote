@@ -48,6 +48,8 @@ def _quote_out(quote: models.Quote) -> dict:
         "organization_id": quote.organization_id,
         "client_id": quote.client_id,
         "client_name": quote.client.name if quote.client is not None else None,
+        "client_phone": quote.client.phone if quote.client is not None else None,
+        "public_uuid": quote.public_uuid,
         "title": quote.title,
         "site_address": quote.site_address,
         "status": quote.status,
