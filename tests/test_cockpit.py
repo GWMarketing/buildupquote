@@ -24,6 +24,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 import fastapi_app  # noqa: E402
 from app.services import assembly_service  # noqa: E402
+from app import models  # noqa: E402
+from app.database import SessionLocal  # noqa: E402
 
 
 def _assembly_fixture():
@@ -282,6 +284,93 @@ class CockpitApiTestCase(unittest.TestCase):
         detail = self.client.get(f"/api/quotes/{qid}", headers=auth).json()
         r = self.client.get(f"/view/quote/{detail['public_uuid']}")
         self.assertNotIn("Contingency Reserve", r.text)
+
+    # ------------------------------------------------------------------
+    # Crew work order (sanitized)
+    # ------------------------------------------------------------------
+    def test_work_order_prints_sanitized_field_copy(self):
+        auth = self.register("ckp-wo@acme.com")
+        cid = self.make_client(auth, name="Joan Smith", email="joan@example.com")
+        qid = self.make_quote(auth, client_id=cid)
+        self.add_line(auth, qid)
+
+        r = self.client.get(f"/api/quotes/{qid}/work-order", headers=auth)
+        self.assertEqual(r.status_code, 200, r.text)
+        html = r.text
+        self.assertIn("Crew Work Order", html)
+        self.assertIn("Basement Finish", html)               # project name
+        self.assertIn("Cut List / Material Quantities", html)
+        self.assertIn("Drywall install", html)               # scope item
+        # Stripped of everything financial.
+        self.assertNotIn("Subtotal", html)
+        self.assertNotIn("240.00", html)                     # the line's priced total
+        self.assertNotIn("Unit Cost", html)
+        self.assertNotIn("Total Amount", html)
+        self.assertNotIn("$", html)
+
+        # Unauthenticated callers are blocked.
+        r = self.client.get(f"/api/quotes/{qid}/work-order")
+        self.assertEqual(r.status_code, 401)
+
+    # ------------------------------------------------------------------
+    # Expiration window
+    # ------------------------------------------------------------------
+    def test_expiration_window_banner_on_public_view(self):
+        auth = self.register("ckp-exp@acme.com")
+        cid = self.make_client(auth)
+        qid = self.make_quote(auth, client_id=cid)
+        self.add_line(auth, qid)
+        self.client.patch(f"/api/quotes/{qid}", headers=auth, json={"expiration_days": 7})
+
+        detail = self.client.get(f"/api/quotes/{qid}", headers=auth).json()
+        self.assertEqual(detail["expiration_days"], 7)
+        r = self.client.get(f"/view/quote/{detail['public_uuid']}")
+        self.assertIn("Pricing valid through", r.text)
+        self.assertNotIn("has expired", r.text)
+
+    def test_expired_proposal_blocks_signing(self):
+        from datetime import datetime, timedelta, timezone
+
+        auth = self.register("ckp-expired@acme.com")
+        cid = self.make_client(auth)
+        qid = self.make_quote(auth, client_id=cid)
+        self.add_line(auth, qid)
+        self.client.patch(f"/api/quotes/{qid}", headers=auth, json={"expiration_days": 7})
+
+        db = SessionLocal()
+        try:
+            quote = db.query(models.Quote).filter(models.Quote.id == qid).first()
+            quote.created_at = datetime.now(timezone.utc) - timedelta(days=30)
+            db.commit()
+        finally:
+            db.close()
+
+        detail = self.client.get(f"/api/quotes/{qid}", headers=auth).json()
+        r = self.client.get(f"/view/quote/{detail['public_uuid']}")
+        self.assertIn("This proposal has expired", r.text)
+        self.assertNotIn("Sign &amp; Accept Proposal", r.text)
+
+        r = self.client.post(f"/api/public/quotes/{detail['public_uuid']}/accept", json={
+            "signature_data": "data:image/png;base64,AAAA",
+            "client_name": "Joan Smith",
+        })
+        self.assertEqual(r.status_code, 400, r.text)
+        self.assertIn("expired", r.json()["detail"])
+
+    # ------------------------------------------------------------------
+    # Profit guard / minimum margin
+    # ------------------------------------------------------------------
+    def test_min_margin_setting_and_cockpit_guard(self):
+        auth = self.register("ckp-guard@acme.com")
+        r = self.client.put("/api/organization/me", headers=auth, json={"min_margin_percent": 20})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["min_margin_percent"], 20.0)
+
+        # The builder reads it and renders the guard.
+        r = self.client.get("/quotes/new")
+        self.assertIn("min_margin_percent", r.text)
+        self.assertIn("marginBelowMin", r.text)
+        self.assertIn("minimum threshold", r.text)
 
     def test_builder_renders_cockpit_controls(self):
         r = self.client.get("/quotes/new")

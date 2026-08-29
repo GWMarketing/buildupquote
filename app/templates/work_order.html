@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crew Work Order — {{ quote.title }}</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 28px; color: #0f172a; background: #fff; }
+  .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border-bottom: 3px solid #0f172a; padding-bottom: 12px; }
+  h1 { font-size: 20px; margin: 0; }
+  .ref { color: #64748b; font-size: 12px; margin-top: 4px; }
+  .badge { display: inline-block; border-radius: 999px; background: #f59e0b; color: #0f172a; font-size: 11px; font-weight: 700; padding: 3px 10px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: #b45309; margin: 26px 0 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border-bottom: 1px solid #e2e8f0; padding: 7px 8px; text-align: left; vertical-align: top; }
+  th { font-size: 10px; text-transform: uppercase; color: #64748b; }
+  td.qty, th.qty { text-align: right; white-space: nowrap; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; font-size: 13px; }
+  .grid .label { color: #64748b; }
+  .note { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 14px; color: #94a3b8; font-size: 12px; }
+  .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 11px; }
+  .print-btn { position: fixed; right: 20px; bottom: 20px; background: #f59e0b; color: #0f172a; font-weight: 700; border: 0; border-radius: 10px; padding: 12px 20px; cursor: pointer; box-shadow: 0 4px 14px rgba(15,23,42,.2); }
+  .print-btn:hover { background: #d97706; }
+  @media print {
+    .print-btn { display: none; }
+    body { padding: 0; }
+    h2 { break-after: avoid; }
+    tr { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>{{ quote.title or 'Project' }}{% if quote.change_order_code %} — {{ quote.change_order_code }}{% endif %}</h1>
+      <div class="ref">Work Order #Q-{{ quote.id }} · Status: {{ (quote.status or 'draft')|title }}</div>
+    </div>
+    <div>
+      <span class="badge">FOR FIELD USE — NO PRICING</span>
+    </div>
+  </div>
+
+  <h2>Project Information</h2>
+  <div class="grid">
+    <div><span class="label">Client:</span> {{ client.name if client else '—' }}</div>
+    <div><span class="label">Site / Work Location:</span> {{ site_address or '—' }}</div>
+    {% if client and client.phone %}<div><span class="label">Client Phone:</span> {{ client.phone }}</div>{% endif %}
+    {% if organization %}<div><span class="label">Contractor:</span> {{ organization.name }}</div>{% endif %}
+    {% if pricing_valid_through %}<div><span class="label">Pricing valid through:</span> {{ pricing_valid_through }}</div>{% endif %}
+  </div>
+
+  {% if dimensions %}
+  <h2>Room Dimensions</h2>
+  <table>
+    <thead><tr><th>Length (m)</th><th>Width (m)</th><th>Height (m)</th><th>Floor (m²)</th><th>Perimeter (m)</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>{{ "%.2f"|format(dimensions.get('length', 0)) }}</td>
+        <td>{{ "%.2f"|format(dimensions.get('width', 0)) }}</td>
+        <td>{{ "%.2f"|format(dimensions.get('height', 0)) }}</td>
+        <td>{{ "%.2f"|format(dimensions.get('length', 0) * dimensions.get('width', 0)) }}</td>
+        <td>{{ "%.2f"|format(2 * (dimensions.get('length', 0) + dimensions.get('width', 0))) }}</td>
+      </tr>
+    </tbody>
+  </table>
+  {% endif %}
+
+  <h2>Scope / Assembly Checklist</h2>
+  {% for trade, rows in scope_by_trade.items() %}
+  <table style="margin-bottom: 14px;">
+    <thead><tr><th>{{ trade }}</th><th class="qty">Qty</th><th class="qty">Unit</th><th>Type</th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.description }}</td>
+        <td class="qty">{{ "%.3f"|format(row.quantity) if row.quantity is not none else '' }}</td>
+        <td class="qty">{{ row.unit }}</td>
+        <td>{{ row.item_type }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endfor %}
+
+  <h2>Cut List / Material Quantities</h2>
+  {% if takeoff %}
+    {% for group in takeoff %}
+    <table style="margin-bottom: 14px;">
+      <thead><tr><th>{{ group.category }}</th><th class="qty">Qty</th><th class="qty">Unit</th></tr></thead>
+      <tbody>
+        {% for row in group.rows %}
+        <tr>
+          <td>{{ row.description }}</td>
+          <td class="qty">{{ "%.2f"|format(row.quantity) }}</td>
+          <td class="qty">{{ row.unit }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endfor %}
+  {% else %}
+    <div class="note">No material quantities to list.</div>
+  {% endif %}
+
+  <h2>Site Photos &amp; Notes</h2>
+  <div class="note">No site photos attached to this quote yet. Add photos and notes for the crew in the quote builder to have them print here.</div>
+
+  <div class="footer">
+    Crew Work Order — BuildUpQuote. Pricing, labor rates, margins, and totals are intentionally omitted from this field copy; refer to the proposal PDF for financial details.
+  </div>
+
+  <button class="print-btn" onclick="window.print()">🖨 Print / Save PDF</button>
+</body>
+</html>

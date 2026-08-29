@@ -101,6 +101,12 @@
         <label class="mb-1 block text-xs font-medium text-slate-500">Your role / job title</label>
         <input class="bq-input" x-model="profile.job_title" placeholder="Owner / Lead Contractor">
       </div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Minimum margin % <span class="font-normal text-slate-400">(profit guard)</span></label>
+        <input class="bq-input" type="number" min="0" max="60" step="1" x-model.number="profile.min_margin_percent"
+               placeholder="e.g. 20 — the cockpit warns below this">
+        <p class="mt-1 text-[11px] text-slate-400">The quote cockpit flags your gross-margin slider if it drops below this threshold.</p>
+      </div>
     </div>
   </div>
 
@@ -262,7 +268,7 @@ function settingsPage() {
     ],
     profile: { name: '', bio: '', website: '', email: '', phone: '', address: '',
                license_number: '', tax_id: '', default_payment_terms: '', currency_symbol: '$',
-               master_contract_text: '', full_name: '', job_title: '' },
+               master_contract_text: '', full_name: '', job_title: '', min_margin_percent: '' },
     async init() {
       try {
         const org = await BQ.api('/api/organization/me');
@@ -287,6 +293,7 @@ function settingsPage() {
           master_contract_text: org.master_contract_text || '',
           full_name: org.full_name || '',
           job_title: org.job_title || '',
+          min_margin_percent: (org.min_margin_percent != null) ? org.min_margin_percent : '',
         };
         this.logoPreview = org.logo_url || '';
         this.masterContractUrl = org.master_contract_pdf_url || '';

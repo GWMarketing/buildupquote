@@ -130,6 +130,10 @@ def apply_assembly(
     except assembly_service.AssemblyFormulaError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
+    # Remember the room dimensions for the crew work order.
+    quote.scope_dimensions = {k: float(v) for k, v in (payload.dimensions or {}).items()}
+    db.add(quote)
+
     next_position = (
         db.query(func.coalesce(func.max(models.QuoteLineItem.position), 0))
         .filter(models.QuoteLineItem.quote_id == quote.id)

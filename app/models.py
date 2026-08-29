@@ -81,6 +81,9 @@ class User(Base):
     # `role` column: an admin can see/control every organization regardless of
     # which org they belong to. Only admins can set it.
     is_admin = Column(Boolean, nullable=False, default=False)
+    # Profit guard: warn in the quote cockpit when the gross margin drops
+    # below this contractor's minimum threshold (null = no warning).
+    min_margin_percent = Column(Numeric(5, 2), nullable=True)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True, index=True)
     # Google Contacts sync (People API): the user's OAuth tokens. The refresh
     # token is long-lived; the access token is refreshed on demand.
@@ -239,6 +242,12 @@ class Quote(Base):
     # whether a "Contingency Reserve" line is shown to the client.
     contingency_percent = Column(Numeric(5, 2), nullable=False, default=0)
     contingency_visible = Column(Boolean, nullable=False, default=False)
+    # Expiration window: how many days the pricing is valid (null = no
+    # expiry). The public proposal page disables signing after expiry.
+    expiration_days = Column(Integer, nullable=True, default=14)
+    # The room dimensions last used to scope this quote -- shown on the crew
+    # work order (sanitized print view).
+    scope_dimensions = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("Client", back_populates="quotes")

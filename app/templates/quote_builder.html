@@ -45,6 +45,10 @@
                 title="Roll up all materials for a supply run">
           <i data-lucide="clipboard-list" class="h-4 w-4 text-amber-500"></i> Export Material Takeoff
         </button>
+        <button class="bq-btn-secondary" :disabled="!lines.length" @click="printWorkOrder()"
+                title="Sanitized field copy — no pricing">
+          <i data-lucide="clipboard" class="h-4 w-4 text-amber-500"></i> Print Crew Work Order
+        </button>
         <button class="bq-btn-secondary" :disabled="!lines.length || !quote.client_id" @click="openSendModal()"
                 title="Email the proposal to the client">
           <i data-lucide="mail" class="h-4 w-4 text-amber-500"></i> Send to Client
@@ -79,6 +83,15 @@
           <option value="draft">Draft</option>
           <option value="sent">Sent</option>
           <option value="accepted">Accepted</option>
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-xs font-medium text-slate-500">Expiration Window</label>
+        <select class="bq-input" x-model="quote.expiration_days" @change="patch({ expiration_days: quote.expiration_days })">
+          <option :value="7">7 Days</option>
+          <option :value="14">14 Days (Default)</option>
+          <option :value="30">30 Days</option>
+          <option :value="null">No Expiry</option>
         </select>
       </div>
     </div>
@@ -191,11 +204,13 @@
     <div>
       <div class="mb-2 flex items-center justify-between">
         <label class="text-sm font-semibold text-slate-300">Global Gross Margin Controller</label>
-        <span class="text-lg font-bold text-amber-400" x-text="margin + '%'"></span>
+        <span class="text-lg font-bold" :class="marginBelowMin ? 'text-red-400' : 'text-amber-400'" x-text="margin + '%'"></span>
       </div>
       <input type="range" min="0" max="50" step="1" x-model.number="margin" @input="onMarginChange()"
              class="w-full cursor-pointer accent-amber-500">
       <p class="mt-2 text-xs text-slate-400">Adjusting this slider updates markups across all line items in real-time.</p>
+      <p x-show="marginBelowMin" x-cloak class="mt-1 rounded-lg border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs font-semibold text-red-400"
+         x-text="'⚠ Margin is below your minimum threshold of ' + minMargin + '%.'"></p>
       <div class="mt-4 flex items-center gap-2">
         <label class="text-xs font-semibold text-slate-400">Tax / VAT %</label>
         <input type="number" min="0" step="0.25" x-model.number="taxRate" @change="onTaxRateChange()"
@@ -581,6 +596,7 @@ function quoteBuilder(quoteId) {
     clients: [], assemblies: [], selectedCode: '', dims: {}, lines: [],
     currencySymbol: '$',
     margin: 20, taxRate: 0, saving: false, exporting: false, savedAt: '',
+    minMargin: null,
     contractOpen: false, savingContract: false,
     pdfUrl: '', downloads: JSON.parse(localStorage.getItem('bq_downloads') || '[]'),
     openAssemblyDrawer: false, clientModalOpen: false, savingClient: false,
@@ -628,6 +644,9 @@ function quoteBuilder(quoteId) {
     takeoffOpen: false, takeoffCopied: false,
 
     get isCO() { return !!this.quote.parent_quote_id; },
+    get marginBelowMin() {
+      return this.minMargin != null && Number(this.margin) < Number(this.minMargin);
+    },
 
     get roomDerived() {
       const L = Number(this.dims.length || 0);
@@ -680,7 +699,8 @@ function quoteBuilder(quoteId) {
       try {
         const org = await BQ.api('/api/organization/me');
         if (org && org.currency_symbol) this.currencySymbol = org.currency_symbol;
-      } catch (e) { /* keep default */ }
+        if (org && org.min_margin_percent != null) this.minMargin = Number(org.min_margin_percent);
+      } catch (e) { /* keep defaults */ }
       if (this.quoteId) {
         await this.loadQuote();
       } else {
@@ -967,6 +987,21 @@ function quoteBuilder(quoteId) {
       w.document.close();
       w.focus();
       setTimeout(() => { w.print(); }, 300);
+    },
+
+    // ---- Crew work order (sanitized, no pricing) ----
+    async printWorkOrder() {
+      try {
+        const res = await BQ.apiRaw('/api/quotes/' + this.quoteId + '/work-order');
+        const html = await res.text();
+        const w = window.open('', '_blank', 'width=920,height=680');
+        if (!w) { BQ.toast('Pop-ups blocked — allow them to print the work order'); return; }
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
+        w.focus();
+        setTimeout(() => { try { w.print(); } catch (e) { /* user can print manually */ } }, 400);
+      } catch (e) { BQ.toast('Could not load work order: ' + e.message); }
     },
 
     async insertAssembly() {

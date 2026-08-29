@@ -9,6 +9,7 @@ own PDF download.
 import os
 import tempfile
 import time
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -49,6 +50,18 @@ def _organization_for(db: Session, quote: models.Quote):
     )
 
 
+def _expiry_info(quote):
+    """(expires_at, is_expired) from the quote's created_at + expiration_days.
+    None expiration_days means the pricing never expires."""
+    if not quote.expiration_days or not quote.created_at:
+        return None, False
+    created = quote.created_at
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    expires_at = created + timedelta(days=int(quote.expiration_days))
+    return expires_at, datetime.now(timezone.utc) > expires_at
+
+
 @router.get("/view/quote/{public_uuid}")
 def public_quote_view(
     public_uuid: str,
@@ -67,6 +80,7 @@ def public_quote_view(
             request, "public_quote_view.html", {"not_found": True}
         )
     organization = _organization_for(db, quote)
+    expires_at, is_expired = _expiry_info(quote)
     _currency = (organization.currency_symbol if organization and organization.currency_symbol else "£")
     _include, _contract = quote_pdf.contract_for_quote(
         quote, organization, _currency, time.strftime("%d %b %Y"),
@@ -81,6 +95,9 @@ def public_quote_view(
         "currency": _currency,
         "include_contract": _include,
         "contract_text": _contract,
+        "expires_at": expires_at,
+        "is_expired": is_expired,
+        "contractor_name": (organization.name if organization else "your contractor"),
     })
 
 
@@ -100,6 +117,12 @@ def public_quote_accept(
     quote = _get_quote_by_uuid(db, public_uuid)
     if quote.status == "accepted":
         return {"accepted": True, "already": True, "status": quote.status}
+    _, is_expired = _expiry_info(quote)
+    if is_expired:
+        raise HTTPException(
+            status_code=400,
+            detail="This proposal has expired. Contact the contractor for an updated estimate.",
+        )
     if not (payload.signature_data or "").strip():
         raise HTTPException(status_code=400, detail="A signature is required")
 

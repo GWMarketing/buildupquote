@@ -76,6 +76,9 @@ def _profile_out(org: models.Organization, user: models.User) -> dict:
         "created_at": org.created_at,
         "full_name": user.full_name,
         "job_title": user.job_title,
+        "min_margin_percent": (
+            float(user.min_margin_percent) if user.min_margin_percent is not None else None
+        ),
     }
 
 
@@ -115,6 +118,8 @@ def update_organization_me(
         current_user.full_name = payload.full_name.strip()
     if payload.job_title is not None:
         current_user.job_title = payload.job_title.strip()
+    if payload.min_margin_percent is not None:
+        current_user.min_margin_percent = float(payload.min_margin_percent)
     db.add(org)
     db.add(current_user)
     db.commit()

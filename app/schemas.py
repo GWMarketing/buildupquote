@@ -30,6 +30,8 @@ class OrganizationUpdate(BaseModel):
     # The representative attached to this business.
     full_name: Optional[str] = None
     job_title: Optional[str] = None
+    # Profit guard: minimum gross margin % the cockpit warns below.
+    min_margin_percent: Optional[float] = None
 
 
 class OrganizationOut(BaseModel):
@@ -65,6 +67,7 @@ class OrganizationProfileOut(OrganizationOut):
 
     full_name: Optional[str] = None
     job_title: Optional[str] = None
+    min_margin_percent: Optional[float] = None  # profit guard threshold
 
 
 class UserCreate(BaseModel):
@@ -280,6 +283,8 @@ class QuoteUpdate(BaseModel):
     # Contingency / unforeseen-conditions buffer.
     contingency_percent: Optional[float] = None
     contingency_visible: Optional[bool] = None
+    # Expiration window (7 / 14 / 30 days, or None for no expiry).
+    expiration_days: Optional[int] = None
 
 
 class SendQuoteEmailRequest(BaseModel):
@@ -336,6 +341,8 @@ class QuoteOut(BaseModel):
     change_order_code: Optional[str] = None
     contingency_percent: float = 0
     contingency_visible: bool = False
+    expiration_days: Optional[int] = None  # pricing validity window (null = no expiry)
+    scope_dimensions: Optional[dict] = None
     created_at: datetime
     line_count: int = 0
 

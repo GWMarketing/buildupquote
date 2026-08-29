@@ -5,10 +5,13 @@ patch header fields, replace the line grid wholesale, and export a branded
 PDF. The assembly math (apply-assembly) lives in app/routers/assemblies.py.
 """
 import os
+import re
 import time
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
@@ -18,6 +21,11 @@ from app.database import get_db
 from app.services import email_service, quote_pdf
 
 router = APIRouter(prefix="/api/quotes", tags=["quotes"])
+
+_TEMPLATES_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates"
+)
+templates = Jinja2Templates(directory=_TEMPLATES_DIR)
 
 _EXPORT_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -64,6 +72,8 @@ def _quote_out(quote: models.Quote) -> dict:
         "change_order_code": quote.change_order_code,
         "contingency_percent": float(quote.contingency_percent or 0),
         "contingency_visible": bool(quote.contingency_visible),
+        "expiration_days": quote.expiration_days,
+        "scope_dimensions": quote.scope_dimensions,
         "created_at": quote.created_at,
         "line_count": len(quote.items or []),
     }
@@ -287,7 +297,8 @@ def update_quote(
     _ensure_editable(quote)
     for field in ("title", "site_address", "status", "client_id", "tax_rate_percent",
                   "include_contract", "custom_contract_override",
-                  "contingency_percent", "contingency_visible"):
+                  "contingency_percent", "contingency_visible",
+                  "expiration_days"):
         value = getattr(payload, field, None)
         if value is not None:
             setattr(quote, field, value)
@@ -517,6 +528,88 @@ def send_quote_email(
         "delivered": email_service.is_configured(),
         "to": client.email,
     }
+
+
+def _takeoff_groups(lines) -> list:
+    """Aggregate MATERIAL quantities into cut-list groups (description + qty +
+    unit only -- no pricing), the server-side twin of the cockpit's takeoff."""
+
+    def category(row):
+        t = (((row.trade or "") + " " + (row.description or "")).lower())
+        if re.search(r"(carpentry|framing|lumber|stud|joist|timber|track|runner)", t):
+            return "Lumber / Framing"
+        if re.search(r"(drywall|plasterboard|gypsum|board)", t):
+            return "Drywall"
+        if re.search(r"(tile|grout|adhesive|paint|primer|finish)", t):
+            return "Finishes"
+        if re.search(r"(screw|nail|fastener|fixing|anchor)", t):
+            return "Fasteners"
+        return "General Materials"
+
+    map_groups = {}
+    for row in lines:
+        if row.item_type != "material" or not (float(row.quantity or 0) > 0):
+            continue
+        cat = category(row)
+        key = (f"{(row.description or '').strip()}|{row.unit or ''}").lower()
+        map_groups.setdefault(cat, {})
+        entry = map_groups[cat].setdefault(key, {
+            "description": row.description, "unit": row.unit, "quantity": 0.0,
+        })
+        entry["quantity"] += float(row.quantity or 0)
+    return [
+        {"category": cat, "rows": list(rows.values())}
+        for cat, rows in map_groups.items()
+    ]
+
+
+@router.get("/{quote_id}/work-order", include_in_schema=False)
+def quote_work_order(
+    quote_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """The sanitized Crew Work Order: a clean printable view for field trades
+    with project info, room dimensions, the scope checklist, and the material
+    cut list -- and NOTHING financial (no prices, margins, or totals)."""
+    quote = _get_owned_quote(db, current_user, quote_id)
+    if not quote.items:
+        raise HTTPException(status_code=400, detail="Add line items before printing a work order")
+
+    lines = sorted(quote.items, key=lambda i: i.position or 0)
+    scope_by_trade = {}
+    for line in lines:
+        scope_by_trade.setdefault(line.trade or "General", []).append({
+            "description": line.description,
+            "item_type": line.item_type,
+            "quantity": line.quantity,
+            "unit": line.unit,
+        })
+
+    pricing_valid_through = None
+    if quote.expiration_days and quote.created_at:
+        created = quote.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        pricing_valid_through = (
+            created + timedelta(days=int(quote.expiration_days))
+        ).strftime("%d %b %Y")
+
+    return templates.TemplateResponse(request, "work_order.html", {
+        "quote": quote,
+        "organization": current_user.organization,
+        "client": quote.client,
+        "site_address": (
+            quote.site_address
+            or (quote.client.site_address if quote.client else None)
+            or ""
+        ),
+        "dimensions": quote.scope_dimensions or {},
+        "scope_by_trade": scope_by_trade,
+        "takeoff": _takeoff_groups(lines),
+        "pricing_valid_through": pricing_valid_through,
+    })
 
 
 @router.get("/{quote_id}/export-pdf")

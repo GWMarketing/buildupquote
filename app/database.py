@@ -60,6 +60,8 @@ def ensure_legacy_columns(bind):
         statements.append("ALTER TABLE users ADD COLUMN job_title VARCHAR")
     if "is_admin" not in existing:
         statements.append("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE")
+    if "min_margin_percent" not in existing:
+        statements.append("ALTER TABLE users ADD COLUMN min_margin_percent NUMERIC(5, 2)")
     if "google_access_token" not in existing:
         statements.append("ALTER TABLE users ADD COLUMN google_access_token VARCHAR")
     if "google_refresh_token" not in existing:
@@ -109,6 +111,11 @@ def ensure_legacy_columns(bind):
             statements.append("ALTER TABLE quotes ADD COLUMN contingency_percent NUMERIC(5, 2) DEFAULT 0")
         if "contingency_visible" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN contingency_visible BOOLEAN DEFAULT FALSE")
+        # Expiration window + scope dimensions landed with the crew job packet.
+        if "expiration_days" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN expiration_days INTEGER DEFAULT 14")
+        if "scope_dimensions" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN scope_dimensions JSON")
     # Organization profile fields landed after the first organizations
     # table was created -- same idempotent in-place upgrade. `bio` superseded
     # the old `description` column, so existing databases get an in-place
