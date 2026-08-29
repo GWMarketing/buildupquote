@@ -45,7 +45,7 @@
   <h2>Project Information</h2>
   <div class="grid">
     <div><span class="label">Client:</span> {{ client.name if client else '—' }}</div>
-    <div><span class="label">Site / Work Location:</span> {{ site_address or '—' }}</div>
+    <div><span class="label">Site / Work Location:</span> {{ site_address or '—' }}{% if site_address %} — <a href="https://www.google.com/maps/dir/?api=1&destination={{ site_address|urlencode }}">Get Directions</a>{% endif %}</div>
     {% if client and client.phone %}<div><span class="label">Client Phone:</span> {{ client.phone }}</div>{% endif %}
     {% if organization %}<div><span class="label">Contractor:</span> {{ organization.name }}</div>{% endif %}
     {% if pricing_valid_through %}<div><span class="label">Pricing valid through:</span> {{ pricing_valid_through }}</div>{% endif %}

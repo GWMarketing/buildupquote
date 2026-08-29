@@ -76,6 +76,12 @@
       <div>
         <label class="mb-1 block text-xs font-medium text-slate-500">Site address</label>
         <input class="bq-input" x-model="quote.site_address" @change="patch({ site_address: quote.site_address })">
+        <div x-show="hasFullAddress" x-cloak class="mt-2 flex flex-wrap gap-2">
+          <a :href="googleMapsUrl" target="_blank" rel="noopener"
+             class="bq-btn-secondary px-2.5 py-1.5 text-xs no-underline">📍 Directions — Google Maps</a>
+          <a :href="zillowUrl" target="_blank" rel="noopener"
+             class="bq-btn-secondary px-2.5 py-1.5 text-xs no-underline">🏠 Zillow Property Estimate</a>
+        </div>
       </div>
       <div>
         <label class="mb-1 block text-xs font-medium text-slate-500">Status</label>
@@ -644,6 +650,19 @@ function quoteBuilder(quoteId) {
     takeoffOpen: false, takeoffCopied: false,
 
     get isCO() { return !!this.quote.parent_quote_id; },
+
+    /** A street number in the site address suggests it's full enough to map. */
+    get hasFullAddress() {
+      const a = (this.quote.site_address || '').trim();
+      return a.length >= 8 && /\d/.test(a);
+    },
+    get googleMapsUrl() {
+      return BQShare.googleMapsUrl(this.quote.site_address);
+    },
+    get zillowUrl() {
+      return BQShare.zillowUrl(this.quote.site_address);
+    },
+
     get marginBelowMin() {
       return this.minMargin != null && Number(this.margin) < Number(this.minMargin);
     },

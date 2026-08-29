@@ -92,6 +92,19 @@
     });
   }
 
+  /** Google Maps directions deep link for a site address (no API key). */
+  function googleMapsUrl(address) {
+    return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(address || '');
+  }
+
+  /** Zillow deep link for an address (the contractor's property-value check). */
+  function zillowUrl(address) {
+    const slug = String(address || '')
+      .replace(/[^a-z0-9]+/gi, '-')
+      .replace(/^-+|-+$/g, '');
+    return slug ? 'https://www.zillow.com/homes/' + slug + '_rb/' : 'https://www.zillow.com/homes/';
+  }
+
   const BQShare = {
     sanitizePhone: sanitizePhone,
     buildMessage: buildMessage,
@@ -99,6 +112,8 @@
     track: track,
     openLink: openLink,
     copyText: copyText,
+    googleMapsUrl: googleMapsUrl,
+    zillowUrl: zillowUrl,
   };
 
   if (typeof window !== 'undefined') window.BQShare = BQShare;

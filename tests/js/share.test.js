@@ -71,6 +71,30 @@ test('buildLinks: URL is encoded into the message', () => {
   assert.ok(decoded.includes('https://x.test/view/quote/abc-123'));
 });
 
+test('googleMapsUrl builds an encoded directions deep link', () => {
+  assert.strictEqual(
+    BQShare.googleMapsUrl('123 Main St, Springfield'),
+    'https://www.google.com/maps/dir/?api=1&destination=123%20Main%20St%2C%20Springfield',
+  );
+  assert.strictEqual(BQShare.googleMapsUrl(''), 'https://www.google.com/maps/dir/?api=1&destination=');
+  assert.strictEqual(BQShare.googleMapsUrl(null), 'https://www.google.com/maps/dir/?api=1&destination=');
+});
+
+test('zillowUrl slugs the address into a Zillow search link', () => {
+  assert.strictEqual(
+    BQShare.zillowUrl('123 Main St, Springfield MO 65807'),
+    'https://www.zillow.com/homes/123-Main-St-Springfield-MO-65807_rb/',
+  );
+  // Drops anything non-alphanumeric (commas, dots, # units).
+  assert.strictEqual(
+    BQShare.zillowUrl('45-B Oak Ave, Apt. #3'),
+    'https://www.zillow.com/homes/45-B-Oak-Ave-Apt-3_rb/',
+  );
+  // Empty address still resolves to the Zillow homepage, never a broken link.
+  assert.strictEqual(BQShare.zillowUrl(''), 'https://www.zillow.com/homes/');
+  assert.strictEqual(BQShare.zillowUrl(null), 'https://www.zillow.com/homes/');
+});
+
 test('track dispatches PROPOSAL_SHARED_VIA_<METHOD> events', () => {
   const seen = [];
   global.window = {

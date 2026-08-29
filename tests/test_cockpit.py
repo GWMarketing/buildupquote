@@ -372,6 +372,26 @@ class CockpitApiTestCase(unittest.TestCase):
         self.assertIn("marginBelowMin", r.text)
         self.assertIn("minimum threshold", r.text)
 
+    def test_builder_renders_address_map_and_zillow_links(self):
+        auth = self.register("ckp-links@acme.com")
+        r = self.client.get("/quotes/new")
+        # The getters + clickable deep links render once a full address is entered.
+        self.assertIn("hasFullAddress", r.text)
+        self.assertIn("googleMapsUrl", r.text)
+        self.assertIn("zillowUrl", r.text)
+        self.assertIn("Directions", r.text)
+        self.assertIn("Zillow Property Estimate", r.text)
+
+        # Work order: with a site address, the crew gets a clickable directions link.
+        cid = self.make_client(auth, name="Joan Smith", email="joan@example.com")
+        qid = self.make_quote(auth, client_id=cid)
+        self.add_line(auth, qid)
+        self.client.patch(f"/api/quotes/{qid}", headers=auth,
+                          json={"site_address": "123 Main St, Springfield"})
+        wo = self.client.get(f"/api/quotes/{qid}/work-order", headers=auth).text
+        self.assertIn("Get Directions", wo)
+        self.assertIn("destination=123%20Main%20St%2C%20Springfield", wo)
+
     def test_builder_renders_cockpit_controls(self):
         r = self.client.get("/quotes/new")
         self.assertEqual(r.status_code, 200, r.text)
