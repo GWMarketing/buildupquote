@@ -6,11 +6,19 @@ Usage:
 Uses the same DATABASE_URL as the app (env var; defaults to localhost
 postgres). For the deployed instance, prefer the ADMIN_EMAILS env var in the
 VPS .env -- it grants admin at every startup and is idempotent.
+
+Works from any working directory: the repo root is added to sys.path so
+`from app import models` resolves even when run via `docker compose exec web
+python scripts/make_admin.py ...` (where the script's own directory, not the
+repo root, is what Python puts on the import path).
 """
+import os
 import sys
 
-from app import models
-from app.database import SessionLocal
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from app import models  # noqa: E402
+from app.database import SessionLocal  # noqa: E402
 
 
 def main() -> None:
