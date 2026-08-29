@@ -4,8 +4,10 @@
 
   <!-- Top action bar -->
   <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-      <div class="min-w-0 flex-1 space-y-1">
+    <!-- Title gets its own full-width line so the action buttons can never
+         overlap or block it (they wrap onto rows below instead). -->
+    <div class="space-y-4">
+      <div class="min-w-0 space-y-1">
         <input type="text" x-model="quote.title" @change="patch({ title: quote.title })"
                class="w-full border-b border-transparent bg-transparent text-2xl font-bold text-slate-900 outline-none transition-colors hover:border-slate-300 focus:border-amber-500 dark:text-white"
                placeholder="Project Name / Quote Reference">
