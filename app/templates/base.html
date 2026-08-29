@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="/static/css/app.css">
 <script src="/static/js/app.js"></script>
 <script src="/static/js/share.js"></script>
+<script src="/static/js/global_search.js"></script>
 <script src="/static/js/smart_voice_parser.js"></script>
 <script>
   // Auth guard: every page except /login and /register requires a token.
@@ -76,11 +77,28 @@
     </button>
   </div>
 
-  <div class="shrink-0 px-3 pt-3">
-    <a href="/quotes/new" class="flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow transition hover:bg-amber-600">
+  <div class="relative shrink-0 px-3 pt-3" @click.outside="createOpen = false">
+    <button @click="createOpen = !createOpen"
+            class="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-3 py-2.5 text-sm font-bold text-slate-950 shadow transition hover:bg-amber-600">
       <i data-lucide="plus" class="h-4 w-4 shrink-0"></i>
-      <span x-show="!sidebarCollapsed" class="truncate">Create Quote</span>
-    </a>
+      <span x-show="!sidebarCollapsed" class="truncate">Create</span>
+      <i data-lucide="chevron-down" x-show="!sidebarCollapsed" class="h-4 w-4 shrink-0 transition-transform" :class="createOpen ? 'rotate-180' : ''"></i>
+    </button>
+    <div x-show="createOpen && !sidebarCollapsed" x-cloak
+         class="absolute left-3 top-[calc(100%+0.35rem)] z-50 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+      <a href="/quotes/new" @click="createOpen = false"
+         class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-amber-50 hover:text-amber-700 dark:text-slate-200 dark:hover:bg-slate-800">
+        <i data-lucide="file-pen-line" class="h-4 w-4 text-amber-500"></i> New Quote
+      </a>
+      <a href="/clients?new=1" @click="createOpen = false"
+         class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-amber-50 hover:text-amber-700 dark:text-slate-200 dark:hover:bg-slate-800">
+        <i data-lucide="user-plus" class="h-4 w-4 text-amber-500"></i> New Client
+      </a>
+      <a href="/quotes?view=active" @click="createOpen = false"
+         class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-amber-50 hover:text-amber-700 dark:text-slate-200 dark:hover:bg-slate-800">
+        <i data-lucide="receipt-text" class="h-4 w-4 text-amber-500"></i> New Invoice
+      </a>
+    </div>
   </div>
 
   <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
@@ -95,12 +113,15 @@
       <i data-lucide="shield" class="h-5 w-5 shrink-0"></i>
       <span class="min-w-0 flex-1 truncate" x-show="!sidebarCollapsed">Admin</span>
     </a>
-    <div class="mt-2 flex items-center gap-2 rounded-lg border border-slate-200 p-2 dark:border-slate-700">
-      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-xs font-black text-white" x-text="initials()"></span>
-      <div class="min-w-0 flex-1" x-show="!sidebarCollapsed">
-        <p class="truncate text-sm font-bold text-slate-900 dark:text-white" x-text="me ? (me.full_name || me.email) : '…'"></p>
-        <p class="truncate text-[11px] text-slate-400" x-text="me ? roleLabel(me.role) : ''"></p>
-      </div>
+    <div class="mt-2 flex items-center gap-1 rounded-lg border border-slate-200 p-1.5 dark:border-slate-700">
+      <a href="/settings" class="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-0.5 transition hover:bg-slate-50 dark:hover:bg-slate-800" title="Account settings">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-xs font-black text-white" x-text="initials()"></span>
+        <span class="min-w-0 flex-1" x-show="!sidebarCollapsed">
+          <span class="block truncate text-sm font-bold text-slate-900 dark:text-white" x-text="me ? (me.full_name || me.email) : '…'"></span>
+          <span class="block truncate text-[11px] text-slate-400" x-text="me ? roleLabel(me.role) : ''"></span>
+        </span>
+        <i data-lucide="chevron-right" x-show="!sidebarCollapsed" class="h-4 w-4 shrink-0 text-slate-400"></i>
+      </a>
       <button onclick="logout()" class="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-red-600 dark:hover:bg-slate-800" title="Log out">
         <i data-lucide="log-out" class="h-4 w-4"></i>
       </button>
@@ -148,8 +169,12 @@
       </button>
       <div class="relative w-full max-w-xl">
         <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
-        <input type="text" x-model="search" @keydown.enter="goSearch()" placeholder="Search quotes, clients, addresses…"
-               class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:focus:bg-slate-800">
+        <input type="text" readonly @click="BQSearch.open()" placeholder="Search quotes, clients, addresses…"
+               class="w-full cursor-pointer rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-14 text-sm text-slate-500 transition hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600"
+               title="Quick search — press ⌘K / Ctrl+K">
+        <span class="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-400 dark:border-slate-600 dark:bg-slate-900 sm:flex">
+          <kbd>⌘K</kbd>
+        </span>
       </div>
       <div class="ml-auto flex items-center gap-1">
         <button @click="BQ.toast('No new notifications')" class="rounded-md p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" title="Notifications">
@@ -182,9 +207,9 @@
       dark: localStorage.getItem('bq_theme') === 'dark',
       sidebarCollapsed: localStorage.getItem('bq_sidebar') === 'collapsed',
       mobileNav: false,
+      createOpen: false,
       me: null,
       openCount: null,
-      search: '',
       init() {
         this.$watch('dark', v => {
           document.documentElement.classList.toggle('dark', v);
@@ -192,7 +217,19 @@
         });
         document.documentElement.classList.toggle('dark', this.dark);
         this.$watch('sidebarCollapsed', v => localStorage.setItem('bq_sidebar', v ? 'collapsed' : 'open'));
+        // Live stats sync: cross-tab signing pings come through the search
+        // channel (global_search.js -> window event); polling covers clients
+        // signing from a different browser.
+        window.addEventListener('BQ_SHELL_STATS_CHANGED', () => this.refreshBadge());
+        window.addEventListener('focus', () => this.refreshBadge());
+        setInterval(() => this.refreshBadge(), 60000);
         this.loadShell();
+      },
+      async refreshBadge() {
+        try {
+          const data = await BQ.api('/api/dashboard/stats');
+          if (data && data.stats) this.openCount = data.stats.open_quotes_count;
+        } catch (e) { /* badge is optional */ }
       },
       async loadShell() {
         try {
@@ -214,10 +251,7 @@
               });
           }
         } catch (e) { /* offline: leave as-is */ }
-        try {
-          const data = await BQ.api('/api/dashboard/stats');
-          if (data && data.stats) this.openCount = data.stats.open_quotes_count;
-        } catch (e) { /* badge is optional */ }
+        await this.refreshBadge();
       },
       initials() {
         const name = (this.me && (this.me.full_name || '')) || '';
@@ -228,13 +262,34 @@
       roleLabel(role) {
         return ({ owner: 'Owner', admin: 'Admin', estimator: 'Estimator', viewer: 'Viewer', crew: 'Crew' })[role] || (role || '');
       },
-      goSearch() {
-        const q = this.search.trim();
-        if (q) location.href = '/quotes?q=' + encodeURIComponent(q);
-      },
     };
   }
 </script>
+
+<!-- Global Search / Quick Launcher (Cmd/Ctrl+K). Wired by global_search.js -->
+{% if active %}
+<div id="bq-search-modal" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true" aria-label="Quick search">
+  <div class="absolute inset-0 bg-[#0B0F17]/75 backdrop-blur-sm" data-bq-close></div>
+  <div class="absolute inset-x-0 top-[10vh] mx-auto w-[min(92vw,580px)] overflow-hidden rounded-2xl border border-slate-700 bg-[#111827] shadow-2xl">
+    <div class="flex items-center gap-3 border-b border-slate-700 px-4 py-3.5">
+      <i data-lucide="search" class="h-5 w-5 shrink-0 text-slate-400"></i>
+      <input id="bq-search-input" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Search quotes, clients, addresses…"
+             class="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500">
+      <kbd class="shrink-0 rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-slate-400">ESC</kbd>
+    </div>
+    <div id="bq-search-results" class="max-h-[55vh] overflow-y-auto p-2"></div>
+    <div class="flex items-center justify-between border-t border-slate-700 bg-slate-900/60 px-4 py-2 text-[10px] font-medium text-slate-500">
+      <div class="flex items-center gap-3">
+        <span><kbd class="rounded bg-slate-800 px-1 py-0.5 font-bold">↑↓</kbd> navigate</span>
+        <span><kbd class="rounded bg-slate-800 px-1 py-0.5 font-bold">↵</kbd> open</span>
+        <span><kbd class="rounded bg-slate-800 px-1 py-0.5 font-bold">esc</kbd> close</span>
+      </div>
+      <span>⌘K anywhere</span>
+    </div>
+  </div>
+</div>
+{% endif %}
 </body>
 </html>
 

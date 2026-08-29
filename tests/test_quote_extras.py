@@ -156,6 +156,9 @@ class QuoteExtrasTestCase(unittest.TestCase):
         self.assertIn("Pay Deposit Online", page)
         self.assertIn("https://buy.stripe.com/test_123", page)
         self.assertIn("AcmeRoofing", page)
+        # Scan-to-pay QR code renders for the payment link.
+        self.assertIn("api.qrserver.com/v1/create-qr-code", page)
+        self.assertIn("Prefer to scan?", page)
 
         # Sign it: the accept response carries the deposit + instructions, and
         # the success modal confirms acceptance.

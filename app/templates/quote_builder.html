@@ -1129,6 +1129,7 @@ function quoteBuilder(quoteId) {
     },
 
     async init() {
+      const asmParam = new URLSearchParams(location.search).get('assembly') || '';
       try {
         const [clients, assemblies] = await Promise.all([BQ.api('/api/clients'), BQ.api('/api/assemblies')]);
         this.clients = clients; this.assemblies = assemblies;
@@ -1151,6 +1152,18 @@ function quoteBuilder(quoteId) {
         } catch (e) { BQ.toast('Could not create quote: ' + e.message); }
       }
       this.refreshIcons();
+      // Global-search deep link: ?assembly=CODE opens the parametric drawer
+      // with that assembly pre-selected.
+      if (asmParam) {
+        const a = (this.assemblies || []).find(x => x.code === asmParam);
+        if (a) {
+          this.selectedCode = a.code;
+          this.openAssemblyDrawer = true;
+          history.replaceState(null, '', '/quotes/' + this.quoteId);
+        } else {
+          BQ.toast('Assembly "' + asmParam + '" not found');
+        }
+      }
     },
 
     async loadQuote() {

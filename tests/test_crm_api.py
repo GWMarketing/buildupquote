@@ -542,8 +542,26 @@ class CrmApiTestCase(unittest.TestCase):
         for needle in ("dashboardAnalytics", "/api/dashboard/stats", "Recent proposals",
                        "open_quotes_count", "active_jobs_count", "pending_deposits_count",
                        "Week to date", "statusPill", "statusLabel", "appShell",
-                       "sidebarCollapsed", "Jobs / Projects", "Search quotes, clients", "recent_quotes"):
+                       "sidebarCollapsed", "Jobs / Projects", "Search quotes, clients", "recent_quotes",
+                       "quotes?view=open", "BQ_SHELL_STATS_CHANGED"):
             self.assertIn(needle, html)
+
+    def test_app_shell_renders_global_search_launcher(self):
+        """Every authenticated page carries the Cmd+K launcher + create menu."""
+        r = self.client.get("/quotes")
+        self.assertEqual(r.status_code, 200, r.text)
+        html = r.text
+        for needle in ("/static/js/global_search.js", "bq-search-modal", "bq-search-input",
+                       "bq-search-results", "New Invoice", "New Client", "createOpen",
+                       "chevron-right", "⌘K"):
+            self.assertIn(needle, html)
+        # The launcher script ships the fuzzy engine, keyboard handling, and
+        # the cross-tab sync channel.
+        js = self.client.get("/static/js/global_search.js")
+        self.assertEqual(js.status_code, 200, js.text)
+        for needle in ("window.BQSearch", "BroadcastChannel('bq_updates')",
+                       "BQ_SHELL_STATS_CHANGED", "metaKey", "searchIndex"):
+            self.assertIn(needle, js.text)
 
     # ------------------------------------------------------------------
     # Production hardening: password toggle, security/caching headers

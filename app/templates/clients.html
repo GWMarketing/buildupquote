@@ -148,6 +148,10 @@ function clientManager() {
     /* Page boot: handle a post-OAuth redirect from Google, then load. */
     async init() {
       const params = new URLSearchParams(location.search);
+      if (params.has('new')) {
+        history.replaceState({}, '', '/clients');
+        this.openAddClientModal = true;
+      }
       if (params.has('google_import')) {
         history.replaceState({}, '', '/clients');
         await this.importGoogleContacts(true);

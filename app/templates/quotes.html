@@ -118,6 +118,10 @@ function quotesPage() {
           all = all.filter(x => ['sent', 'accepted'].includes(x.status));
           this.viewLabel = 'Active jobs';
         }
+        if (view === 'open') {
+          all = all.filter(x => ['draft', 'sent'].includes(x.status));
+          this.viewLabel = 'Open proposals';
+        }
         if (q) {
           all = all.filter(x =>
             (x.title || '').toLowerCase().includes(q) ||
