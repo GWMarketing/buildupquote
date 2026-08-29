@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BuildUpQuote — Parametric Estimating for Trade Contractors</title>
-<meta name="description" content="Price renovation projects in seconds. Parametric assemblies, trade autocorrect, legally binding digital sign-offs, and branded PDF proposals — built for trade contractors.">
+<meta name="description" content="The only quote tool that turns an insurance adjuster's PDF into a priced, branded quote in about 15 minutes. Parametric estimating, trade autocorrect, legally binding digital sign-offs, and branded PDF proposals — built for trade contractors.">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -100,6 +100,21 @@
         <span class="flex items-center gap-1.5"><i data-lucide="check" class="h-3.5 w-3.5 text-amber-500"></i> 7-day free trial</span>
         <span class="flex items-center gap-1.5"><i data-lucide="check" class="h-3.5 w-3.5 text-amber-500"></i> Cancel anytime</span>
       </p>
+      <!-- Differentiator stat strip -->
+      <div class="mt-8 grid max-w-xl grid-cols-3 gap-4 rounded-xl border border-amber-500/25 bg-gradient-to-r from-amber-500/10 to-transparent p-4">
+        <div>
+          <p class="text-2xl font-black text-amber-400">~15 min</p>
+          <p class="text-[10px] uppercase tracking-wider text-slate-500">adjuster PDF to a priced quote</p>
+        </div>
+        <div class="border-l border-slate-800 pl-4">
+          <p class="text-2xl font-black text-amber-400">0</p>
+          <p class="text-[10px] uppercase tracking-wider text-slate-500">line items retyped by hand</p>
+        </div>
+        <div class="border-l border-slate-800 pl-4">
+          <p class="text-2xl font-black text-amber-400">Only us</p>
+          <p class="text-[10px] uppercase tracking-wider text-slate-500">reads your insurer's PDF</p>
+        </div>
+      </div>
     </div>
 
     <!-- Right: quote-builder cockpit mockup -->
@@ -242,9 +257,13 @@
           The adjuster already wrote the scope. <span class="text-amber-500">Stop retyping it.</span>
         </h2>
         <p class="mt-4 text-lg text-slate-400">
-          Upload the insurer's estimate and BuildUpQuote reads the scope, prices every line against
-          your rate catalog, and hands you a client-ready proposal — in about 15 minutes. No more
-          endless copy-pasting of line items with no end in sight.
+          Every other quoting tool makes you start from a blank line-item sheet. BuildUpQuote is
+          the only one that reads the insurer's estimate for you: upload the PDF, and it prices
+          the scope against your rate catalog and hands you a client-ready proposal — in about
+          15 minutes. No more endless copy-pasting of line items with no end in sight.
+        </p>
+        <p class="mt-4 text-sm font-semibold text-amber-400">
+          <i data-lucide="sparkles" class="mr-1 inline h-4 w-4"></i> The capability no other service offers.
         </p>
         <ul class="mt-6 space-y-3 text-sm text-slate-300">
           <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> From adjuster PDF to a priced, branded quote in about 15 minutes</li>
@@ -385,7 +404,7 @@
         <p class="mt-1 h-4 text-xs text-slate-500" x-show="annual" x-cloak>billed annually ($690/yr)</p>
         <ul class="mt-6 flex-1 space-y-3 text-sm text-slate-200">
           <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Unlimited quotes</li>
-          <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Insurance PDF parser</li>
+          <li class="flex gap-2"><i data-lucide="star" class="mt-0.5 h-4 w-4 shrink-0 text-amber-400"></i> Insurance PDF parser <span class="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">only we do this</span></li>
           <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Rate catalog + trade autocorrect</li>
           <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Google Contacts sync &amp; CSV/vCard import</li>
           <li class="flex gap-2"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-amber-500"></i> Master contract attachments</li>
