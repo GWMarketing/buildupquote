@@ -413,6 +413,11 @@ class CockpitApiTestCase(unittest.TestCase):
         self.assertIn("Payment Schedule", html)
         self.assertIn("50 / 50", html)
         self.assertIn("33 / 33 / 34", html)
+        # Hands-free voice-to-scope (Web Speech API).
+        self.assertIn("Voice-to-Scope", html)
+        self.assertIn("toggleVoice", html)
+        self.assertIn("webkitSpeechRecognition", html)
+        self.assertIn("applyVoice", html)
         self.assertIn("previewAssembly", html)
         self.assertIn("applyRoomPreset", html)
         # Advanced estimating pack.
