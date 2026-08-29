@@ -105,3 +105,11 @@ def catalog(request: Request):
 @router.get("/settings")
 def settings(request: Request):
     return templates.TemplateResponse(request, "settings.html", {"active": "settings"})
+
+
+@router.get("/admin")
+def admin(request: Request):
+    """Platform admin console. The page itself is just a shell; every data
+    call goes to /api/admin/* which is server-gated by get_current_admin
+    (403 for non-admins). admin.html also self-redirects non-admins away."""
+    return templates.TemplateResponse(request, "admin.html", {"active": "admin"})

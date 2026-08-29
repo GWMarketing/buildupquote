@@ -77,6 +77,10 @@ class User(Base):
     job_title = Column(String, nullable=True)  # "Owner / Lead Contractor", "Senior Estimator"...
     is_active = Column(Boolean, default=True)
     role = Column(String, default="owner")
+    # Platform admin (full-instance access). Separate axis from the org-scoped
+    # `role` column: an admin can see/control every organization regardless of
+    # which org they belong to. Only admins can set it.
+    is_admin = Column(Boolean, nullable=False, default=False)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True, index=True)
     # Google Contacts sync (People API): the user's OAuth tokens. The refresh
     # token is long-lived; the access token is refreshed on demand.

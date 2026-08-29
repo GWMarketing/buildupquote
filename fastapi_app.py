@@ -31,6 +31,7 @@ import workspace  # noqa: E402 -- pure logic, no framework
 import app.models  # noqa: E402 -- registers the User table with Base.metadata
 from app.database import Base, SessionLocal, engine, ensure_legacy_columns, get_db
 from app.routers import assemblies as assemblies_router
+from app.routers import admin as admin_router
 from app.routers import auth as auth_router
 from app.routers import billing as billing_router
 from app.routers import catalog as catalog_router
@@ -70,6 +71,22 @@ async def lifespan(_: FastAPI):
         try:
             seed_assemblies_and_lexicon(seed_db)
             seed_trade_catalog(seed_db)
+            # Platform-admin bootstrap: every email in ADMIN_EMAILS
+            # (comma-separated) is granted is_admin. Idempotent, so a deploy
+            # re-runs it safely. Set in the VPS .env, e.g.
+            # ADMIN_EMAILS=glenn@example.com.
+            for email in (
+                e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()
+            ):
+                admin_user = (
+                    seed_db.query(app.models.User)
+                    .filter(app.models.User.email == email)
+                    .first()
+                )
+                if admin_user and not admin_user.is_admin:
+                    admin_user.is_admin = True
+                    seed_db.add(admin_user)
+            seed_db.commit()
         finally:
             seed_db.close()
     except Exception as exc:  # noqa: BLE001 -- surfaced via /api/db-check
@@ -84,6 +101,7 @@ app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
 app.include_router(pages_router.router)
 app.include_router(auth_router.router)
+app.include_router(admin_router.router)
 app.include_router(billing_router.router)
 app.include_router(organization_router.router)
 app.include_router(clients_router.router)

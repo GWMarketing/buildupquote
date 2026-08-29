@@ -46,9 +46,10 @@
         ('clients', '/clients', 'Clients', 'users'),
         ('catalog', '/catalog', 'Rate Catalog', 'book-open'),
         ('settings', '/settings', 'Settings', 'settings'),
+        ('admin', '/admin', 'Admin', 'shield'),
       ] %}
       {% for key, href, label, icon in nav %}
-      <a href="{{ href }}"
+      <a href="{{ href }}" id="nav-{{ key }}" {% if key == 'admin' %}style="display:none"{% endif %}
          class="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors
                 {{ 'bg-amber-500 text-white shadow-sm dark:bg-amber-500 dark:text-white' if active == key else 'text-slate-600 hover:bg-amber-50 hover:text-amber-700 dark:text-slate-300 dark:hover:bg-slate-800' }}">
         <i data-lucide="{{ icon }}" class="h-4 w-4"></i>
@@ -73,6 +74,22 @@
 </main>
 
 <style>[x-cloak]{display:none!important}</style>
+<script>
+  // Reveal the Admin nav item only for platform admins. The server enforces
+  // this on every /api/admin/* call (403); this just keeps non-admins from
+  // ever seeing the link.
+  (async function () {
+    const link = document.getElementById('nav-admin');
+    if (!link) return;
+    try {
+      const res = await fetch('/api/users/me', {
+        headers: { Authorization: 'Bearer ' + (localStorage.getItem('bq_token') || '') },
+      });
+      const data = await res.json();
+      if (res.ok && data.is_admin) link.style.display = '';
+    } catch (e) { /* keep hidden */ }
+  })();
+</script>
 </body>
 </html>
 

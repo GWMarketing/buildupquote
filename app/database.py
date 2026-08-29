@@ -58,6 +58,8 @@ def ensure_legacy_columns(bind):
         statements.append("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'owner'")
     if "job_title" not in existing:
         statements.append("ALTER TABLE users ADD COLUMN job_title VARCHAR")
+    if "is_admin" not in existing:
+        statements.append("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE")
     if "google_access_token" not in existing:
         statements.append("ALTER TABLE users ADD COLUMN google_access_token VARCHAR")
     if "google_refresh_token" not in existing:

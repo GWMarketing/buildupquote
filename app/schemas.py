@@ -80,6 +80,7 @@ class UserOut(BaseModel):
     full_name: Optional[str] = None
     is_active: bool
     role: str
+    is_admin: bool = False  # platform admin (full-instance access)
     organization_id: Optional[int] = None
     created_at: datetime
 
@@ -94,6 +95,7 @@ class UserProfileOut(BaseModel):
     full_name: Optional[str] = None
     job_title: Optional[str] = None
     role: str
+    is_admin: bool = False
     organization_id: Optional[int] = None
 
     model_config = {"from_attributes": True}

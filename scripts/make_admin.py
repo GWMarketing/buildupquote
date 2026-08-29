@@ -1,0 +1,37 @@
+"""Promote a user to platform admin (one-off).
+
+Usage:
+    ./venv/bin/python scripts/make_admin.py someone@example.com
+
+Uses the same DATABASE_URL as the app (env var; defaults to localhost
+postgres). For the deployed instance, prefer the ADMIN_EMAILS env var in the
+VPS .env -- it grants admin at every startup and is idempotent.
+"""
+import sys
+
+from app import models
+from app.database import SessionLocal
+
+
+def main() -> None:
+    if len(sys.argv) != 2:
+        print(__doc__)
+        sys.exit(1)
+    email = sys.argv[1].strip().lower()
+
+    db = SessionLocal()
+    try:
+        user = db.query(models.User).filter(models.User.email == email).first()
+        if user is None:
+            print(f"No user found with email {email!r}.")
+            sys.exit(1)
+        user.is_admin = True
+        db.add(user)
+        db.commit()
+        print(f"{email} is now a platform admin.")
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    main()

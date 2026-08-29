@@ -110,7 +110,27 @@ def get_current_user(
     )
     if user is None:
         raise credentials_exception
+    if not user.is_active:
+        # Deactivated accounts keep no access, even with a still-valid JWT.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account disabled",
+        )
     return user
+
+
+def get_current_admin(
+    current_user: models.User = Depends(get_current_user),
+) -> models.User:
+    """FastAPI dependency for platform-admin endpoints: same as
+    get_current_user, but requires the is_admin flag (403 otherwise). Every
+    /api/admin/* endpoint uses this -- the one server-side gate."""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user
 
 
 def _google_jwks() -> dict:

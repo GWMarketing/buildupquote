@@ -37,6 +37,9 @@ services:
       # Public origin used for absolute Stripe success/cancel URLs (TLS
       # terminates at Caddy, so the app itself only ever sees plain http).
       APP_BASE_URL: "${APP_BASE_URL:-https://glennwestman.com}"
+      # Platform admins: comma-separated emails granted is_admin on startup
+      # (e.g. "glenn@example.com,partner@example.com"). Set in the .env file.
+      ADMIN_EMAILS: "${ADMIN_EMAILS:-}"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

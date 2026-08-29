@@ -1,5 +1,6 @@
 """Registration, login, the authenticated /me endpoint, and the Google
 Contacts OAuth dance (People API)."""
+import os
 import secrets
 import urllib.parse
 
@@ -26,6 +27,15 @@ from app.database import get_db
 from app.services import google_contacts
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+# Platform admins, as a lowercased set. New accounts whose email is listed
+# here are granted is_admin at registration (the lifespan also re-applies it
+# at every startup for users who signed up before the env var was set).
+ADMIN_EMAILS = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()}
+
+
+def _is_admin_email(email: str) -> bool:
+    return email in ADMIN_EMAILS
 
 
 def _normalize_email(email: str) -> str:
@@ -78,6 +88,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         full_name=(user.full_name or "").strip(),  # NOT NULL column; may be ""
         organization_id=organization.id if organization else None,
         role="owner",
+        is_admin=_is_admin_email(email),
     )
     db.add(db_user)
     db.commit()
@@ -149,6 +160,7 @@ def google_auth(payload: schemas.GoogleAuthRequest, db: Session = Depends(get_db
             full_name=profile["name"],
             organization_id=organization.id,
             role="owner",
+            is_admin=_is_admin_email(email),
         )
         db.add(db_user)
         db.commit()
