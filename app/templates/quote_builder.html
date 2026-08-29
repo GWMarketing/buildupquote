@@ -1095,7 +1095,7 @@ function quoteBuilder(quoteId) {
       row._suggestions = []; row._showSuggest = false;
     },
 
-    fmt(n) { return this.currencySymbol + Number(n || 0).toFixed(2); },
+    fmt(n) { return this.currencySymbol + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
 
 
     applyMargin() { this.lines.forEach(r => r.markup_percent = this.margin); },

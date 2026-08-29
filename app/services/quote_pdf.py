@@ -95,6 +95,18 @@ def contract_for_quote(quote, organization, currency: str, date_str: str):
     return True, process_contract_text(raw, values)
 
 
+def format_money(value, symbol="$"):
+    """'$1,234.56' -- USD-style thousands grouping with the org's symbol.
+
+    The single money formatter for server-rendered templates (public proposal
+    page, PDFs, emails). Values are floats/strings from the DB; anything
+    unparseable renders as the symbol + 0.00 instead of crashing a page."""
+    try:
+        return f"{symbol}{float(value or 0):,.2f}"
+    except (TypeError, ValueError):
+        return f"{symbol}0.00"
+
+
 def render_quote_pdf(context: dict, output_path: str) -> str:
     organization = context.get("organization")
     render_context = dict(context)
@@ -102,6 +114,7 @@ def render_quote_pdf(context: dict, output_path: str) -> str:
                                   and organization.currency_symbol else "$")
     render_context["logo_uri"] = _logo_data_uri(organization.logo_url if organization else None)
     env = Environment(loader=FileSystemLoader(_TEMPLATE_DIR), autoescape=True)
+    env.filters["money"] = format_money
     html = env.get_template("quote.html").render(**render_context)
     HTML(string=html).write_pdf(output_path, stylesheets=[_PAGE_CSS])
     return output_path

@@ -41,7 +41,7 @@
             <td class="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100" x-text="item.canonical_name"></td>
             <td class="px-6 py-4 text-xs text-slate-500 dark:text-slate-400" x-text="item.default_trade_type"></td>
             <td class="px-6 py-4 text-slate-600 dark:text-slate-300" x-text="item.unit"></td>
-            <td class="px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100" x-text="currencySymbol + Number(item.default_unit_cost).toFixed(2)"></td>
+            <td class="px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100" x-text="money(item.default_unit_cost)"></td>
             <td class="px-6 py-4 text-right">
               <button @click="deleteItem(item.id)" class="text-slate-400 transition hover:text-red-600" title="Delete item">
                 <i data-lucide="trash-2" class="h-4 w-4"></i>
@@ -109,7 +109,10 @@ function catalogManager() {
     items: [], filteredItems: [], searchQuery: '',
     loading: true, saving: false,
     openNewItemModal: false,
-    currencySymbol: '£',
+    currencySymbol: '$',
+    money(n) {
+      return this.currencySymbol + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
     newItem: { trade: '', canonical_name: '', unit: 'unit', default_unit_cost: 0.0, default_trade_type: 'Material' },
 
     async init() {

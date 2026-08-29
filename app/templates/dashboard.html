@@ -9,7 +9,7 @@
         <span class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Active Pipeline</span>
         <span class="rounded-lg bg-indigo-50 p-2 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><i data-lucide="layers" class="h-4 w-4"></i></span>
       </div>
-      <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white" x-text="stats.currency + stats.pipeline_total"></p>
+      <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white" x-text="money(stats.pipeline_total)"></p>
       <p class="mt-1 text-xs text-slate-400" x-text="stats.active_quotes_count + ' draft/sent proposals'"></p>
     </div>
 
@@ -18,7 +18,7 @@
         <span class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Won Revenue</span>
         <span class="rounded-lg bg-emerald-50 p-2 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"><i data-lucide="check-circle" class="h-4 w-4"></i></span>
       </div>
-      <p class="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400" x-text="stats.currency + stats.won_revenue"></p>
+      <p class="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400" x-text="money(stats.won_revenue)"></p>
       <p class="mt-1 text-xs text-slate-400" x-text="stats.accepted_quotes_count + ' accepted contracts'"></p>
     </div>
 
@@ -88,7 +88,7 @@
                   'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300': q.status === 'Accepted'
                 }" class="rounded-full px-2.5 py-1 text-xs font-bold" x-text="q.status"></span>
             </td>
-            <td class="px-6 py-4 text-right font-black text-slate-900 dark:text-slate-100" x-text="stats.currency + Number(q.total_amount).toFixed(2)"></td>
+            <td class="px-6 py-4 text-right font-black text-slate-900 dark:text-slate-100" x-text="money(q.total_amount)"></td>
             <td class="flex justify-end gap-2 px-6 py-4 text-right">
               <a :href="'/quotes/' + q.id" class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200" title="Open quote"><i data-lucide="edit-3" class="h-4 w-4"></i></a>
               <a :href="'/api/quotes/' + q.id + '/export-pdf'" target="_blank" class="text-slate-400 hover:text-emerald-600" title="Download PDF"><i data-lucide="download" class="h-4 w-4"></i></a>
@@ -113,8 +113,12 @@
 function dashboardAnalytics() {
   return {
     loading: true,
-    stats: { currency: '£', pipeline_total: '0.00', won_revenue: '0.00', active_quotes_count: 0, accepted_quotes_count: 0, win_rate: 0, avg_margin: 22 },
+    stats: { currency: '$', pipeline_total: '0.00', won_revenue: '0.00', active_quotes_count: 0, accepted_quotes_count: 0, win_rate: 0, avg_margin: 22 },
     recentQuotes: [],
+
+    money(n) {
+      return this.stats.currency + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
 
     async fetchStats() {
       try {

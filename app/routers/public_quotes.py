@@ -27,6 +27,7 @@ _TEMPLATES_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates"
 )
 templates = Jinja2Templates(directory=_TEMPLATES_DIR)
+templates.env.filters["money"] = quote_pdf.format_money
 
 
 def _get_quote_by_uuid(db: Session, public_uuid: str) -> models.Quote:
@@ -81,7 +82,7 @@ def public_quote_view(
         )
     organization = _organization_for(db, quote)
     expires_at, is_expired = _expiry_info(quote)
-    _currency = (organization.currency_symbol if organization and organization.currency_symbol else "£")
+    _currency = (organization.currency_symbol if organization and organization.currency_symbol else "$")
     _include, _contract = quote_pdf.contract_for_quote(
         quote, organization, _currency, time.strftime("%d %b %Y"),
     )
@@ -165,7 +166,7 @@ def public_quote_download_pdf(
     organization = _organization_for(db, quote)
     fd, out_path = tempfile.mkstemp(prefix=f"public-quote-{quote.id}-", suffix=".pdf")
     os.close(fd)
-    _currency = (organization.currency_symbol if organization and organization.currency_symbol else "£")
+    _currency = (organization.currency_symbol if organization and organization.currency_symbol else "$")
     _include, _contract = quote_pdf.contract_for_quote(
         quote, organization, _currency, time.strftime("%d %b %Y"),
     )

@@ -439,6 +439,7 @@ class CrmApiTestCase(unittest.TestCase):
         body = r.json()
         self.assertEqual(body["stats"]["active_quotes_count"], 0)
         self.assertEqual(body["stats"]["pipeline_total"], "0.00")
+        self.assertEqual(body["stats"]["currency"], "$")  # USD default
         self.assertEqual(body["recent_quotes"], [])
 
     def test_dashboard_stats_computes_analytics(self):
@@ -744,7 +745,7 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         self.assertIn("Contract Agreement &amp; Terms of Service", r.text)
         self.assertIn("Binding terms for", r.text)
-        self.assertIn("£240.00", r.text)  # public view defaults to £
+        self.assertIn("$240.00", r.text)  # public view defaults to USD ($)
 
     def test_settings_and_builder_contract_ui(self):
         r = self.client.get("/settings")
@@ -770,7 +771,7 @@ class CrmApiTestCase(unittest.TestCase):
             "license_number": "CSLB #123456",
             "tax_id": "TX-1",
             "default_payment_terms": "Due on receipt. 10% discount for upfront payment.",
-            "currency_symbol": "£",
+            "currency_symbol": "$",
             "full_name": "Glenn Westman",
             "job_title": "Owner / Lead Contractor",
         })
@@ -785,7 +786,7 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertEqual(body["license_number"], "CSLB #123456")
         self.assertEqual(body["tax_id"], "TX-1")
         self.assertEqual(body["default_payment_terms"], "Due on receipt. 10% discount for upfront payment.")
-        self.assertEqual(body["currency_symbol"], "£")
+        self.assertEqual(body["currency_symbol"], "$")
         self.assertEqual(body["full_name"], "Glenn Westman")
         self.assertEqual(body["job_title"], "Owner / Lead Contractor")
         # Persisted: a fresh GET returns the same values, including the rep.
@@ -821,7 +822,7 @@ class CrmApiTestCase(unittest.TestCase):
             "license_number": "CSLB #1",
             "tax_id": "EIN-1",
             "default_payment_terms": "Net 14",
-            "currency_symbol": "£",
+            "currency_symbol": "$",
             "full_name": "Glenn Westman",
             "job_title": "Owner / Lead Contractor",
         }

@@ -24,7 +24,7 @@ def dashboard_stats(
     accepted_quotes_count, win_rate, avg_margin}, recent_quotes: [...]}."""
     empty = {
         "stats": {
-            "currency": "£", "pipeline_total": "0.00", "won_revenue": "0.00",
+            "currency": "$", "pipeline_total": "0.00", "won_revenue": "0.00",
             "active_quotes_count": 0, "accepted_quotes_count": 0,
             "win_rate": 0, "avg_margin": 0,
         },
@@ -58,7 +58,7 @@ def dashboard_stats(
     )
 
     org = db.query(models.Organization).filter(models.Organization.id == org_id).first()
-    currency = org.currency_symbol if (org and org.currency_symbol) else "£"
+    currency = org.currency_symbol if (org and org.currency_symbol) else "$"
 
     recent = (
         db.query(models.Quote)

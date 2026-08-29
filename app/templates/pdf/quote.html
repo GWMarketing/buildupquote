@@ -190,8 +190,8 @@
                 <td>{{ line.description }}</td>
                 <td style="text-align: right;">{{ "%.3f"|format(line.quantity) }}</td>
                 <td>{{ line.unit }}</td>
-                <td style="text-align: right;">{{ currency }}{{ "%.2f"|format(line.unit_cost) }}</td>
-                <td style="text-align: right; font-weight: 700;">{{ currency }}{{ "%.2f"|format(line.line_total) }}</td>
+                <td style="text-align: right;">{{ (line.unit_cost)|money(currency) }}</td>
+                <td style="text-align: right; font-weight: 700;">{{ (line.line_total)|money(currency) }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -208,21 +208,21 @@
                 <table class="totals-table">
                     <tr>
                         <td style="color: #64748b;">Subtotal (Net):</td>
-                        <td style="text-align: right; font-weight: 600;">{{ currency }}{{ "%.2f"|format(quote.subtotal or 0) }}</td>
+                        <td style="text-align: right; font-weight: 600;">{{ (quote.subtotal or 0)|money(currency) }}</td>
                     </tr>
                     <tr>
                         <td style="color: #64748b;">Tax / VAT{% if quote.tax_rate_percent is not none %} ({{ "%.2f"|format(quote.tax_rate_percent) }}%){% endif %}:</td>
-                        <td style="text-align: right; font-weight: 600;">{{ currency }}{{ "%.2f"|format(quote.tax_amount or 0) }}</td>
+                        <td style="text-align: right; font-weight: 600;">{{ (quote.tax_amount or 0)|money(currency) }}</td>
                     </tr>
                     {% if quote.contingency_visible and (quote.contingency_percent or 0) %}
                     <tr>
                         <td style="color: #64748b;">Contingency Reserve ({{ "%.0f"|format(quote.contingency_percent) }}%):</td>
-                        <td style="text-align: right; font-weight: 600;">{{ currency }}{{ "%.2f"|format((quote.subtotal | float) * (quote.contingency_percent | float) / 100) }}</td>
+                        <td style="text-align: right; font-weight: 600;">{{ ((quote.subtotal | float) * (quote.contingency_percent | float) / 100)|money(currency) }}</td>
                     </tr>
                     {% endif %}
                     <tr class="grand-total">
                         <td>Total Amount:</td>
-                        <td style="text-align: right; color: #0f172a;">{{ currency }}{{ "%.2f"|format(quote.total or 0) }}</td>
+                        <td style="text-align: right; color: #0f172a;">{{ (quote.total or 0)|money(currency) }}</td>
                     </tr>
                 </table>
             </td>
@@ -239,12 +239,12 @@
                     {% for m in quote.payment_schedule %}
                     <tr>
                         <td style="color: #475569;">{{ m.label }}{% if m.percent is not none %} ({{ "%.0f"|format(m.percent) }}%){% endif %}</td>
-                        <td style="text-align: right; font-weight: 600;">{{ currency }}{{ "%.2f"|format((quote.total | float) * m.percent / 100) }}</td>
+                        <td style="text-align: right; font-weight: 600;">{{ ((quote.total | float) * m.percent / 100)|money(currency) }}</td>
                     </tr>
                     {% endfor %}
                     <tr>
                         <td style="color: #64748b;">Total Amount:</td>
-                        <td style="text-align: right; font-weight: 700; color: #0f172a;">{{ currency }}{{ "%.2f"|format(quote.total or 0) }}</td>
+                        <td style="text-align: right; font-weight: 700; color: #0f172a;">{{ (quote.total or 0)|money(currency) }}</td>
                     </tr>
                 </table>
             </td>

@@ -74,7 +74,7 @@ const BQ = {
     setTimeout(() => el.remove(), 4000);
   },
 
-  money(n) { return '$' + Number(n || 0).toFixed(2); },
+  money(n) { return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
 
   statusClass(status) {
     return { draft: 'badge-draft', sent: 'badge-sent', accepted: 'badge-accepted' }[status] || 'badge-draft';

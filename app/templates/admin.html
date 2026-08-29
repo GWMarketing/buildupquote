@@ -61,11 +61,11 @@
     <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <div class="rounded-xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-500/30 dark:bg-amber-500/10">
         <span class="text-xs font-bold uppercase text-amber-700 dark:text-amber-400">Pipeline value</span>
-        <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white" x-text="stats ? '$' + Number(stats.revenue.pipeline_total).toFixed(2) : '–'"></p>
+        <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white" x-text="stats ? money(stats.revenue.pipeline_total) : '–'"></p>
       </div>
       <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-500/30 dark:bg-emerald-500/10">
         <span class="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400">Won revenue</span>
-        <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white" x-text="stats ? '$' + Number(stats.revenue.won_revenue).toFixed(2) : '–'"></p>
+        <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white" x-text="stats ? money(stats.revenue.won_revenue) : '–'"></p>
       </div>
       <div class="rounded-xl border border-sky-200 bg-sky-50 p-5 dark:border-sky-500/30 dark:bg-sky-500/10">
         <span class="text-xs font-bold uppercase text-sky-700 dark:text-sky-400">Avg margin</span>
@@ -73,7 +73,7 @@
       </div>
       <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <span class="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Est. monthly revenue</span>
-        <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white" x-text="stats ? '$' + Number(stats.revenue.mrr).toFixed(0) + '/mo' : '–'"></p>
+        <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white" x-text="stats ? '$' + Number(stats.revenue.mrr || 0).toLocaleString('en-US', { maximumFractionDigits: 0 }) + '/mo' : '–'"></p>
         <p class="mt-1 text-xs text-slate-400">trialing + active subscriptions</p>
       </div>
     </div>
@@ -124,7 +124,7 @@
                   <p class="font-semibold text-slate-800 dark:text-slate-200" x-text="q.title"></p>
                   <p class="text-xs text-slate-400" x-text="q.client_name || 'Direct client'"></p>
                 </td>
-                <td class="px-4 py-3 text-right text-sm font-bold text-slate-900 dark:text-white" x-text="'$' + Number(q.total_amount).toFixed(2)"></td>
+                <td class="px-4 py-3 text-right text-sm font-bold text-slate-900 dark:text-white" x-text="money(q.total_amount)"></td>
               </tr>
             </template>
             <tr x-show="stats && stats.recent_quotes.length === 0">
@@ -313,7 +313,7 @@
               <td class="px-4 py-3 text-slate-600 dark:text-slate-300" x-text="c.email || '—'"></td>
               <td class="px-4 py-3 text-slate-600 dark:text-slate-300" x-text="c.phone || '—'"></td>
               <td class="px-4 py-3 text-center text-slate-600 dark:text-slate-300" x-text="c.quote_count"></td>
-              <td class="px-4 py-3 text-right font-bold text-slate-900 dark:text-white" x-text="'$' + Number(c.total_quoted).toFixed(2)"></td>
+              <td class="px-4 py-3 text-right font-bold text-slate-900 dark:text-white" x-text="money(c.total_quoted)"></td>
             </tr>
           </template>
           <tr x-show="!loading && clients.length === 0">
@@ -332,6 +332,9 @@ function adminPage() {
     loading: true,
     error: '',
     stats: null,
+    money(n) {
+      return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
     orgs: [],
     orgSearch: '',
     orgTier: '',
