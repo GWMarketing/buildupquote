@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+{% block content %}
+<div x-data="crewApp()" x-init="init()" class="mx-auto max-w-7xl space-y-5 px-4 py-8">
+  <style>[x-cloak]{display:none!important}</style>
+
+  <!-- Header -->
+  <div class="flex flex-col justify-between gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center dark:border-slate-700 dark:bg-slate-900">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-white">
+        <i data-lucide="users-round" class="mr-2 inline h-6 w-6 text-amber-500"></i>Crew Availability
+      </h1>
+      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400" x-text="isBC
+        ? 'Pick a member, then click days to mark them available (green) or unavailable (red). Click again to clear.'
+        : 'Tap a day to mark yourself available (green), unavailable (red), or clear it. Your builder sees your calendar.'"></p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <template x-if="isBC">
+        <button class="bq-btn" @click="openAdd()">＋ Add crew member</button>
+      </template>
+      <div class="flex items-center gap-1 rounded-lg border border-slate-200 px-1 py-1 dark:border-slate-700">
+        <button @click="shiftMonth(-1)" class="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" title="Previous month">‹</button>
+        <span class="min-w-[110px] text-center text-sm font-semibold text-slate-700 dark:text-slate-200" x-text="monthLabel"></span>
+        <button @click="shiftMonth(1)" class="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" title="Next month">›</button>
+        <button @click="goToday()" class="ml-1 rounded-md px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-slate-800">Today</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid gap-5 lg:grid-cols-[300px_1fr]">
+    <!-- ============ Roster (builder only) ============ -->
+    <div x-show="isBC" x-cloak class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200">Roster</h2>
+        <span class="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400"
+              x-text="members.length + ' crew'"></span>
+      </div>
+      <input type="text" x-model="search" placeholder="Search name or trade..."
+             class="mb-3 w-full rounded-lg border border-slate-200 p-2 text-sm focus:ring-2 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+      <div class="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
+        <template x-for="m in filteredMembers" :key="m.id">
+          <button @click="selectMember(m.id)"
+                  class="w-full rounded-lg border p-3 text-left transition-colors"
+                  :class="selectedId === m.id
+                    ? 'border-amber-500 bg-amber-500/10 dark:bg-amber-500/10'
+                    : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'">
+            <div class="flex items-center justify-between gap-2">
+              <span class="truncate text-sm font-semibold text-slate-800 dark:text-slate-100" x-text="m.full_name"></span>
+              <span class="flex shrink-0 gap-1">
+                <span @click.stop="openEdit(m)" class="rounded px-1.5 py-0.5 text-xs text-slate-400 hover:bg-slate-100 hover:text-amber-600 dark:hover:bg-slate-800" title="Edit">✎</span>
+                <span @click.stop="askRemove(m)" class="rounded px-1.5 py-0.5 text-xs text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-slate-800" title="Remove">🗑</span>
+              </span>
+            </div>
+            <div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
+              <span x-text="m.trade || 'General'"></span>
+              <template x-if="m.phone"><span class="opacity-60" x-text="m.phone"></span></template>
+            </div>
+            <div class="mt-1 text-[11px]" :class="freeCount(m.id) > 0 ? 'text-emerald-500' : 'text-slate-400'"
+                 x-text="freeCount(m.id) + ' free days in ' + monthShort"></div>
+          </button>
+        </template>
+        <p x-show="members.length === 0" class="py-6 text-center text-sm text-slate-400">
+          No crew yet — hit <span class="font-semibold text-amber-500">＋ Add crew member</span>.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============ Calendar ============ -->
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200"
+              x-text="isBC ? (selectedName || 'Pick a member') : (me ? me.full_name + ' — my availability' : '')"></h2>
+          <p class="text-[11px] text-slate-400" x-show="isBC && !selectedId">Select a crew member on the left to open their calendar.</p>
+        </div>
+        <div class="flex items-center gap-2 text-[11px] text-slate-400">
+          <span x-show="saving" x-cloak class="mr-1 inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500"></span>
+          <span x-show="!saving" x-cloak x-text="savedNote"></span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-7 gap-1">
+        <template x-for="(w, i) in ['S','M','T','W','T','F','S']" :key="i">
+          <div class="pb-1 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400" x-text="w"></div>
+        </template>
+      </div>
+      <div class="grid grid-cols-7 gap-1">
+        <template x-for="cell in cells" :key="cell.key">
+          <button x-show="!cell.blank"
+                  @click="toggleDay(cell)"
+                  class="flex aspect-square flex-col items-center justify-center rounded-lg border text-sm transition-colors"
+                  :class="cellClass(cell)">
+            <span x-text="cell.day"></span>
+          </button>
+        </template>
+      </div>
+
+      <div class="mt-3 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-3 text-[11px] text-slate-500 dark:border-slate-800 dark:text-slate-400">
+        <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded bg-emerald-500/20 ring-1 ring-emerald-500/50"></span> Available</span>
+        <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded bg-rose-500/20 ring-1 ring-rose-500/50"></span> Unavailable</span>
+        <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded border border-slate-300 dark:border-slate-600"></span> Unmarked</span>
+        <span class="ml-auto" x-text="isBC ? 'Click a day to cycle: available → unavailable → clear.' : 'Tap a day to cycle: available → unavailable → clear.'"></span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Add / edit member modal -->
+  <div x-show="memberModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-[#0B0F17]/70 p-4"
+       @keydown.escape.window="memberModalOpen = false" @click.self="memberModalOpen = false">
+    <div class="w-full max-w-sm rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-xl">
+      <h2 class="text-base font-semibold text-slate-200" x-text="editing ? 'Edit crew member' : 'Add crew member'"></h2>
+      <div class="mt-4 space-y-3">
+        <div>
+          <label class="mb-1 block text-xs font-medium text-slate-400">Full name *</label>
+          <input class="bq-input" x-model="memberForm.full_name" placeholder="Joe Romero">
+        </div>
+        <div x-show="!editing">
+          <label class="mb-1 block text-xs font-medium text-slate-400">Email * (their login)</label>
+          <input class="bq-input" type="email" x-model="memberForm.email" placeholder="joe@example.com">
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-slate-400">Trade / role</label>
+          <input class="bq-input" x-model="memberForm.trade" placeholder="Framing, Drywall, Apprentice…">
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-slate-400">Phone</label>
+          <input class="bq-input" x-model="memberForm.phone" placeholder="(555) 010-1234">
+        </div>
+      </div>
+      <div class="mt-5 flex justify-end gap-2">
+        <button class="bq-btn-secondary" @click="memberModalOpen = false">Cancel</button>
+        <button class="bq-btn" :disabled="savingMember" @click="saveMember()" x-text="savingMember ? 'Saving…' : (editing ? 'Save' : 'Add crew member')"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Temporary credentials reveal (after adding) -->
+  <div x-show="credsOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-[#0B0F17]/70 p-4"
+       @keydown.escape.window="credsOpen = false" @click.self="credsOpen = false">
+    <div class="w-full max-w-sm rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-xl">
+      <h2 class="text-base font-semibold text-slate-200">✅ Crew member added</h2>
+      <p class="mt-2 text-sm text-slate-400" x-show="creds" x-text="'An email with the login was sent to ' + creds.email"></p>
+      <p class="mt-2 text-sm text-slate-400">Hand them these credentials — they can mark their availability right away:</p>
+      <div class="mt-3 space-y-2 rounded-lg bg-slate-800 p-3 font-mono text-xs text-slate-200">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-slate-400">Email</span><span class="truncate" x-text="creds ? creds.email : ''"></span>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-slate-400">Temp password</span>
+          <span class="flex items-center gap-2">
+            <span x-text="creds ? creds.temporary_password : ''"></span>
+            <button @click="copyPassword()" class="rounded bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-slate-900 hover:bg-amber-400" x-text="copied ? 'Copied!' : 'Copy'"></button>
+          </span>
+        </div>
+      </div>
+      <div class="mt-5 flex justify-end">
+        <button class="bq-btn" @click="credsOpen = false">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Remove confirm -->
+  <div x-show="removeOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-[#0B0F17]/70 p-4"
+       @keydown.escape.window="removeOpen = false" @click.self="removeOpen = false">
+    <div class="w-full max-w-sm rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-xl">
+      <h2 class="text-base font-semibold text-slate-200">Remove crew member?</h2>
+      <p class="mt-2 text-sm text-slate-400" x-show="removing">
+        <span x-text="removing.full_name"></span> won't be able to log in anymore. Their availability history is kept.
+      </p>
+      <div class="mt-5 flex justify-end gap-2">
+        <button class="bq-btn-secondary" @click="removeOpen = false">Cancel</button>
+        <button class="bq-btn !bg-rose-600 hover:!bg-rose-500" @click="confirmRemove()">Remove</button>
+      </div>
+    </div>
+  </div>
+<script>
+function crewApp() {
+  return {
+    me: null,
+    isBC: false,
+    members: [],
+    search: '',
+    selectedId: null,
+    month: '',
+    days: {},              // current-view month map: { 'YYYY-MM-DD': status }
+    cache: {},             // memberId -> { month -> { date: status } }
+    saving: false,
+    savedNote: 'All changes saved',
+    memberModalOpen: false,
+    editing: null,
+    savingMember: false,
+    memberForm: { full_name: '', email: '', phone: '', trade: '' },
+    credsOpen: false,
+    creds: null,
+    copied: false,
+    removeOpen: false,
+    removing: null,
+
+    async init() {
+      try {
+        this.me = await BQ.api('/api/users/me');
+        this.isBC = this.me.role !== 'crew';
+        this.month = this.todayMonth();
+        if (this.isBC) await this.loadMembers();
+        else await this.loadDays();
+      } catch (e) {
+        BQ.toast(e.message);
+      }
+    },
+
+    // ---- month helpers ----------------------------------------------------
+    todayMonth() {
+      const n = new Date();
+      return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0');
+    },
+    shiftMonth(delta) {
+      const [y, m] = this.month.split('-').map(Number);
+      const d = new Date(y, m - 1 + delta, 1);
+      this.month = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      this.loadDays();
+    },
+    goToday() {
+      this.month = this.todayMonth();
+      this.loadDays();
+    },
+    get monthLabel() {
+      if (!this.month) return '';
+      const [y, m] = this.month.split('-').map(Number);
+      return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    },
+    get monthShort() {
+      if (!this.month) return '';
+      const [y, m] = this.month.split('-').map(Number);
+      return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short' });
+    },
+
+    // ---- roster -----------------------------------------------------------
+    get filteredMembers() {
+      const q = this.search.trim().toLowerCase();
+      if (!q) return this.members;
+      return this.members.filter(m =>
+        (m.full_name || '').toLowerCase().includes(q) ||
+        (m.trade || '').toLowerCase().includes(q));
+    },
+    get selectedName() {
+      const m = this.members.find(x => x.id === this.selectedId);
+      return m ? m.full_name : '';
+    },
+    freeCount(memberId) {
+      const byMonth = this.cache[memberId];
+      if (!byMonth || !byMonth[this.month]) return 0;
+      return Object.values(byMonth[this.month]).filter(s => s === 'available').length;
+    },
+
+    async loadMembers() {
+      try {
+        this.members = await BQ.api('/api/crew');
+        // Warm every member's current-month map so the roster shows free days
+        // and the calendar has data before the first click.
+        await Promise.all(this.members.map(m => this.fetchMonth(m.id, this.month)));
+        if (!this.selectedId && this.members.length) this.selectedId = this.members[0].id;
+        if (this.selectedId) this.days = { ...(this.cache[this.selectedId][this.month] || {}) };
+      } catch (e) {
+        BQ.toast(e.message);
+      }
+    },
+
+    selectMember(id) {
+      this.selectedId = id;
+      this.loadDays();
+    },
+
+    async fetchMonth(memberId, month) {
+      const res = await BQ.api('/api/crew/' + memberId + '/availability?month=' + month);
+      if (!this.cache[memberId]) this.cache[memberId] = {};
+      this.cache[memberId][month] = res.days || {};
+      return res.days || {};
+    },
+
+    async loadDays() {
+      try {
+        let days;
+        if (this.isBC) {
+          if (!this.selectedId) { this.days = {}; return; }
+          days = await this.fetchMonth(this.selectedId, this.month);
+        } else {
+          const res = await BQ.api('/api/crew/me/availability?month=' + this.month);
+          days = res.days || {};
+          if (!this.cache.me) this.cache.me = {};
+          this.cache.me[this.month] = days;
+        }
+        this.days = { ...days };
+        this.savedNote = 'All changes saved';
+      } catch (e) {
+        BQ.toast(e.message);
+      }
+    },
+
+
+
+    // ---- calendar ---------------------------------------------------------
+    get cells() {
+      if (!/^\d{4}-\d{2}$/.test(this.month || '')) return [];
+      const [y, m] = this.month.split('-').map(Number);
+      const first = new Date(y, m - 1, 1);
+      const lead = first.getDay();
+      const total = new Date(y, m, 0).getDate();
+      const today = this.todayMonth();
+      const todayDay = new Date().getDate();
+      const cells = [];
+      for (let i = 0; i < lead; i++) cells.push({ blank: true, key: 'blank-' + i });
+      for (let d = 1; d <= total; d++) {
+        const date = this.month + '-' + String(d).padStart(2, '0');
+        cells.push({ blank: false, key: date, day: d, date, isToday: today === this.month && d === todayDay });
+      }
+      return cells;
+    },
+    cellClass(cell) {
+      const s = this.days[cell.date];
+      let cls = 'border-slate-200 text-slate-700 hover:border-amber-400 dark:border-slate-700 dark:text-slate-200 dark:hover:border-amber-500';
+      if (s === 'available') cls = 'border-emerald-500/60 bg-emerald-500/20 text-emerald-700 hover:bg-emerald-500/30 dark:text-emerald-300';
+      else if (s === 'unavailable') cls = 'border-rose-500/60 bg-rose-500/20 text-rose-700 hover:bg-rose-500/30 dark:text-rose-300';
+      if (cell.isToday) cls += ' ring-2 ring-amber-500';
+      return cls;
+    },
+
+    async toggleDay(cell) {
+      if (cell.blank) return;
+      const cur = this.days[cell.date];
+      let next;
+      if (!cur) next = 'available';
+      else if (cur === 'available') next = 'unavailable';
+      else next = null; // unset -> back to unmarked
+      if (next) this.days[cell.date] = next;
+      else delete this.days[cell.date];
+      this.saving = true;
+      try {
+        const payload = { month: this.month, days: { ...this.days } };
+        let res;
+        if (this.isBC) {
+          res = await BQ.api('/api/crew/' + this.selectedId + '/availability', {
+            method: 'PUT', body: payload,
+          });
+        } else {
+          res = await BQ.api('/api/crew/me/availability', { method: 'PUT', body: payload });
+        }
+        this.days = { ...(res.days || {}) };
+        if (this.isBC && this.selectedId) {
+          if (!this.cache[this.selectedId]) this.cache[this.selectedId] = {};
+          this.cache[this.selectedId][this.month] = { ...this.days };
+        } else {
+          if (!this.cache.me) this.cache.me = {};
+          this.cache.me[this.month] = { ...this.days };
+        }
+        this.savedNote = 'Saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } catch (e) {
+        BQ.toast('Could not save: ' + e.message);
+        await this.loadDays();
+      } finally {
+        this.saving = false;
+      }
+    },
+
+    // ---- member management (builder) --------------------------------------
+    openAdd() {
+      this.editing = null;
+      this.memberForm = { full_name: '', email: '', phone: '', trade: '' };
+      this.memberModalOpen = true;
+    },
+    openEdit(m) {
+      this.editing = m;
+      this.memberForm = { full_name: m.full_name, email: m.email, phone: m.phone || '', trade: m.trade || '' };
+      this.memberModalOpen = true;
+    },
+    async saveMember() {
+      if (!this.memberForm.full_name.trim()) { BQ.toast('Name is required'); return; }
+      if (!this.editing && !this.memberForm.email.trim()) { BQ.toast('Email is required'); return; }
+      this.savingMember = true;
+      try {
+        if (this.editing) {
+          await BQ.api('/api/crew/' + this.editing.id, {
+            method: 'PATCH',
+            body: {
+              full_name: this.memberForm.full_name,
+              phone: this.memberForm.phone,
+              trade: this.memberForm.trade,
+            },
+          });
+        } else {
+          this.creds = await BQ.api('/api/crew', { method: 'POST', body: this.memberForm });
+          this.credsOpen = true;
+        }
+        this.memberModalOpen = false;
+        await this.loadMembers();
+        BQ.toast(this.editing ? 'Crew member updated' : this.creds.full_name + ' added', 'success');
+      } catch (e) {
+        BQ.toast(e.message);
+      } finally {
+        this.savingMember = false;
+      }
+    },
+    async copyPassword() {
+      try {
+        await navigator.clipboard.writeText(this.creds.temporary_password);
+        this.copied = true;
+        setTimeout(() => { this.copied = false; }, 1500);
+      } catch (e) {
+        BQ.toast('Could not copy — select the password manually');
+      }
+    },
+    askRemove(m) {
+      this.removing = m;
+      this.removeOpen = true;
+    },
+    async confirmRemove() {
+      if (!this.removing) return;
+      try {
+        await BQ.api('/api/crew/' + this.removing.id, { method: 'DELETE' });
+        this.removeOpen = false;
+        const gone = this.removing.id;
+        this.removing = null;
+        this.members = this.members.filter(m => m.id !== gone);
+        if (this.selectedId === gone) {
+          this.selectedId = this.members.length ? this.members[0].id : null;
+          await this.loadDays();
+        }
+        BQ.toast('Crew member removed', 'success');
+      } catch (e) {
+        BQ.toast(e.message);
+      }
+    },
+  };
+}
+</script>
+</div>
+{% endblock %}
+

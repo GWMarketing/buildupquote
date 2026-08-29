@@ -45,6 +45,7 @@
         ('parser', '/parser', 'Parser', 'file-text'),
         ('quotes', '/quotes', 'Quotes', 'file-pen-line'),
         ('clients', '/clients', 'Clients', 'users'),
+        ('crew', '/crew', 'Crew', 'users-round'),
         ('catalog', '/catalog', 'Rate Catalog', 'book-open'),
         ('settings', '/settings', 'Settings', 'settings'),
         ('admin', '/admin', 'Admin', 'shield'),
@@ -78,17 +79,27 @@
 <script>
   // Reveal the Admin nav item only for platform admins. The server enforces
   // this on every /api/admin/* call (403); this just keeps non-admins from
-  // ever seeing the link.
+  // ever seeing the link. Crew accounts (field hands) instead lose the office
+  // tools entirely and keep only their own Crew calendar + logout.
   (async function () {
-    const link = document.getElementById('nav-admin');
-    if (!link) return;
     try {
       const res = await fetch('/api/users/me', {
         headers: { Authorization: 'Bearer ' + (localStorage.getItem('bq_token') || '') },
       });
       const data = await res.json();
-      if (res.ok && data.is_admin) link.style.display = '';
-    } catch (e) { /* keep hidden */ }
+      if (!res.ok) return;
+      if (data.is_admin) {
+        const link = document.getElementById('nav-admin');
+        if (link) link.style.display = '';
+      }
+      if (data.role === 'crew') {
+        ['dashboard', 'parser', 'quotes', 'clients', 'catalog', 'settings', 'admin']
+          .forEach(k => {
+            const el = document.getElementById('nav-' + k);
+            if (el) el.style.display = 'none';
+          });
+      }
+    } catch (e) { /* offline: leave as-is */ }
   })();
 </script>
 </body>

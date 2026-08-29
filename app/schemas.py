@@ -105,6 +105,56 @@ class UserProfileOut(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Crew roster + availability calendar (crew self-service)
+# ---------------------------------------------------------------------------
+class CrewMemberCreate(BaseModel):
+    full_name: str
+    email: EmailStr
+    phone: Optional[str] = None
+    trade: Optional[str] = None  # "Framing", "Drywall", "Apprentice"...
+
+
+class CrewMemberUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    trade: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class CrewMemberOut(BaseModel):
+    id: int
+    email: EmailStr
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    trade: Optional[str] = None
+    role: str
+    is_active: bool
+    organization_id: Optional[int] = None
+
+    model_config = {"from_attributes": True}
+
+
+class CrewMemberCreatedOut(CrewMemberOut):
+    """Like CrewMemberOut but the one-time temporary password the BC hands
+    to the new crew member (or the invite email carries it)."""
+
+    temporary_password: str
+
+
+class AvailabilityIn(BaseModel):
+    """A month of day markings. `days` maps 'YYYY-MM-DD' to one of
+    'available', 'unavailable', or 'unset' (unset removes the mark)."""
+
+    month: str  # "YYYY-MM"
+    days: dict[str, str] = {}
+
+
+class AvailabilityOut(BaseModel):
+    month: str
+    days: dict[str, str] = {}
+
+
+# ---------------------------------------------------------------------------
 # Parametric assemblies (Phase 5 -- advanced quoting engine)
 # ---------------------------------------------------------------------------
 

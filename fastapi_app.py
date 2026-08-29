@@ -19,16 +19,19 @@ from typing import Optional
 
 import pandas as pd
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from jose import jwt as jose_jwt
+
+from app.auth import ALGORITHM, SECRET_KEY
 import tax
 import workspace  # noqa: E402 -- pure logic, no framework
-import app.models  # noqa: E402 -- registers the User table with Base.metadata
+import app.models as models  # noqa: E402 -- registers the User table with Base.metadata
 from app.database import Base, SessionLocal, engine, ensure_legacy_columns, get_db
 from app.routers import assemblies as assemblies_router
 from app.routers import admin as admin_router
@@ -36,6 +39,7 @@ from app.routers import auth as auth_router
 from app.routers import billing as billing_router
 from app.routers import catalog as catalog_router
 from app.routers import clients as clients_router
+from app.routers import crew as crew_router
 from app.routers import dashboard as dashboard_router
 from app.routers import lexicon as lexicon_router
 from app.routers import organization as organization_router
@@ -79,8 +83,8 @@ async def lifespan(_: FastAPI):
                 e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()
             ):
                 admin_user = (
-                    seed_db.query(app.models.User)
-                    .filter(app.models.User.email == email)
+                    seed_db.query(models.User)
+                    .filter(models.User.email == email)
                     .first()
                 )
                 if admin_user and not admin_user.is_admin:
@@ -108,6 +112,7 @@ app.include_router(clients_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(assemblies_router.router)
 app.include_router(catalog_router.router)
+app.include_router(crew_router.router)
 app.include_router(quotes_router.router)
 app.include_router(public_quotes_router.router)
 app.include_router(lexicon_router.router)
@@ -131,6 +136,47 @@ async def security_and_cache_headers(request, call_next):
     if request.url.path.startswith("/static/"):
         response.headers.setdefault("Cache-Control", "public, max-age=3600")
     return response
+
+
+# ---------------------------------------------------------------------------
+# Crew role guard: a role="crew" account is a field hand, not an estimator.
+# Every /api path is blocked for them except their own crew endpoints, their
+# own profile, and auth. Server-side enforcement on top of the client nav
+# hiding in base.html.
+# ---------------------------------------------------------------------------
+@app.middleware("http")
+async def crew_role_guard(request: Request, call_next):
+    path = request.url.path
+    if path.startswith("/api/") and not path.startswith("/api/auth/"):
+        authz = request.headers.get("authorization", "")
+        if authz.lower().startswith("bearer "):
+            token = authz.split(" ", 1)[1]
+            try:
+                payload = jose_jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+                email = payload.get("sub")
+                if email:
+                    db = SessionLocal()
+                    try:
+                        user = (
+                            db.query(models.User)
+                            .filter(models.User.email == email)
+                            .first()
+                        )
+                        if user and user.role == "crew":
+                            allowed = (
+                                path.startswith("/api/crew/")
+                                or path == "/api/users/me"
+                            )
+                            if not allowed:
+                                return JSONResponse(
+                                    status_code=403,
+                                    content={"detail": "Crew accounts cannot access this resource"},
+                                )
+                    finally:
+                        db.close()
+            except Exception:  # noqa: BLE001 -- invalid token: let the route 401 it
+                pass
+    return await call_next(request)
 
 
 _WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")

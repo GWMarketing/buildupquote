@@ -102,6 +102,14 @@ def catalog(request: Request):
     return templates.TemplateResponse(request, "catalog.html", {"active": "catalog"})
 
 
+@router.get("/crew")
+def crew(request: Request):
+    """Crew availability calendar. One page, two faces: the builder sees the
+    full roster + every member's calendar; a role='crew' account sees only
+    their own calendar (self-service). The page decides from /api/users/me."""
+    return templates.TemplateResponse(request, "crew.html", {"active": "crew"})
+
+
 @router.get("/settings")
 def settings(request: Request):
     return templates.TemplateResponse(request, "settings.html", {"active": "settings"})

@@ -62,6 +62,11 @@ def ensure_legacy_columns(bind):
         statements.append("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE")
     if "min_margin_percent" not in existing:
         statements.append("ALTER TABLE users ADD COLUMN min_margin_percent NUMERIC(5, 2)")
+    # Crew roster landed with the availability calendar -- same in-place upgrade.
+    if "phone" not in existing:
+        statements.append("ALTER TABLE users ADD COLUMN phone VARCHAR")
+    if "trade" not in existing:
+        statements.append("ALTER TABLE users ADD COLUMN trade VARCHAR")
     if "google_access_token" not in existing:
         statements.append("ALTER TABLE users ADD COLUMN google_access_token VARCHAR")
     if "google_refresh_token" not in existing:

@@ -12,6 +12,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -19,6 +20,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import relationship
@@ -75,6 +77,10 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     full_name = Column(String, nullable=False, default="")
     job_title = Column(String, nullable=True)  # "Owner / Lead Contractor", "Senior Estimator"...
+    # Crew roster: phone + trade/role (e.g. "Framing", "Drywall", "Apprentice")
+    # so the availability calendar doubles as a working crew list.
+    phone = Column(String, nullable=True)
+    trade = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     role = Column(String, default="owner")
     # Platform admin (full-instance access). Separate axis from the org-scoped
@@ -92,6 +98,26 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     organization = relationship("Organization", back_populates="users")
+
+
+class CrewAvailability(Base):
+    """One row per crew member per date they've marked availability.
+
+    status is 'available' or 'unavailable'; an absent row means the day is
+    simply unmarked. The (user_id, date) pair is unique so toggling a day is
+    an upsert, and a member's whole month is one cheap query."""
+
+    __tablename__ = "crew_availability"
+    __table_args__ = (
+        UniqueConstraint("user_id", "date", name="uq_crew_availability_user_date"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    date = Column(Date, nullable=False, index=True)
+    status = Column(String, nullable=False, default="available")  # available / unavailable
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class TradeLexicon(Base):
