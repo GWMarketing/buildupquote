@@ -375,22 +375,30 @@ class CockpitApiTestCase(unittest.TestCase):
     def test_builder_renders_address_map_and_zillow_links(self):
         auth = self.register("ckp-links@acme.com")
         r = self.client.get("/quotes/new")
-        # The getters + clickable deep links render once a full address is entered.
+        # The getters + navigate picker + Zillow link render once a full address is entered.
         self.assertIn("hasFullAddress", r.text)
         self.assertIn("googleMapsUrl", r.text)
+        self.assertIn("wazeUrl", r.text)
+        self.assertIn("appleMapsUrl", r.text)
         self.assertIn("zillowUrl", r.text)
-        self.assertIn("Directions", r.text)
+        self.assertIn("navigateModalOpen", r.text)
+        self.assertIn("Navigate to job site", r.text)
+        self.assertIn("Google Maps", r.text)
+        self.assertIn("Waze", r.text)
+        self.assertIn("Apple Maps", r.text)
         self.assertIn("Zillow Property Estimate", r.text)
 
-        # Work order: with a site address, the crew gets a clickable directions link.
+        # Work order: with a site address, the crew gets directions links for all three apps.
         cid = self.make_client(auth, name="Joan Smith", email="joan@example.com")
         qid = self.make_quote(auth, client_id=cid)
         self.add_line(auth, qid)
         self.client.patch(f"/api/quotes/{qid}", headers=auth,
                           json={"site_address": "123 Main St, Springfield"})
         wo = self.client.get(f"/api/quotes/{qid}/work-order", headers=auth).text
-        self.assertIn("Get Directions", wo)
+        self.assertIn("Navigate via", wo)
         self.assertIn("destination=123%20Main%20St%2C%20Springfield", wo)
+        self.assertIn("https://waze.com/ul?q=123%20Main%20St%2C%20Springfield", wo)
+        self.assertIn("https://maps.apple.com/?daddr=123%20Main%20St%2C%20Springfield", wo)
 
     def test_builder_renders_cockpit_controls(self):
         r = self.client.get("/quotes/new")

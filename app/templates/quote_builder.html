@@ -77,8 +77,8 @@
         <label class="mb-1 block text-xs font-medium text-slate-500">Site address</label>
         <input class="bq-input" x-model="quote.site_address" @change="patch({ site_address: quote.site_address })">
         <div x-show="hasFullAddress" x-cloak class="mt-2 flex flex-wrap gap-2">
-          <a :href="googleMapsUrl" target="_blank" rel="noopener"
-             class="bq-btn-secondary px-2.5 py-1.5 text-xs no-underline">📍 Directions — Google Maps</a>
+          <button class="bq-btn-secondary px-2.5 py-1.5 text-xs" @click="navigateModalOpen = true"
+                  title="Open Google Maps, Waze, or Apple Maps to this address">🧭 Navigate</button>
           <a :href="zillowUrl" target="_blank" rel="noopener"
              class="bq-btn-secondary px-2.5 py-1.5 text-xs no-underline">🏠 Zillow Property Estimate</a>
         </div>
@@ -475,6 +475,26 @@
     </div>
   </div>
 
+  <!-- Navigate-to-job-site picker (tiny window) -->
+  <div x-show="navigateModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-[#0B0F17]/70 p-4"
+       @keydown.escape.window="navigateModalOpen = false" @click.self="navigateModalOpen = false">
+    <div class="w-full max-w-xs rounded-xl border border-slate-700 bg-slate-900 p-4 shadow-xl">
+      <div class="mb-1 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-200">Navigate to job site</h2>
+        <button class="text-slate-400 hover:text-white" @click="navigateModalOpen = false" aria-label="Close">✕</button>
+      </div>
+      <p class="mb-4 truncate text-xs text-slate-400" x-text="quote.site_address || 'Unknown address'"></p>
+      <div class="space-y-2">
+        <a :href="googleMapsUrl" target="_blank" rel="noopener" @click="navigateModalOpen = false"
+           class="bq-btn-secondary flex w-full items-center justify-center gap-2 px-3 py-2.5 text-sm no-underline">📍 Google Maps</a>
+        <a :href="wazeUrl" target="_blank" rel="noopener" @click="navigateModalOpen = false"
+           class="bq-btn-secondary flex w-full items-center justify-center gap-2 px-3 py-2.5 text-sm no-underline">🚗 Waze</a>
+        <a :href="appleMapsUrl" target="_blank" rel="noopener" @click="navigateModalOpen = false"
+           class="bq-btn-secondary flex w-full items-center justify-center gap-2 px-3 py-2.5 text-sm no-underline">🍎 Apple Maps</a>
+      </div>
+    </div>
+  </div>
+
   <!-- Send-to-client modal -->
   <div x-show="sendModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
        @keydown.escape.window="sendModalOpen = false">
@@ -610,6 +630,7 @@ function quoteBuilder(quoteId) {
     sendModalOpen: false, sendingEmail: false, sendError: '',
     sendForm: { message: '' },
     shareModalOpen: false, copyState: '', sharePreview: '',
+    navigateModalOpen: false,
     // ---- Assembly cockpit: room presets + material waste ----
     waste: 10, customWaste: 12, customWasteOpen: false,
     assemblyPreview: null,
@@ -658,6 +679,12 @@ function quoteBuilder(quoteId) {
     },
     get googleMapsUrl() {
       return BQShare.googleMapsUrl(this.quote.site_address);
+    },
+    get wazeUrl() {
+      return BQShare.wazeUrl(this.quote.site_address);
+    },
+    get appleMapsUrl() {
+      return BQShare.appleMapsUrl(this.quote.site_address);
     },
     get zillowUrl() {
       return BQShare.zillowUrl(this.quote.site_address);

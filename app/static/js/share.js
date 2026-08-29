@@ -97,6 +97,16 @@
     return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(address || '');
   }
 
+  /** Waze universal link — opens the Waze app on mobile, web fallback on desktop. */
+  function wazeUrl(address) {
+    return 'https://waze.com/ul?q=' + encodeURIComponent(address || '');
+  }
+
+  /** Apple Maps deep link — opens the Apple Maps app on iOS, web fallback elsewhere. */
+  function appleMapsUrl(address) {
+    return 'https://maps.apple.com/?daddr=' + encodeURIComponent(address || '');
+  }
+
   /** Zillow deep link for an address (the contractor's property-value check). */
   function zillowUrl(address) {
     const slug = String(address || '')
@@ -113,6 +123,8 @@
     openLink: openLink,
     copyText: copyText,
     googleMapsUrl: googleMapsUrl,
+    wazeUrl: wazeUrl,
+    appleMapsUrl: appleMapsUrl,
     zillowUrl: zillowUrl,
   };
 

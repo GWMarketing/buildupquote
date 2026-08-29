@@ -80,6 +80,23 @@ test('googleMapsUrl builds an encoded directions deep link', () => {
   assert.strictEqual(BQShare.googleMapsUrl(null), 'https://www.google.com/maps/dir/?api=1&destination=');
 });
 
+test('wazeUrl builds an encoded Waze universal link', () => {
+  assert.strictEqual(
+    BQShare.wazeUrl('123 Main St, Springfield'),
+    'https://waze.com/ul?q=123%20Main%20St%2C%20Springfield',
+  );
+  assert.strictEqual(BQShare.wazeUrl(''), 'https://waze.com/ul?q=');
+  assert.strictEqual(BQShare.wazeUrl(null), 'https://waze.com/ul?q=');
+});
+
+test('appleMapsUrl builds an encoded Apple Maps daddr link', () => {
+  assert.strictEqual(
+    BQShare.appleMapsUrl('123 Main St, Springfield'),
+    'https://maps.apple.com/?daddr=123%20Main%20St%2C%20Springfield',
+  );
+  assert.strictEqual(BQShare.appleMapsUrl(''), 'https://maps.apple.com/?daddr=');
+});
+
 test('zillowUrl slugs the address into a Zillow search link', () => {
   assert.strictEqual(
     BQShare.zillowUrl('123 Main St, Springfield MO 65807'),
