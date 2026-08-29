@@ -168,7 +168,13 @@
         <span class="icon-chip sm bg-amber-500/10 text-amber-600 dark:text-amber-400"><i data-lucide="list" class="h-4 w-4"></i></span>
         <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Line items</h2>
       </div>
-      <button class="bq-btn-secondary" @click="addRow()">＋ Row</button>
+      <div class="flex items-center gap-2">
+          <button class="bq-btn-secondary" @click="openSubBid()" :disabled="!lines.length"
+                  title="Send a sanitized scope link to a subcontractor for a labor/trade bid">
+            <i data-lucide="handshake" class="h-4 w-4 text-amber-500"></i> Request Sub Bid
+          </button>
+          <button class="bq-btn-secondary" @click="addRow()">＋ Row</button>
+        </div>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full min-w-150 grid-table">
@@ -177,7 +183,7 @@
             <th>Trade</th><th>Description &amp; Quick Search</th><th>Type</th>
             <th class="text-right">Qty</th><th>Unit</th>
             <th class="text-right">Cost</th><th class="text-right">Margin %</th>
-            <th class="text-right">Total</th><th></th>
+            <th class="text-right">Total</th><th class="text-center">Opt</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -213,9 +219,24 @@
               <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" max="100" step="0.5" x-model.number="row.markup_percent"></td>
               <td class="text-right font-semibold text-slate-900 dark:text-slate-100" x-text="fmt(BQ.lineTotal(row))"></td>
               <td class="text-center">
+                <button @click="toggleOptional(row)"
+                        class="rounded-full px-2 py-1 text-[10px] font-bold leading-none transition"
+                        :class="row.is_optional
+                          ? 'bg-amber-500 text-slate-950'
+                          : 'border border-slate-300 text-slate-400 hover:border-amber-500 hover:text-amber-600 dark:border-slate-600 dark:text-slate-500'"
+                        :title="row.is_optional ? 'Optional client add-on — excluded from the base total, offered on the proposal' : 'Mark as an optional client add-on (Recommended Upgrade)'">
+                  <span x-text="row.is_optional ? '✓ Optional' : 'Optional'"></span>
+                </button>
+              </td>
+              <td class="text-center">
                 <button class="text-slate-400 hover:text-red-600" @click="deleteLine(row, i)" title="Delete line">
                   <i data-lucide="trash-2" class="h-4 w-4"></i>
                 </button>
+              </td>
+            </tr>
+            <tr x-show="row.is_optional" x-cloak>
+              <td colspan="10" class="border-b border-amber-200 bg-amber-50/70 px-5 py-1.5 text-[11px] text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/5 dark:text-amber-400">
+                Recommended Upgrade — excluded from the base total; the client can add it on the proposal.
               </td>
             </tr>
           </template>
@@ -297,8 +318,13 @@
         <p class="text-lg font-bold text-emerald-400" x-text="fmt(grossProfit())"></p>
       </div>
       <div>
-        <p class="text-xs text-slate-400">Grand Total (Inc. Tax &amp; Contingency)</p>
+        <p class="text-xs text-slate-400">Optional Add-ons <span class="text-slate-500">(client upgrades)</span></p>
+        <p class="text-base font-bold text-amber-300/80" x-text="fmt(optionalTotal())"></p>
+        <p class="mt-1 text-xs text-slate-400">Grand Total (Inc. Tax &amp; Contingency)</p>
         <p class="text-2xl font-black text-amber-400" x-text="fmt(finalTotal())"></p>
+        <p class="mt-1 text-[10px] text-slate-500" x-show="optionalTotal() > 0" x-cloak>
+          Base total excludes upgrades — the client adds them on the proposal.
+        </p>
       </div>
     </div>
   </div>
@@ -570,6 +596,63 @@
     </div>
   </div>
 
+  <!-- Request Sub Bid modal -->
+  <div x-show="subBidOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-[#0B0F17]/70 p-4"
+       @keydown.escape.window="subBidOpen = false" @click.self="subBidOpen = false">
+    <div class="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-xl">
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-semibold text-slate-200">
+          <i data-lucide="handshake" class="mr-1 inline h-4 w-4 text-amber-400"></i>Request Sub Bid
+        </h2>
+        <button class="text-slate-400 hover:text-white" @click="subBidOpen = false" aria-label="Close">✕</button>
+      </div>
+
+      <template x-if="!subBidResult">
+        <div>
+          <p class="mt-1 text-xs text-slate-400">Pick the scope lines for this trade — the subcontractor sees <strong class="text-slate-300">descriptions only</strong> (no pricing, margins, or client info).</p>
+          <div class="mt-3 max-h-56 space-y-1.5 overflow-y-auto rounded-lg border border-slate-700 p-2">
+            <template x-for="l in lines.filter(r => r.id)" :key="l.id">
+              <label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-800">
+                <input type="checkbox" :checked="subLineChecked(l.id)" @change="toggleSubLine(l.id)"
+                       class="h-4 w-4 accent-amber-500">
+                <span class="truncate text-slate-300" x-text="(l.trade ? l.trade + ' — ' : '') + l.description"></span>
+                <span class="ml-auto shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase text-slate-400" x-text="l.item_type"></span>
+              </label>
+            </template>
+            <p class="px-2 py-1 text-xs text-slate-500" x-show="!lines.length">Add line items first.</p>
+          </div>
+          <div class="mt-3">
+            <label class="mb-1 block text-xs font-medium text-slate-400">Notes for the subcontractor</label>
+            <textarea class="bq-input w-full text-xs" rows="2" x-model="subBidNotes"
+                      placeholder="Access, hours, what to bring, deadline…"></textarea>
+          </div>
+          <div class="mt-4 flex justify-end gap-2">
+            <button class="bq-btn-secondary" @click="subBidOpen = false">Cancel</button>
+            <button class="bq-btn" :disabled="subBidSaving || !subSelectedCount()" @click="createSubBid()"
+                    x-text="subBidSaving ? 'Generating…' : 'Generate Sub-Bid Link'"></button>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="subBidResult">
+        <div class="mt-2">
+          <p class="text-xs text-slate-400">Share this link with your subcontractor — they submit their bid on a sanitized scope page.</p>
+          <div class="mt-3 flex items-center gap-2 rounded-lg bg-slate-800 p-3">
+            <input type="text" readonly :value="subBidFullUrl()"
+                   class="min-w-0 flex-1 bg-transparent text-xs text-amber-300 focus:outline-none">
+            <button class="rounded bg-amber-500 px-2.5 py-1 text-[11px] font-bold text-slate-950 hover:bg-amber-400"
+                    @click="copySubLink()" x-text="subBidCopied ? 'Copied!' : 'Copy'"></button>
+          </div>
+          <p class="mt-2 text-[11px] text-slate-500">The submitted bid lands back on this quote as a subcontractor line.</p>
+          <div class="mt-4 flex justify-end gap-2">
+            <button class="bq-btn-secondary" @click="subBidResult = null">Make Another</button>
+            <button class="bq-btn" @click="subBidOpen = false">Done</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
   <!-- Send-to-client modal -->
   <div x-show="sendModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
        @keydown.escape.window="sendModalOpen = false">
@@ -739,6 +822,10 @@ function quoteBuilder(quoteId) {
     paymentMode: '', paymentStages: [], paymentCustom: false,
     savingPayment: false,
     paymentForm: { payment_link: '', venmo: '', bank_wire: '' },
+    // ---- Subcontractor bid requests ----
+    subBidOpen: false, subBidSaving: false,
+    subBidSelected: {}, subBidNotes: '', subBidResult: null,
+    subBidCopied: false,
     // ---- Standard scope exclusions (trade legal safeguards) ----
     customExclusion: '',
     exclusionPresets: [
@@ -861,6 +948,7 @@ function quoteBuilder(quoteId) {
         id: l.id,
         description: l.description, item_type: l.item_type, trade: l.trade || '',
         quantity: l.quantity, unit: l.unit, unit_cost: l.unit_cost, markup_percent: l.markup_percent,
+        is_optional: !!l.is_optional,
         _suggestions: [], _showSuggest: false,
       }));
       // Payment milestones persisted on the quote (rendered for the client).
@@ -984,6 +1072,48 @@ function quoteBuilder(quoteId) {
         });
         BQ.toast('Deposit payment instructions saved', 'success');
       } finally { this.savingPayment = false; }
+    },
+
+    // ---- Subcontractor bid requests ----
+    openSubBid() {
+      if (!this.lines.length) { BQ.toast('Add line items first'); return; }
+      this.subBidSelected = {};
+      this.subBidNotes = '';
+      this.subBidResult = null;
+      // Default to labor / subcontractor lines -- subs bid on labor scopes.
+      this.lines.forEach(l => {
+        if (['labor', 'subcontractor', 'plant'].includes(l.item_type) && l.id) {
+          this.subBidSelected[l.id] = true;
+        }
+      });
+      this.subBidOpen = true;
+      this.refreshIcons();
+    },
+    subLineChecked(id) { return !!this.subBidSelected[id]; },
+    toggleSubLine(id) { this.subBidSelected[id] = !this.subBidSelected[id]; },
+    subSelectedCount() { return Object.values(this.subBidSelected).filter(Boolean).length; },
+    async createSubBid() {
+      const ids = this.lines.filter(l => l.id && this.subBidSelected[l.id]).map(l => l.id);
+      if (!ids.length) { BQ.toast('Select at least one scope line'); return; }
+      this.subBidSaving = true;
+      try {
+        this.subBidResult = await BQ.api('/api/quotes/' + this.quoteId + '/sub-bids', {
+          method: 'POST',
+          body: { line_ids: ids, notes: this.subBidNotes },
+        });
+        BQ.toast('Sub-bid link ready — share it with the subcontractor', 'success');
+      } catch (e) { BQ.toast('Could not create link: ' + e.message); }
+      finally { this.subBidSaving = false; }
+    },
+    subBidFullUrl() {
+      return this.subBidResult ? location.origin + this.subBidResult.url : '';
+    },
+    async copySubLink() {
+      try {
+        await navigator.clipboard.writeText(this.subBidFullUrl());
+        this.subBidCopied = true;
+        setTimeout(() => { this.subBidCopied = false; }, 1500);
+      } catch (e) { BQ.toast('Could not copy — select the link manually'); }
     },
 
     // ---- Payment milestones ----
@@ -1214,8 +1344,13 @@ function quoteBuilder(quoteId) {
       this.lines.push({
         id: undefined, description: '', item_type: 'material', trade: '',
         quantity: 1, unit: 'each', unit_cost: 0, markup_percent: this.margin,
+        is_optional: false,
         _suggestions: [], _showSuggest: false,
       });
+      this.refreshIcons();
+    },
+    toggleOptional(row) {
+      row.is_optional = !row.is_optional;
       this.refreshIcons();
     },
 
@@ -1273,7 +1408,8 @@ function quoteBuilder(quoteId) {
     grossProfit() {
       return this.lines.reduce((s, r) => s + (BQ.lineTotal(r) - Number(r.quantity || 0) * Number(r.unit_cost || 0)), 0);
     },
-    subtotal() { return this.lines.reduce((s, r) => s + BQ.lineTotal(r), 0); },
+    subtotal() { return this.lines.filter(r => !r.is_optional).reduce((s, r) => s + BQ.lineTotal(r), 0); },
+    optionalTotal() { return this.lines.filter(r => r.is_optional).reduce((s, r) => s + BQ.lineTotal(r), 0); },
     taxAmount() { return this.subtotal() * this.taxRate / 100; },
     grandTotal() { return this.subtotal() + this.taxAmount(); },
 

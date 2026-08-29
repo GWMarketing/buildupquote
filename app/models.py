@@ -281,6 +281,9 @@ class Quote(Base):
     # The room dimensions last used to scope this quote -- shown on the crew
     # work order (sanitized print view).
     scope_dimensions = Column(JSON, nullable=True)
+    # Optional add-ons the client actually selected on the public proposal and
+    # included at signature (line-item ids). Folded into the totals on accept.
+    selected_optional_line_ids = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("Client", back_populates="quotes")
@@ -289,6 +292,7 @@ class Quote(Base):
         back_populates="quote",
         cascade="all, delete-orphan",
     )
+    sub_bids = relationship("SubBid", back_populates="quote", cascade="all, delete-orphan")
 
 
 class QuoteLineItem(Base):
@@ -308,6 +312,10 @@ class QuoteLineItem(Base):
     markup_percent = Column(Numeric(5, 2), default=20.00)
     line_total = Column(Numeric(12, 2), nullable=False, default=0)
     position = Column(Integer, default=0)
+    # Interactive client upgrade: optional add-ons are excluded from the
+    # default grand total and offered on the public proposal as checkboxes;
+    # the client's selections are folded into the quote on signature.
+    is_optional = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     quote = relationship("Quote", back_populates="items")
@@ -327,4 +335,30 @@ class Client(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     quotes = relationship("Quote", back_populates="client")
+
+
+class SubBid(Base):
+    """A secure public bid-request link for one trade/labor scope on a quote.
+
+    The contractor picks line items, gets an unguessable /sub-bid/<token> URL,
+    and a subcontractor submits a lump-sum bid on it. The bid is written back
+    onto the master quote as a subcontractor line when submitted."""
+
+    __tablename__ = "sub_bids"
+
+    id = Column(Integer, primary_key=True, index=True)
+    quote_id = Column(Integer, ForeignKey("quotes.id", ondelete="CASCADE"), nullable=False, index=True)
+    token = Column(String(36), unique=True, index=True, nullable=False)
+    status = Column(String, nullable=False, default="open")  # open / submitted
+    # The scope lines this sub is bidding on (ids only -- never pricing).
+    selected_line_ids = Column(JSON, nullable=True)
+    contractor_notes = Column(Text, nullable=True)
+    # The subcontractor's submission.
+    bid_amount = Column(Numeric(12, 2), nullable=True)
+    bid_notes = Column(Text, nullable=True)
+    bidder_name = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    submitted_at = Column(DateTime(timezone=True), nullable=True)
+
+    quote = relationship("Quote", back_populates="sub_bids")
 

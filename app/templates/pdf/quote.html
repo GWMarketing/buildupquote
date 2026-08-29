@@ -187,7 +187,7 @@
             {% for line in lines %}
             <tr>
                 <td><span style="font-weight: 600; color: #334155;">{{ line.trade }}</span></td>
-                <td>{{ line.description }}</td>
+                <td>{{ line.description }}{% if line.is_optional %} <span style="font-size: 7.5pt; font-weight: 700; color: #b45309;">— OPTIONAL UPGRADE (not included in total)</span>{% endif %}</td>
                 <td style="text-align: right;">{{ "%.3f"|format(line.quantity) }}</td>
                 <td>{{ line.unit }}</td>
                 <td style="text-align: right;">{{ (line.unit_cost)|money(currency) }}</td>

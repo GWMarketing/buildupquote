@@ -307,6 +307,40 @@ class PublicQuoteAcceptRequest(BaseModel):
     signature_data: str
     client_name: str = ""
     signer_email: str = ""
+    # Optional client add-ons the client checked on the proposal. Folded into
+    # the quote totals so the signed amount matches what was accepted.
+    selected_optional_ids: list[int] = []
+
+
+class SubBidCreate(BaseModel):
+    """POST /api/quotes/{id}/sub-bids -- pick scope lines + contractor notes
+    and get back a secure public /sub-bid/<token> link."""
+
+    line_ids: list[int] = []
+    notes: str = ""
+
+
+class SubBidOut(BaseModel):
+    id: int
+    quote_id: int
+    token: str
+    status: str
+    url: str = ""
+    bid_amount: Optional[float] = None
+    bid_notes: Optional[str] = None
+    bidder_name: Optional[str] = None
+    created_at: datetime
+    submitted_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class SubBidSubmitRequest(BaseModel):
+    """The subcontractor's submission on the public /sub-bid page."""
+
+    bid_amount: float
+    notes: str = ""
+    bidder_name: str = ""
 
 
 class QuoteCreate(BaseModel):
@@ -359,6 +393,9 @@ class QuoteLineWrite(BaseModel):
     unit: str = "item"
     unit_cost: float = 0
     markup_percent: float = 20.0
+    # Optional client add-on: excluded from the default grand total and shown
+    # as a "Recommended Upgrade" checkbox on the public proposal.
+    is_optional: bool = False
 
 
 class QuoteLineOut(BaseModel):
@@ -372,6 +409,7 @@ class QuoteLineOut(BaseModel):
     markup_percent: float
     line_total: float
     position: int
+    is_optional: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -402,6 +440,7 @@ class QuoteOut(BaseModel):
     scope_dimensions: Optional[dict] = None
     exclusions: Optional[list[str]] = None
     payment_instructions: Optional[dict] = None
+    selected_optional_line_ids: Optional[list[int]] = None
     created_at: datetime
     line_count: int = 0
 

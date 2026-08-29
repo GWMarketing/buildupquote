@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 from app import models, schemas
 from app.auth import get_current_user
 from app.database import get_db
-from app.services import email_service, quote_pdf
+from app.services import email_service, quote_pdf, quote_service
 
 router = APIRouter(prefix="/api/quotes", tags=["quotes"])
 
@@ -70,6 +70,7 @@ def _quote_out(quote: models.Quote) -> dict:
         "payment_schedule": quote.payment_schedule,
         "exclusions": quote.exclusions,
         "payment_instructions": quote.payment_instructions,
+        "selected_optional_line_ids": quote.selected_optional_line_ids,
         "parent_quote_id": quote.parent_quote_id,
         "change_order_code": quote.change_order_code,
         "contingency_percent": float(quote.contingency_percent or 0),
@@ -107,17 +108,9 @@ def _recalculate_quote_totals(db: Session, quote: models.Quote) -> None:
 
     Subtotal is the priced line-item total; tax applies to the subtotal; the
     contingency reserve (0-20%) is applied to the subtotal and added on top,
-    so the grand total = subtotal + tax + contingency."""
-    subtotal = (
-        db.query(func.coalesce(func.sum(models.QuoteLineItem.line_total), 0))
-        .filter(models.QuoteLineItem.quote_id == quote.id)
-        .scalar()
-    )
-    quote.subtotal = round(float(subtotal), 2)
-    rate = float(quote.tax_rate_percent or 0)
-    quote.tax_amount = round(quote.subtotal * rate / 100.0, 2)
-    contingency = round(quote.subtotal * float(quote.contingency_percent or 0) / 100.0, 2)
-    quote.total = round(quote.subtotal + quote.tax_amount + contingency, 2)
+    so the grand total = subtotal + tax + contingency. Optional add-ons the
+    client hasn't selected are excluded (see quote_service)."""
+    quote_service.recalculate_quote_totals(db, quote)
     db.add(quote)
 
 
@@ -346,6 +339,7 @@ def save_lines(
             markup_percent=line.markup_percent,
             line_total=line_total,
             position=position,
+            is_optional=bool(line.is_optional),
         ))
     db.flush()
     _recalculate_quote_totals(db, quote)

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from app import models, schemas
 from app.auth import get_current_user
 from app.database import get_db
-from app.services import assembly_service
+from app.services import assembly_service, quote_service
 from app.services.lexicon_service import match_trade_from_description
 
 router = APIRouter(prefix="/api", tags=["assemblies"])
@@ -32,18 +32,9 @@ def _assembly_query(db: Session, user: models.User):
 
 def _recalculate_quote_totals(db: Session, quote: models.Quote) -> None:
     """Refresh a quote's subtotal/tax/total from its stored line items, its
-    persisted flat tax rate, and its contingency buffer (mirrors quotes.py)."""
-    subtotal = (
-        db.query(func.coalesce(func.sum(models.QuoteLineItem.line_total), 0))
-        .filter(models.QuoteLineItem.quote_id == quote.id)
-        .scalar()
-    )
-    quote.subtotal = round(float(subtotal), 2)
-    rate = float(quote.tax_rate_percent or 0)
-    quote.tax_amount = round(quote.subtotal * rate / 100.0, 2)
-    contingency = round(quote.subtotal * float(quote.contingency_percent or 0) / 100.0, 2)
-    quote.total = round(quote.subtotal + quote.tax_amount + contingency, 2)
-    db.add(quote)
+    persisted flat tax rate, and its contingency buffer (mirrors quotes.py;
+    optional add-ons the client hasn't selected are excluded)."""
+    quote_service.recalculate_quote_totals(db, quote)
 
 
 @router.get("/assemblies", response_model=list[schemas.AssemblyOut])

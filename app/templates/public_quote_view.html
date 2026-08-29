@@ -27,7 +27,7 @@
     <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-left">
       <div class="flex items-center justify-between gap-2">
         <span class="text-xs font-bold uppercase tracking-wider text-amber-700">{{ deposit.label }} ({{ "%.0f"|format(deposit.percent) }}%)</span>
-        <span class="text-xl font-black text-amber-800">{{ deposit.amount|money(currency) }}</span>
+        <span class="text-xl font-black text-amber-800" data-deposit-amount>{{ deposit.amount|money(currency) }}</span>
       </div>
       {% if payment_instructions.payment_link %}
       <a href="{{ payment_instructions.payment_link }}" target="_blank" rel="noopener"
@@ -135,7 +135,10 @@
           {% for line in lines %}
           <tr>
             <td class="px-4 py-2.5 font-semibold text-slate-600">{{ line.trade or '' }}</td>
-            <td class="px-4 py-2.5 text-slate-800">{{ line.description }}</td>
+            <td class="px-4 py-2.5 text-slate-800">
+              {{ line.description }}
+              {% if line.is_optional %}<span class="ml-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">Optional Upgrade</span>{% endif %}
+            </td>
             <td class="px-4 py-2.5 text-right text-slate-600">{{ "%.3f"|format(line.quantity) }}</td>
             <td class="px-4 py-2.5 text-slate-600">{{ line.unit }}</td>
             <td class="px-4 py-2.5 text-right text-slate-600">{{ (line.unit_cost)|money(currency) }}</td>
@@ -145,6 +148,27 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Interactive Recommended Upgrades (optional add-ons) -->
+    {% if optional_upgrades and quote.status != 'accepted' %}
+    <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="font-bold text-amber-900">Recommended Upgrades</div>
+        <span class="text-[11px] text-amber-700">Not in the total below — tick any to add, and the totals update instantly.</span>
+      </div>
+      <div class="mt-2 space-y-2">
+        {% for u in optional_upgrades %}
+        <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2 transition hover:border-amber-400">
+          <span class="flex items-center gap-2 text-sm text-amber-900">
+            <input type="checkbox" class="upgrade-cb h-4 w-4 accent-amber-500" data-total="{{ u.total }}" data-id="{{ u.id }}">
+            <span>{% if u.trade %}<strong>{{ u.trade }}:</strong> {% endif %}{{ u.description }}</span>
+          </span>
+          <span class="text-sm font-bold text-amber-900">{{ u.total|money(currency) }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Totals & terms -->
     <div class="mt-4 grid gap-4 sm:grid-cols-2">
@@ -158,8 +182,8 @@
           {% if quote.contingency_visible and (quote.contingency_percent or 0) %}
           <div class="flex justify-between text-slate-600"><span>Contingency Reserve ({{ "%.0f"|format(quote.contingency_percent) }}%)</span><span class="font-semibold">{{ ((quote.subtotal | float) * (quote.contingency_percent | float) / 100)|money(currency) }}</span></div>
           {% endif %}
-          <div class="flex justify-between text-slate-600"><span>Tax / VAT{% if quote.tax_rate_percent is not none %} ({{ "%.2f"|format(quote.tax_rate_percent) }}%){% endif %}</span><span class="font-semibold">{{ (quote.tax_amount or 0)|money(currency) }}</span></div>
-          <div class="flex justify-between border-t-2 border-slate-900 pt-2 text-base font-black text-slate-900"><span>Total Amount</span><span>{{ (quote.total or 0)|money(currency) }}</span></div>
+          <div class="flex justify-between text-slate-600"><span>Tax / VAT{% if quote.tax_rate_percent is not none %} ({{ "%.2f"|format(quote.tax_rate_percent) }}%){% endif %}</span><span class="font-semibold" id="totTax">{{ (quote.tax_amount or 0)|money(currency) }}</span></div>
+          <div class="flex justify-between border-t-2 border-slate-900 pt-2 text-base font-black text-slate-900"><span>Total Amount</span><span id="totTotal">{{ (quote.total or 0)|money(currency) }}</span></div>
         </div>
       </div>
     </div>
@@ -172,7 +196,7 @@
         {% for m in quote.payment_schedule %}
         <div class="flex items-center justify-between text-sm">
           <span class="text-slate-600">{{ m.label }}{% if m.percent is not none %} ({{ "%.0f"|format(m.percent) }}%){% endif %}</span>
-          <span class="font-semibold text-slate-900">{{ ((quote.total | float) * m.percent / 100)|money(currency) }}</span>
+          <span class="font-semibold text-slate-900" data-milestone-pct="{{ m.percent }}">{{ ((quote.total | float) * m.percent / 100)|money(currency) }}</span>
         </div>
         {% endfor %}
       </div>
@@ -295,6 +319,38 @@
   var signerEmail = document.getElementById('signerEmail');
   if (!pad || !acceptBtn) return;  // already accepted / not found: nothing to do
 
+  {% if quote %}
+  // ---- Interactive Recommended Upgrades (client-side recalculation) ----
+  function fmtMoney(n) {
+    return '{{ currency }}' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  var PROPOSAL_DATA = {
+    taxRate: {{ (quote.tax_rate_percent or 0)|float }},
+    baseTax: {{ (quote.tax_amount or 0)|float }},
+    contingencyPct: {{ (quote.contingency_percent or 0)|float }},
+    baseTotal: {{ (quote.total or 0)|float }},
+  };
+  function recalc() {
+    var upgradeNet = 0;
+    document.querySelectorAll('.upgrade-cb').forEach(function (cb) {
+      if (cb.checked) upgradeNet += Number(cb.dataset.total || 0);
+    });
+    var upgradeTax = upgradeNet * PROPOSAL_DATA.taxRate / 100;
+    var upgradeContingency = upgradeNet * PROPOSAL_DATA.contingencyPct / 100;
+    var total = PROPOSAL_DATA.baseTotal + upgradeNet + upgradeTax + upgradeContingency;
+    var taxEl = document.getElementById('totTax');
+    var totalEl = document.getElementById('totTotal');
+    if (taxEl) taxEl.textContent = fmtMoney(PROPOSAL_DATA.baseTax + upgradeTax);
+    if (totalEl) totalEl.textContent = fmtMoney(total);
+    document.querySelectorAll('[data-milestone-pct]').forEach(function (el) {
+      el.textContent = fmtMoney(total * Number(el.dataset.milestonePct || 0) / 100);
+    });
+  }
+  document.querySelectorAll('.upgrade-cb').forEach(function (cb) {
+    cb.addEventListener('change', recalc);
+  });
+  {% endif %}
+
   var ctx = pad.getContext('2d');
   var drawing = false, last = null;
 
@@ -348,6 +404,10 @@
           signature_data: pad.toDataURL('image/png'),
           client_name: name,
           signer_email: (signerEmail ? signerEmail.value : '').trim(),
+          selected_optional_ids: Array.prototype.map.call(
+            document.querySelectorAll('.upgrade-cb:checked'),
+            function (cb) { return Number(cb.dataset.id); },
+          ),
         }),
       });
       var data = await res.json();
@@ -355,6 +415,11 @@
       signPanel.classList.add('hidden');
       acceptMsg.textContent = 'Signed by ' + name + '. Thank you — we will be in touch.';
       successPanel.classList.remove('hidden');
+      // Show the agreed total + deposit (includes any selected upgrades).
+      var depEl = document.querySelector('#acceptSuccess [data-deposit-amount]');
+      if (depEl && data.deposit && data.deposit.amount != null) depEl.textContent = fmtMoney(data.deposit.amount);
+      var totalEl = document.getElementById('totTotal');
+      if (totalEl && data.total != null) totalEl.textContent = fmtMoney(data.total);
       if (typeof lucide !== 'undefined') lucide.createIcons();
       location.hash = 'accepted';
     } catch (e) {

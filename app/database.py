@@ -113,6 +113,15 @@ def ensure_legacy_columns(bind):
             statements.append("ALTER TABLE quotes ADD COLUMN exclusions JSON")
         if "payment_instructions" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN payment_instructions JSON")
+        # Interactive optional add-ons: the client's selections, folded into
+        # the totals at signature.
+        if "selected_optional_line_ids" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN selected_optional_line_ids JSON")
+    # Optional client add-ons flag on quote line items.
+    if "quote_line_items" in existing_tables:
+        line_cols = {c["name"] for c in inspector.get_columns("quote_line_items")}
+        if "is_optional" not in line_cols:
+            statements.append("ALTER TABLE quote_line_items ADD COLUMN is_optional BOOLEAN DEFAULT FALSE")
         # Change orders + contingency landed with the advanced estimating pack.
         if "parent_quote_id" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN parent_quote_id INTEGER")

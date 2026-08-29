@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.services import email_service, quote_pdf
+from app.services import email_service, quote_pdf, quote_service
 
 router = APIRouter(tags=["public"])
 
@@ -101,6 +101,14 @@ def public_quote_view(
         "contractor_name": (organization.name if organization else "your contractor"),
         "deposit": quote_pdf.deposit_for_quote(quote),
         "payment_instructions": quote.payment_instructions or {},
+        # Interactive recommended upgrades (optional add-ons) for client-side
+        # recalculation: id + line total, never pricing internals.
+        "optional_upgrades": [
+            {"id": l.id, "description": l.description, "total": float(l.line_total),
+             "trade": l.trade or ""}
+            for l in sorted(quote.items, key=lambda i: i.position or 0)
+            if l.is_optional
+        ],
     })
 
 
@@ -144,6 +152,14 @@ def public_quote_accept(
     quote.signer_ip = client_ip
     quote.signer_user_agent = user_agent
     quote.accepted_at = func.now()
+    # Fold the client's chosen optional add-ons into the agreed totals so the
+    # signed amount matches what they accepted (base + selected upgrades).
+    if payload.selected_optional_ids:
+        valid_ids = {item.id for item in quote.items if item.is_optional}
+        quote.selected_optional_line_ids = sorted(
+            {int(i) for i in payload.selected_optional_ids if int(i) in valid_ids}
+        )
+        quote_service.recalculate_quote_totals(db, quote)
     db.commit()
     # Post-signing emails: contractor alert + client confirmation with the
     # signed PDF, dispatched after the response so signing stays instant.
@@ -157,6 +173,8 @@ def public_quote_accept(
         # so the success modal can show the deposit due and a pay button.
         "deposit": quote_pdf.deposit_for_quote(quote),
         "payment_instructions": quote.payment_instructions or {},
+        "total": float(quote.total or 0),
+        "selected_optional_line_ids": quote.selected_optional_line_ids,
     }
 
 
