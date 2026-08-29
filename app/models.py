@@ -227,6 +227,9 @@ class Quote(Base):
     # quote's PDF/public link, plus an optional project-specific override.
     include_contract = Column(Boolean, nullable=False, default=True)
     custom_contract_override = Column(Text, nullable=True)
+    # Payment milestones: [{"label": "Deposit upon signing", "percent": 50}, ...]
+    # Built in the quote builder, rendered on the public proposal page + PDF.
+    payment_schedule = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("Client", back_populates="quotes")

@@ -59,6 +59,7 @@ def _quote_out(quote: models.Quote) -> dict:
         "total": float(quote.total or 0),
         "include_contract": quote.include_contract if quote.include_contract is not None else True,
         "custom_contract_override": quote.custom_contract_override,
+        "payment_schedule": quote.payment_schedule,
         "created_at": quote.created_at,
         "line_count": len(quote.items or []),
     }
@@ -270,6 +271,11 @@ def update_quote(
         value = getattr(payload, field, None)
         if value is not None:
             setattr(quote, field, value)
+    if payload.payment_schedule is not None:
+        quote.payment_schedule = [
+            {"label": (m.label or "").strip() or "Stage", "percent": round(float(m.percent or 0), 2)}
+            for m in payload.payment_schedule
+        ]
     if payload.tax_rate_percent is not None:
         _recalculate_quote_totals(db, quote)
     db.commit()

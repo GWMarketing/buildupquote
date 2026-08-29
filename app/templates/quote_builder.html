@@ -202,6 +202,62 @@
     </div>
   </div>
 
+  <!-- Payment Schedule (deposit & milestones) -->
+  <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Payment Schedule</h2>
+        <p class="text-xs text-slate-400">Deposit &amp; milestone stages, priced live off the grand total.</p>
+      </div>
+    </div>
+
+    <div class="mt-3 flex flex-wrap gap-2">
+      <template x-for="p in paymentPresets" :key="p.label">
+        <button @click="applyPaymentPreset(p)"
+                class="rounded-lg px-3 py-1.5 text-xs font-bold transition"
+                :class="paymentMode === p.label ? 'bg-amber-500 text-slate-950' : 'border border-slate-300 bg-white text-slate-600 hover:border-amber-500 hover:text-amber-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300'">
+          <span x-text="p.label"></span>
+        </button>
+      </template>
+      <button @click="enableCustomPayment()"
+              class="rounded-lg px-3 py-1.5 text-xs font-bold transition"
+              :class="paymentMode === 'custom' ? 'bg-amber-500 text-slate-950' : 'border border-slate-300 bg-white text-slate-600 hover:border-amber-500 hover:text-amber-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300'">
+        Custom
+      </button>
+    </div>
+
+    <!-- Custom stage editor -->
+    <div x-show="paymentCustom" x-cloak class="mt-3 space-y-2">
+      <template x-for="(m, i) in paymentStages" :key="i">
+        <div class="flex items-center gap-2">
+          <input class="bq-input flex-1" x-model="m.label" @input="onPaymentStagesChange()" placeholder="Stage name">
+          <input class="bq-input w-20 text-right" type="number" min="0" max="100" step="1" x-model.number="m.percent"
+                 @input="onPaymentStagesChange()">
+          <span class="text-xs text-slate-400">%</span>
+          <button class="text-slate-400 hover:text-red-600" @click="removePaymentStage(i)" title="Remove stage">
+            <i data-lucide="trash-2" class="h-4 w-4"></i>
+          </button>
+        </div>
+      </template>
+      <button class="bq-btn-secondary text-xs" @click="addPaymentStage()">＋ Add Stage</button>
+    </div>
+
+    <!-- Live milestone amounts -->
+    <div class="mt-3 space-y-2" x-show="paymentStages.length" x-cloak>
+      <template x-for="(m, i) in paymentStages" :key="i">
+        <div class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+          <span class="text-sm text-slate-600 dark:text-slate-300" x-text="m.label"></span>
+          <span class="text-sm font-bold text-amber-600 dark:text-amber-400"
+                x-text="m.label + ' (' + m.percent + '%): ' + fmt(grandTotal() * m.percent / 100)"></span>
+        </div>
+      </template>
+      <p class="text-[11px] text-slate-400">Shown on the client's proposal page and the signed PDF.</p>
+    </div>
+    <p class="mt-3 text-xs text-slate-400" x-show="!paymentStages.length" x-cloak>
+      No payment schedule yet — pick a preset above to generate deposit &amp; milestone amounts.
+    </p>
+  </div>
+
   <!-- PDF download history -->
   <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900" x-show="downloads.length" x-cloak>
     <h2 class="mb-2 text-sm font-semibold text-slate-900 dark:text-white">PDF downloads</h2>
@@ -213,32 +269,91 @@
   </div>
 
   <!-- Parametric assembly modal -->
-  <div x-show="openAssemblyDrawer" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+  <div x-show="openAssemblyDrawer" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-[#0B0F17]/80 p-4"
        @keydown.escape.window="openAssemblyDrawer = false">
-    <div class="w-full max-w-lg space-y-4 rounded-xl bg-white p-6 text-slate-800 shadow-xl dark:bg-slate-900 dark:text-slate-200">
+    <div class="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-slate-700 bg-[#0B0F17] p-6 text-white shadow-2xl">
       <h3 class="text-lg font-bold">Insert Parametric Assembly</h3>
+
       <div>
-        <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Assembly Type</label>
-        <select class="bq-input mt-1" x-model="selectedCode" @change="resetDims()">
+        <label class="text-xs font-semibold text-slate-400">Assembly Type</label>
+        <select x-model="selectedCode" @change="resetDims()"
+                class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none">
           <option value="">Choose…</option>
           <template x-for="a in assemblies" :key="a.code">
             <option :value="a.code" x-text="a.name + ' (' + a.category + ')'"></option>
           </template>
         </select>
       </div>
+
+      <!-- 1-Tap room presets -->
+      <div x-show="selectedInputs.length" x-cloak>
+        <p class="text-xs font-semibold text-slate-400">1-Tap Room Presets</p>
+        <div class="mt-2 grid grid-cols-2 gap-2">
+          <template x-for="p in roomPresets" :key="p.label">
+            <button @click="applyRoomPreset(p)"
+                    class="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs font-semibold text-white transition hover:border-amber-500 hover:text-amber-400">
+              <span x-text="p.label"></span>
+              <span class="mt-0.5 block text-[10px] font-normal text-slate-400" x-text="p.hint"></span>
+            </button>
+          </template>
+        </div>
+        <p class="mt-2 text-[10px] text-slate-500" x-show="roomDerived.floor > 0" x-cloak
+           x-text="'Derived: ' + roomDerived.floor.toFixed(0) + ' sq ft floor · ' + roomDerived.perimeter.toFixed(0) + ' lin ft perimeter · ~' + roomDerived.wall.toFixed(0) + ' sq ft wall (@ 8ft)'"></p>
+      </div>
+
+      <!-- Dimension inputs -->
       <div class="grid grid-cols-2 gap-3">
         <template x-for="k in selectedInputs" :key="k">
           <div>
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400" x-text="k.charAt(0).toUpperCase() + k.slice(1) + ' (m)'"></label>
-            <input type="number" step="0.1" x-model.number="dims[k]" class="bq-input mt-1" :placeholder="k">
+            <label class="text-xs font-semibold text-slate-400" x-text="k.charAt(0).toUpperCase() + k.slice(1) + ' (m)'"></label>
+            <input type="number" step="0.1" min="0" x-model.number="dims[k]" @input.debounce.200ms="previewAssembly()"
+                   class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-right text-white focus:border-amber-500 focus:outline-none"
+                   :placeholder="k">
           </div>
         </template>
       </div>
-      <p class="text-xs text-slate-400" x-show="selectedInputs.length" x-cloak
-         x-text="'Requires: ' + selectedInputs.join(', ')"></p>
-      <div class="flex justify-end gap-2 pt-4">
-        <button class="bq-btn-secondary" @click="openAssemblyDrawer = false">Cancel</button>
-        <button class="bq-btn" :disabled="!selectedCode || !inputsReady()" @click="insertAssembly()">Calculate &amp; Insert</button>
+
+      <!-- Material waste factor -->
+      <div x-show="selectedInputs.length" x-cloak>
+        <p class="text-xs font-semibold text-slate-400">Material Waste Factor</p>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <template x-for="o in wasteOptions" :key="o.label">
+            <button @click="setWaste(o)"
+                    class="rounded-lg px-3 py-1.5 text-xs font-bold transition"
+                    :class="wasteActive(o) ? 'bg-amber-500 text-slate-950' : 'border border-slate-600 bg-slate-800 text-white hover:border-amber-500'">
+              <span x-text="o.label"></span>
+            </button>
+          </template>
+        </div>
+        <div x-show="customWasteOpen" x-cloak class="mt-2 flex items-center gap-2">
+          <input type="number" min="0" max="50" step="1" x-model.number="customWaste"
+                 @input="waste = Number(customWaste) || 0; previewAssembly()"
+                 class="w-24 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-right text-white focus:border-amber-500 focus:outline-none">
+          <span class="text-xs text-slate-400">%</span>
+        </div>
+        <p class="mt-1 text-[10px] text-slate-500">Applied to material quantities only — labor is never multiplied.</p>
+      </div>
+
+      <!-- Calculation preview / waste breakdown -->
+      <div x-show="assemblyPreview" x-cloak class="rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-xs">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Calculation summary</p>
+        <p class="mt-1 text-red-400" x-show="assemblyPreview && assemblyPreview.error" x-cloak x-text="assemblyPreview.error"></p>
+        <template x-if="assemblyPreview && assemblyPreview.summary">
+          <div class="mt-1 space-y-1 text-slate-300">
+            <div class="flex justify-between"><span>Materials (raw)</span><span x-text="fmt(assemblyPreview.summary.materials_raw)"></span></div>
+            <div class="flex justify-between text-amber-400"><span>Waste (+<span x-text="assemblyPreview.summary.waste_percent"></span>%)</span><span x-text="fmt(assemblyPreview.summary.waste_added)"></span></div>
+            <div class="flex justify-between"><span>Labor</span><span x-text="fmt(assemblyPreview.summary.labor_total)"></span></div>
+            <div class="flex justify-between border-t border-slate-700 pt-1 font-bold text-white"><span>Subtotal</span><span x-text="fmt(assemblyPreview.total)"></span></div>
+            <p class="pt-1 text-[10px] text-slate-500" x-text="(assemblyPreview.lines ? assemblyPreview.lines.length : 0) + ' line item(s)'"></p>
+          </div>
+        </template>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button class="rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-medium text-white transition hover:border-slate-500"
+                @click="openAssemblyDrawer = false">Cancel</button>
+        <button class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 shadow transition hover:bg-amber-600"
+                :disabled="!selectedCode || !inputsReady()" @click="insertAssembly()">Calculate &amp; Insert</button>
       </div>
     </div>
   </div>
@@ -352,6 +467,46 @@ function quoteBuilder(quoteId) {
     sendModalOpen: false, sendingEmail: false, sendError: '',
     sendForm: { message: '' },
     shareModalOpen: false, copyState: '', sharePreview: '',
+    // ---- Assembly cockpit: room presets + material waste ----
+    waste: 10, customWaste: 12, customWasteOpen: false,
+    assemblyPreview: null,
+    wasteOptions: [
+      { label: '0%', value: 0 },
+      { label: '+5%', value: 5 },
+      { label: '+10%', value: 10 },
+      { label: '+15%', value: 15 },
+      { label: 'Custom', value: null },
+    ],
+    roomPresets: [
+      { label: "10' x 10' Bedroom", length: 10, width: 10, height: 8, hint: '100 sq ft floor' },
+      { label: "12' x 15' Master Suite", length: 12, width: 15, height: 8, hint: '180 sq ft floor' },
+      { label: "8' x 10' Standard Bath", length: 8, width: 10, height: 8, hint: '80 sq ft floor' },
+      { label: "12' x 20' Garage / Bay", length: 12, width: 20, height: 8, hint: '240 sq ft floor' },
+    ],
+    // ---- Payment milestones ----
+    paymentPresets: [
+      { label: '50 / 50', stages: [
+        { label: 'Deposit upon signing', percent: 50 },
+        { label: 'Final Completion', percent: 50 },
+      ] },
+      { label: '33 / 33 / 34', stages: [
+        { label: 'Deposit', percent: 33 },
+        { label: 'Rough-in / Drywall Phase', percent: 33 },
+        { label: 'Final Walkthrough', percent: 34 },
+      ] },
+    ],
+    paymentMode: '', paymentStages: [], paymentCustom: false,
+
+    get roomDerived() {
+      const L = Number(this.dims.length || 0);
+      const W = Number(this.dims.width || 0);
+      const H = Number(this.dims.height || 0);
+      return { floor: L * W, perimeter: 2 * (L + W), wall: 2 * (L + W) * H };
+    },
+    wasteActive(o) {
+      if (o.value === null) return this.customWasteOpen;
+      return Number(this.waste) === Number(o.value);
+    },
 
     get clientEmail() {
       const c = this.clients.find(c => c.id === this.quote.client_id);
@@ -404,6 +559,14 @@ function quoteBuilder(quoteId) {
         quantity: l.quantity, unit: l.unit, unit_cost: l.unit_cost, markup_percent: l.markup_percent,
         _suggestions: [], _showSuggest: false,
       }));
+      // Payment milestones persisted on the quote (rendered for the client).
+      if (Array.isArray(detail.payment_schedule) && detail.payment_schedule.length) {
+        this.paymentStages = detail.payment_schedule.map(m => ({
+          label: m.label || 'Stage', percent: Number(m.percent) || 0,
+        }));
+        this.paymentCustom = true;
+        this.paymentMode = 'custom';
+      }
       this.refreshIcons();
     },
 
@@ -411,8 +574,38 @@ function quoteBuilder(quoteId) {
       this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
     },
 
-    resetDims() { this.dims = {}; },
+    resetDims() { this.dims = {}; this.assemblyPreview = null; },
     inputsReady() { return this.selectedInputs.every(k => Number(this.dims[k]) > 0); },
+
+    // ---- Room dimension presets ----
+    applyRoomPreset(p) {
+      for (const k of ['length', 'width', 'height']) {
+        if (this.selectedInputs.includes(k)) this.dims[k] = p[k];
+      }
+      this.previewAssembly();
+      BQ.toast(p.label + ' applied', 'success');
+    },
+
+    // ---- Material waste factor ----
+    setWaste(o) {
+      if (o.value === null) {
+        this.customWasteOpen = true;
+        this.waste = Number(this.customWaste) || 0;
+      } else {
+        this.customWasteOpen = false;
+        this.waste = Number(o.value);
+      }
+      this.previewAssembly();
+    },
+    async previewAssembly() {
+      if (!this.selectedCode || !this.inputsReady()) { this.assemblyPreview = null; return; }
+      try {
+        this.assemblyPreview = await BQ.api('/api/assemblies/' + this.selectedCode + '/calculate', {
+          method: 'POST',
+          body: { dimensions: this.dims, waste_percent: this.waste },
+        });
+      } catch (e) { this.assemblyPreview = { error: e.message }; }
+    },
 
     async patch(fields) {
       try {
@@ -435,16 +628,58 @@ function quoteBuilder(quoteId) {
       } finally { this.savingContract = false; }
     },
 
+    // ---- Payment milestones ----
+    applyPaymentPreset(p) {
+      this.paymentStages = p.stages.map(s => ({ label: s.label, percent: Number(s.percent) || 0 }));
+      this.paymentCustom = false;
+      this.paymentMode = p.label;
+      this.patch({ payment_schedule: this.paymentStages });
+      BQ.toast('Payment schedule: ' + p.label, 'success');
+    },
+    enableCustomPayment() {
+      this.paymentCustom = true;
+      this.paymentMode = 'custom';
+      if (!this.paymentStages.length) {
+        this.paymentStages = [
+          { label: 'Deposit', percent: 50 },
+          { label: 'Final Completion', percent: 50 },
+        ];
+      }
+      this.refreshIcons();
+    },
+    addPaymentStage() {
+      this.paymentStages.push({ label: 'Stage ' + (this.paymentStages.length + 1), percent: 0 });
+      this.onPaymentStagesChange();
+      this.refreshIcons();
+    },
+    removePaymentStage(i) {
+      this.paymentStages.splice(i, 1);
+      this.onPaymentStagesChange();
+      this.refreshIcons();
+    },
+    onPaymentStagesChange() {
+      // Normalize to plain {label, percent} and persist (debounced).
+      this.paymentStages = (this.paymentStages || []).map(m => ({
+        label: String(m.label || '').trim() || 'Stage',
+        percent: Number(m.percent) || 0,
+      }));
+      clearTimeout(this._payTimer);
+      this._payTimer = setTimeout(() => {
+        this.patch({ payment_schedule: this.paymentStages });
+      }, 400);
+    },
+
     async insertAssembly() {
       try {
         await BQ.api('/api/quotes/' + this.quoteId + '/apply-assembly', {
           method: 'POST',
-          body: { code: this.selectedCode, dimensions: this.dims },
+          body: { code: this.selectedCode, dimensions: this.dims, waste_percent: this.waste },
         });
         await this.loadQuote();
         this.openAssemblyDrawer = false;
         this.selectedCode = '';
         this.dims = {};
+        this.assemblyPreview = null;
         BQ.toast('Assembly added', 'success');
       } catch (e) { BQ.toast('Could not add assembly: ' + e.message); }
     },

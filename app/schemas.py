@@ -132,11 +132,15 @@ class AssemblyOut(BaseModel):
 
 class AssemblyCalculateRequest(BaseModel):
     dimensions: dict[str, float]
+    # Material waste factor: applied to MATERIAL quantities/costs only
+    # (labor hours/costs are never multiplied). Default 10% per the cockpit.
+    waste_percent: float = 10.0
 
 
 class ApplyAssemblyRequest(BaseModel):
     code: str
     dimensions: dict[str, float]
+    waste_percent: float = 10.0
 
 
 class AssemblyBuildRequest(BaseModel):
@@ -194,6 +198,8 @@ class AssemblyCalculateResponse(BaseModel):
     assembly_name: str
     lines: list[AssemblyLineOut]
     total: float
+    # Waste-factor breakdown: materials raw, waste added, labor, totals.
+    summary: dict = {}
 
 
 # ---------------------------------------------------------------------------
@@ -252,6 +258,14 @@ class QuoteCreate(BaseModel):
     client_id: Optional[int] = None
 
 
+class PaymentMilestone(BaseModel):
+    """One stage of a quote's payment schedule: a label plus the percentage
+    of the grand total due at that stage."""
+
+    label: str
+    percent: float
+
+
 class QuoteUpdate(BaseModel):
     title: Optional[str] = None
     site_address: Optional[str] = None
@@ -261,6 +275,8 @@ class QuoteUpdate(BaseModel):
     # Master contract attachment for this quote.
     include_contract: Optional[bool] = None
     custom_contract_override: Optional[str] = None
+    # Deposit & payment milestones (cockpit payment-schedule generator).
+    payment_schedule: Optional[list[PaymentMilestone]] = None
 
 
 class SendQuoteEmailRequest(BaseModel):
@@ -311,6 +327,7 @@ class QuoteOut(BaseModel):
     total: float
     include_contract: bool = True
     custom_contract_override: Optional[str] = None
+    payment_schedule: Optional[list[PaymentMilestone]] = None
     created_at: datetime
     line_count: int = 0
 

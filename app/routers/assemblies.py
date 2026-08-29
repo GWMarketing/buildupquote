@@ -76,7 +76,9 @@ def calculate_assembly(
     if assembly is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assembly not found")
     try:
-        lines = assembly_service.calculate_assembly_lines(assembly, payload.dimensions)
+        lines, summary = assembly_service.calculate_assembly_with_summary(
+            assembly, payload.dimensions, payload.waste_percent,
+        )
     except assembly_service.AssemblyFormulaError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     return {
@@ -84,6 +86,7 @@ def calculate_assembly(
         "assembly_name": assembly.name,
         "lines": lines,
         "total": round(sum(float(line["subtotal"]) for line in lines), 2),
+        "summary": summary,
     }
 
 
@@ -120,7 +123,9 @@ def apply_assembly(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assembly not found")
 
     try:
-        lines = assembly_service.calculate_assembly_lines(assembly, payload.dimensions)
+        lines, summary = assembly_service.calculate_assembly_with_summary(
+            assembly, payload.dimensions, payload.waste_percent,
+        )
     except assembly_service.AssemblyFormulaError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
@@ -161,4 +166,5 @@ def apply_assembly(
         "quote_subtotal": float(quote.subtotal),
         "quote_total": float(quote.total),
         "line_count": len(lines),
+        "summary": summary,
     }

@@ -157,3 +157,96 @@ def _to_float(name: str, value):
         raise AssemblyFormulaError(
             f"Dimension '{name}' must be a number, got {value!r}"
         ) from None
+
+
+def _apply_waste(raw_lines: list[dict], waste_percent: float):
+    """Inflate MATERIAL line quantities by the waste factor and summarize.
+
+    Waste applies ONLY to item_type == 'material' lines (quantities and
+    therefore their cost); labor/plant/subcontractor lines pass through
+    untouched. Returns (lines_with_waste, summary) where summary is:
+      {waste_percent, materials_raw, waste_added, labor_total, total}.
+    """
+    waste = max(0.0, float(waste_percent or 0)) / 100.0
+    materials_raw = 0.0
+    waste_added = 0.0
+    labor_total = 0.0
+    out = []
+    for line in raw_lines:
+        if line["item_type"] == "material" and waste > 0:
+            qty = float(line["quantity"])
+            raw_sub = round(qty * line["unit_cost"] * (1 + line["markup_percent"] / 100.0), 2)
+            inflated = round(qty * (1 + waste), 3)
+            new_sub = round(inflated * line["unit_cost"] * (1 + line["markup_percent"] / 100.0), 2)
+            materials_raw += raw_sub
+            waste_added += round(new_sub - raw_sub, 2)
+            line = dict(line, quantity=inflated, subtotal=new_sub)
+        elif line["item_type"] == "material":
+            materials_raw += float(line["subtotal"])
+        else:
+            labor_total += float(line["subtotal"])
+        out.append(line)
+    summary = {
+        "waste_percent": round(float(waste_percent or 0), 2),
+        "materials_raw": round(materials_raw, 2),
+        "waste_added": round(waste_added, 2),
+        "labor_total": round(labor_total, 2),
+        "total": round(sum(float(l["subtotal"]) for l in out), 2),
+    }
+    return out, summary
+
+
+def calculate_assembly_with_summary(assembly: ParametricAssembly, dimensions: dict,
+                                    waste_percent: float = 10.0):
+    """Price an assembly for the caller's dimensions, applying the material
+    waste factor. Returns (lines, summary) -- both the inflated line list and
+    the materials-raw / waste-added / labor breakdown for the cockpit."""
+    raw = calculate_assembly_lines(assembly, dimensions, waste_percent=0)
+    return _apply_waste(raw, waste_percent)
+
+
+def calculate_assembly_lines(assembly: ParametricAssembly, dimensions: dict,
+                             waste_percent: float = 0.0) -> list[dict]:
+    """Price an assembly for the caller's dimensions.
+
+    Assemblies with a `calculator` name dispatch to a hand-written Python
+    calculator; the rest evaluate their component formulas (both produce the
+    same {description, item_type, quantity, unit, unit_cost, markup_percent,
+    subtotal} line contract). When waste_percent > 0, material quantities are
+    inflated by (1 + waste/100) -- labor is never multiplied.
+    """
+    calculator = getattr(assembly, "calculator", None)
+    if calculator:
+        raw = _run_calculator(calculator, dimensions)
+    else:
+        dims = {k: _to_float(k, v) for k, v in (dimensions or {}).items()}
+        missing = [i for i in (assembly.required_inputs or []) if i not in dims]
+        if missing:
+            raise AssemblyFormulaError(f"Missing required inputs: {', '.join(missing)}")
+
+        raw = []
+        for component in sorted(assembly.components, key=lambda c: c.id or 0):
+            quantity = safe_eval_formula(component.formula, dims)
+            if quantity < 0:
+                raise AssemblyFormulaError(
+                    f"Formula for {component.description!r} produced a negative "
+                    f"quantity ({quantity:g})"
+                )
+            unit_cost = float(component.default_unit_cost or 0)
+            markup = float(
+                component.default_markup_percent
+                if component.default_markup_percent is not None
+                else 20.0
+            )
+            raw.append({
+                "description": component.description,
+                "item_type": component.item_type,
+                "quantity": round(quantity, 3),
+                "unit": component.unit,
+                "unit_cost": round(unit_cost, 2),
+                "markup_percent": round(markup, 2),
+                "subtotal": round(quantity * unit_cost * (1 + markup / 100.0), 2),
+            })
+
+    lines, _summary = _apply_waste(raw, waste_percent)
+    return lines

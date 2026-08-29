@@ -97,6 +97,9 @@ def ensure_legacy_columns(bind):
             statements.append("ALTER TABLE quotes ADD COLUMN include_contract BOOLEAN DEFAULT TRUE")
         if "custom_contract_override" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN custom_contract_override TEXT")
+        # Payment milestones landed with the cockpit payment-schedule feature.
+        if "payment_schedule" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN payment_schedule JSON")
     # Organization profile fields landed after the first organizations
     # table was created -- same idempotent in-place upgrade. `bio` superseded
     # the old `description` column, so existing databases get an in-place
