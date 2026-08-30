@@ -223,7 +223,7 @@ class QuoteExtrasTestCase(unittest.TestCase):
         self.register("extras-voice@acme.com")
         r = self.client.get("/quotes/new")
         html = r.text
-        for needle in ("Record Walkthrough", "Stop & Review", "startWalkthrough",
+        for needle in ("Record Walkthrough", "Stop &amp; Review Scope", "startWalkthrough",
                        "stopWalkthrough", "walkthroughTranscript", "walkthroughDuration",
                        "walkthroughParsed", "parseWalkthroughTranscript",
                        "applyWalkthrough", "applyWalkthroughAndRecord", "applyWalkthroughChecked",
@@ -232,6 +232,7 @@ class QuoteExtrasTestCase(unittest.TestCase):
                        "rec.interimResults = false", "x-model.number=\"it.qty\"",
                        "x-model=\"it.description\"", "x-model.number=\"it.unit_cost\"",
                        "x-model.number=\"a.length\"", "x-model.number=\"a.width\"",
+                       "formatWalkthroughDuration", "Recording (", "Stop &amp; Review Scope",
                        "data-voice-field=\"title\"", "data-voice-field=\"site_address\"",
                        "data-voice-field=\"client_name\"", "data-voice-row",
                        "flashVoiceTarget", "bq-flash", "audio-lines",
