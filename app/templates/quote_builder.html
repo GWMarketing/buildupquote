@@ -80,7 +80,10 @@
             <div class="border-t border-slate-700 pt-1">
               <p class="mb-1 font-semibold text-slate-300">Line items</p>
               <template x-for="(it, idx) in walkthroughParsed.line_items" :key="idx">
-                <p class="text-slate-400" x-text="it.qty + ' ' + it.unit + ' ' + it.description + (it.unit_cost ? ' @ $' + it.unit_cost : '')"></p>
+                <label class="flex cursor-pointer items-center gap-2 text-slate-400 hover:text-slate-200">
+                  <input type="checkbox" x-model="it.checked" class="h-3.5 w-3.5 accent-amber-500">
+                  <span x-text="it.qty + ' ' + it.unit + ' ' + it.description + (it.unit_cost ? ' @ $' + it.unit_cost : '')"></span>
+                </label>
               </template>
             </div>
           </template>
@@ -88,7 +91,10 @@
             <div class="border-t border-slate-700 pt-1">
               <p class="mb-1 font-semibold text-slate-300">Assemblies</p>
               <template x-for="(a, idx) in walkthroughParsed.assemblies" :key="idx">
-                <p class="text-slate-400" x-text="a.trade + ' ' + a.length + 'x' + a.width + (a.height ? ' @ ' + a.height + 'ft' : '')"></p>
+                <label class="flex cursor-pointer items-center gap-2 text-slate-400 hover:text-slate-200">
+                  <input type="checkbox" x-model="a.checked" class="h-3.5 w-3.5 accent-amber-500">
+                  <span x-text="a.trade + ' ' + a.length + 'x' + a.width + (a.height ? ' @ ' + a.height + 'ft' : '')"></span>
+                </label>
               </template>
             </div>
           </template>
@@ -1854,11 +1860,14 @@ function quoteBuilder(quoteId) {
           BQ.toast('No client named "' + p.client_name + '" — add them under Clients');
         }
       }
-      (p.line_items || []).forEach((it) => this.addWalkthroughLineItem(it));
+      (p.line_items || []).filter(it => it.checked !== false).forEach((it) => this.addWalkthroughLineItem(it));
       if (p.assemblies && p.assemblies.length) {
-        this.applyWalkthroughAssembly(p.assemblies[0]);
-        if (p.assemblies.length > 1) {
-          BQ.toast('Additional assemblies (' + (p.assemblies.length - 1) + ') — pick them from the Insert Assembly drawer');
+        const checkedAsm = p.assemblies.filter(a => a.checked !== false);
+        if (checkedAsm.length) {
+          this.applyWalkthroughAssembly(checkedAsm[0]);
+          if (checkedAsm.length > 1) {
+            BQ.toast('Additional assemblies (' + (checkedAsm.length - 1) + ') — pick them from the Insert Assembly drawer');
+          }
         }
       }
       this.voiceReviewOpen = false;
