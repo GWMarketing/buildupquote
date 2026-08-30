@@ -553,7 +553,9 @@ class CrmApiTestCase(unittest.TestCase):
         html = r.text
         for needle in ("/static/js/global_search.js", "bq-search-modal", "bq-search-input",
                        "bq-search-results", "New Invoice", "New Client", "createOpen",
-                       "chevron-right", "⌘K"):
+                       "chevron-right", "⌘K",
+                       "bg-amber-500/80 text-white border border-amber-400/40",
+                       "absolute -right-3 top-1/2"):
             self.assertIn(needle, html)
         # The launcher script ships the fuzzy engine, keyboard handling, and
         # the cross-tab sync channel.
