@@ -36,6 +36,27 @@ test('pricing idioms normalize to dollar + /ea', () => {
   assert.strictEqual(V.normalizeSpokenTranscript('4 per unit'), '4 /ea');
   assert.strictEqual(V.normalizeSpokenTranscript('30 a gallon'), '30 /ea');
   assert.strictEqual(V.normalizeSpokenTranscript('at $18 a piece'), 'at $18 /ea');
+  assert.strictEqual(V.normalizeSpokenTranscript('18 bucks a box'), '$18 /ea');
+  assert.strictEqual(V.normalizeSpokenTranscript('2 per bag'), '2 /ea');
+  assert.strictEqual(V.normalizeSpokenTranscript('30 bucks a roll'), '$30 /ea');
+  assert.strictEqual(V.normalizeSpokenTranscript('18 a pop'), '18 /ea');
+});
+
+test('material aliases run at the lexical layer', () => {
+  assert.strictEqual(V.normalizeSpokenTranscript('20 sheets of sheetrock'), '20 sheets of Drywall');
+  assert.strictEqual(V.normalizeSpokenTranscript('add a box of gfci outlet'), 'box of GFCI Receptacle');
+  assert.strictEqual(V.normalizeSpokenTranscript('two by four studs'), '2x4 SPF Studs studs');
+  assert.strictEqual(V.normalizeSpokenTranscript('8 recessed lights'), '8 Recessed LED Fixtures');
+  // Idempotent: normalizing already-canonical text never double-applies.
+  // (The pipeline lowercases, so the canonical input round-trips lowercase.)
+  assert.strictEqual(V.normalizeSpokenTranscript('8 Recessed LED Fixtures'), '8 recessed led fixtures');
+});
+
+test('new planning fillers are stripped', () => {
+  const out = V.normalizeSpokenTranscript('we are gonna need 15 gallons of paint');
+  assert.strictEqual(out, '15 gallons of paint');
+  assert.strictEqual(V.normalizeSpokenTranscript("we'll need 2 boxes of tile"), '2 boxes of tile');
+  assert.strictEqual(V.normalizeSpokenTranscript('we will need 3 sheets drywall'), '3 sheets drywall');
 });
 
 test('quantity speech like "a gallon of paint" is not destroyed', () => {
@@ -109,6 +130,8 @@ test('cleanLeadingStopWords strips connective prefixes', () => {
   assert.strictEqual(V.cleanLeadingStopWords('at 77 Oak Ave'), '77 Oak Ave');
   assert.strictEqual(V.cleanLeadingStopWords('the main office'), 'main office');
   assert.strictEqual(V.cleanLeadingStopWords('it\'s the garage'), 'the garage');
+  assert.strictEqual(V.cleanLeadingStopWords('in the kitchen'), 'the kitchen');
+  assert.strictEqual(V.cleanLeadingStopWords('and the garage'), 'the garage');
   assert.strictEqual(V.cleanLeadingStopWords('1400 Mockingbird Lane'), '1400 Mockingbird Lane');
   assert.strictEqual(V.cleanLeadingStopWords('  is 500 Broadway  '), '500 Broadway');
 });

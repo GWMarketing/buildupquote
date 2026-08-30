@@ -3,20 +3,23 @@
  * On stop, parseWalkthroughTranscript() runs once over the full transcript and
  * returns structured data for the review drawer's "Apply to Quote" step:
  *
- *   { title, client_name, site_address,
+ *   { quote_title, client_name, site_address,
  *     rooms: { "<Room Label>": { line_items: [...], assemblies: [...] } },
- *     general_notes: [...], skipped_items: [{ originalText, reason }],
+ *     client_scope_notes: [...], internal_crew_notes: [...],
+ *     skipped_items: [{ originalText, reason }],
  *     problems: [...], matched, raw }
  *
  * Line items carry { qty, unit, description, unit_cost, type, trade } where
- * trade is guessed from the description via the trade catalog; assemblies
- * carry { trade (spoken term), trade_key (canonical slug), length, width,
- * height }. Items are bucketed under the room they were spoken for ("in the
- * kitchen", "for the master bedroom", "bedroom 2", or a sentence that starts
- * with the room). `skipped_items` records corrections/discards and unresolved
- * construction phrases (with a reason); `problems` carries warn-level
- * diagnostics (no-price lines, missing assembly dimensions) for the review
- * step.
+ * trade is guessed from the description via the trade catalog and the
+ * description is canonicalized by the construction dictionary's material
+ * aliases ("sheetrock" -> "Drywall"); assemblies carry { trade (spoken term),
+ * trade_key (canonical slug), length, width, height }. Items are bucketed
+ * under the room they were spoken for ("in the kitchen", "for the master
+ * bedroom", "bedroom 2", or a sentence that starts with the room).
+ * `skipped_items` records corrections/discards and unresolved construction
+ * fragments (with a reason); notes split into client scope vs private
+ * internal/crew notes; `problems` carries warn-level diagnostics (no-price
+ * lines, missing assembly dimensions) for the review step.
  *
  * Pure functions, no DOM deps: window.BQWalkthroughParser + CommonJS for Node
  * tests (tests/js/batch_walkthrough_parser.test.js). Depends on the shared
@@ -40,7 +43,14 @@
     try { TradeCatalog = require('./trade_catalog.js'); } catch (e) { /* keep null */ }
   }
 
-  var FILLER_RE = /\b(you know|um+|uh+|like|roughly|around|about|approximately|please|can you|could you|let'?s add|let us add|let'?s do|add a|add an|add|maybe|kind of|sort of|all right|alright|so)\b/gi;
+  var ConstructionDictionary = null;
+  if (typeof window !== 'undefined' && window.BQConstructionDictionary) {
+    ConstructionDictionary = window.BQConstructionDictionary;
+  } else if (typeof require === 'function') {
+    try { ConstructionDictionary = require('./construction_dictionary.js'); } catch (e) { /* keep null */ }
+  }
+
+  var FILLER_RE = /\b(you know|um+|uh+|like|roughly|around|about|approximately|please|can you|could you|let'?s add|let us add|let'?s do|add a|add an|add|maybe|kind of|sort of|all right|alright|so|we are gonna need|we'?ll need|we will need)\b/gi;
 
   function cleanFillers(text) {
     return String(text || '')
@@ -74,33 +84,47 @@
   }
 
   // ---- Entity & unit recognition -------------------------------------------
+  // Spoken/short unit words -> normalized symbol. The centralized dictionary
+  // (construction_dictionary.js) is the source of truth; this local map is the
+  // fallback when the dictionary isn't loaded, and stays in sync with it.
   var UNIT_ALIASES = {
-    'gallons': 'gal', 'gallon': 'gal', 'gals': 'gal',
+    'sq ft': 'sq ft', 'sqft': 'sq ft', 'square feet': 'sq ft', 'square foot': 'sq ft', 'squares': 'sq',
+    'lin ft': 'lin ft', 'linear feet': 'lin ft', 'linear foot': 'lin ft', 'lf': 'lin ft',
+    'sq m': 'm2', 'square meters': 'm2', 'square meter': 'm2', 'm2': 'm2',
     'sheets': 'sheet', 'sheet': 'sheet',
-    'studs': 'stud', 'stud': 'stud',
+    'studs': 'stud', 'stud': 'stud', 'sticks': 'stick', 'stick': 'stick',
     'boxes': 'box', 'box': 'box',
     'bags': 'bag', 'bag': 'bag',
+    'buckets': 'bucket', 'bucket': 'bucket', 'pails': 'bucket',
+    'gallons': 'gal', 'gallon': 'gal', 'gals': 'gal',
     'rolls': 'roll', 'roll': 'roll',
-    'squares': 'square', 'square': 'square',
-    'pieces': 'piece', 'piece': 'piece',
-    'units': 'unit', 'unit': 'unit',
+    'bundles': 'bundle', 'bundle': 'bundle',
+    'fixtures': 'fixture', 'fixture': 'fixture',
+    'units': 'ea', 'pieces': 'ea', 'piece': 'ea', 'each': 'ea',
     'hours': 'hr', 'hour': 'hr', 'hrs': 'hr', 'hr': 'hr',
-    'sq ft': 'sq ft', 'square feet': 'sq ft', 'square foot': 'sq ft',
-    'sq m': 'm2', 'square meters': 'm2', 'square meter': 'm2', 'm2': 'm2',
-    'linear ft': 'lin ft', 'linear feet': 'lin ft', 'lin ft': 'lin ft',
-    'lf': 'lin ft',
   };
   var UNIT_RE_SRC = [
     'sq\\s*ft', 'square\\s*feet?', 'sq\\s*m', 'square\\s*meters?', 'm2',
     'linear\\s*ft', 'linear\\s*feet?', 'lin\\s*ft', 'l\\s*f', 'lf',
-    'gallons?', 'gals?', 'sheets?', 'studs?', 'boxes?', 'bags?', 'rolls?',
-    'squares?', 'pieces?', 'units?', 'hours?', 'hrs?',
+    'gallons?', 'gals?', 'sheets?', 'studs?', 'sticks?', 'boxes?', 'bags?',
+    'buckets?', 'pails?', 'rolls?', 'bundles?', 'fixtures?', 'squares?',
+    'pieces?', 'units?', 'hours?', 'hrs?',
   ].join('|');
   var UNIT_RE = new RegExp('(' + UNIT_RE_SRC + ')\\b', 'i');
 
   function normalizeUnit(word) {
-    var w = String(word || '').toLowerCase().replace(/\s+/g, ' ');
+    var w = String(word || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (ConstructionDictionary && ConstructionDictionary.normalizeUnit) {
+      return ConstructionDictionary.normalizeUnit(w);
+    }
     return UNIT_ALIASES[w] || w;
+  }
+
+  /** Canonical material name for a raw description (dictionary aliases). */
+  function aliasMaterial(text) {
+    return (ConstructionDictionary && ConstructionDictionary.aliasMaterial)
+      ? ConstructionDictionary.aliasMaterial(text)
+      : String(text || '');
   }
 
   function capitalize(word) {
@@ -180,7 +204,7 @@
     .map(escapeRegExp)
     .join('|');
 
-  var ROOM_CUE_SRC = 'moving\\s+over\\s+to|moving\\s+to|heading\\s+(?:to|into)|over\\s+to|toward|in|for|at|on|into|near|inside|outside|upstairs|downstairs';
+  var ROOM_CUE_SRC = 'moving\\s+over\\s+to|moving\\s+to|heading\\s+down\\s+to|heading\\s+(?:to|into)|over\\s+to|toward|in|for|at|on|into|near|inside|outside|upstairs|downstairs';
   var ROOM_NUM_RE = new RegExp('\\b(bedroom|bathroom|bath|garage|office|den)\\s+(\\d{1,2})(?!\\s*(?:' + UNIT_RE_SRC + ')\\b)', 'i');
   var ROOM_NUM_CUE_RE = new RegExp('\\b(?:' + ROOM_CUE_SRC + ')\\s+(?:(?:the|a|an|this|that)\\s+)?(' + ROOM_ALT_SRC + ')(?:\\s+(\\d{1,2})(?!\\s*(?:' + UNIT_RE_SRC + ')\\b))?\\b', 'i');
   var ROOM_THE_RE = new RegExp('\\bthe\\s+(' + ROOM_ALT_SRC + ')\\b', 'i');
@@ -226,15 +250,27 @@
   // Strict line-item triggers (a bare "item" word is NOT enough) + strict
   // [Number] + [Trade Unit] sequence + conversational blacklist.
   var LINE_TRIGGER_RE = /\b(?:line\s+item|new\s+(?:item|line)|add\s+(?:a\s+|an\s+)?(?:line\s+)?item|put\s+(?:down|in))\b/i;
-  var QTY_UNIT_RE = new RegExp('\\b\\d+(?:\\.\\d+)?\\s+(?:' + UNIT_RE_SRC + ')\\b', 'i');
+  var QTY_UNIT_RE = new RegExp('\\b(?:\\d+(?:\\.\\d+)?|a|an)\\s+(?:' + UNIT_RE_SRC + ')\\b', 'i');
   var LINE_ITEM_BLACKLIST_RE = /\b(not going to|not sure|maybe|think|probably|okay|ok\b|whatever|doesn'?t|isn'?t|don'?t|won'?t|can'?t|no good)\b/i;
 
   function isLineItemPhrase(text) {
-    return LINE_TRIGGER_RE.test(text) || QTY_UNIT_RE.test(text);
+    if (LINE_TRIGGER_RE.test(text) || QTY_UNIT_RE.test(text)) return true;
+    // Bare quantity + recognizable construction material ("8 recessed lights",
+    // no unit word) still counts when the words alias to a canonical material
+    // or match a trade. Dimensional phrases ("10 by 12") stay assembly-only.
+    var bare = String(text || '').match(/(?:^|\D)(\d+(?:\.\d+)?)\s+(.+)$/);
+    if (bare && bare[2].length >= 3 && !/\b\d+(?:\s*(?:x|by)\s*)\d+\b/i.test(text)) {
+      var rest = bare[2];
+      return aliasMaterial(rest) !== rest || !!matchTrade(rest);
+    }
+    return false;
   }
 
   function parseLineItem(text) {
-    var t = normalizeTranscript(text);
+    // The transcript is already normalized (number words -> digits, material
+    // aliases -> canonical names) by the caller; this function only does the
+    // structural quantity/unit/price extraction.
+    var t = String(text == null ? '' : text);
     var unitCost = 0;
     var body = t;
     var costMatch = t.match(COST_RE);
@@ -243,7 +279,7 @@
       body = t.slice(0, costMatch.index).trim();
     }
     var qty = 1;
-    var unit = 'unit';
+    var unit = 'ea';
     var desc = body;
     var unitMatch = body.match(UNIT_RE);
     if (unitMatch) {
@@ -262,11 +298,27 @@
         desc = body.slice(qtyMatch.index + qtyMatch[0].length).trim();
       }
     }
+    // The unit word can be the tail of a canonical material name
+    // ("Recessed LED Fixtures" ends in the unit word "fixtures"), which leaves
+    // an empty description. Re-parse the whole body as a bare-quantity
+    // material ("8 Recessed LED Fixtures" -> 8 ea) so the line isn't lost.
+    if (!desc) {
+      var bareQ = body.match(/(?:^|\D)(\d+(?:\.\d+)?)\s+(.+)$/);
+      if (bareQ) {
+        qty = parseFloat(bareQ[1]) || 1;
+        desc = bareQ[2];
+        unit = 'ea';
+      }
+    }
     desc = desc
       .replace(/^(?:line\s+)?(?:item|line|new\s+(?:item|line))\s*/i, '')
       .replace(/^(?:of|of the|for)\s+/i, '')
       .replace(/^[,:;\-—\s]+|[,:;\-—\s]+$/g, '')
       .trim();
+    // Canonical material names ("sheetrock" -> "Drywall", "2 by 4" ->
+    // "2x4 SPF Studs") so aggregation and the trade guess see one name. The
+    // normalizer already does this at the lexical layer; this is idempotent.
+    desc = aliasMaterial(desc) || desc;
     return {
       qty: qty, unit: unit, description: capitalize(desc || 'Custom Item'),
       unit_cost: unitCost, type: 'material', trade: matchTrade(desc),
@@ -276,14 +328,16 @@
   // ---- Intent anchors -------------------------------------------------------
   var ADDRESS_RE = /\b(?:(?:his|her|the|site|client(?:'s)?)\s+)?address(?:\s+of\s+the\s+(?:client(?:'s)?\s+)?home)?(?:\s*(?:is\s*[,:.]?\s*|should\s+be\s*[,:.]?\s*|:)\s*)?(.+)$/i;
   var CLIENT_RE = /\b(?:set\s+)?(?:the\s+)?(?:client(?:'s)?(?:\s+name)?|appliance(?:'s)?(?:\s+name)?|customer)\s+(?:is\s+|to\s+|name\s+is\s+|should\s+be\s+)?([A-Za-z][A-Za-z0-9.'-]*?(?:\s+[A-Za-z][A-Za-z0-9.'-]*?){0,3}?)(?=\s+(?:is|next|the|then|and|in|at|for|with|should|his|her)\b|$)/i;
-  var TITLE_RE = /(?:quote\s+(?:name|title)(?:\s+should\s+be|\s+is)?|call\s+this\s+quote)\s+(.+)/i;
+  var TITLE_RE = /(?:quote\s+(?:name|title)(?:\s+should\s+be|\s+is)?|call\s+this\s+quote|project\s+is)\s+(.+)/i;
   var TRADE_ALT_SRC = tradeAlternationSource();
-  var ASSEMBLY_RE = new RegExp('\\b(' + TRADE_ALT_SRC + ')\\b\\s+(\\d+(?:\\.\\d+)?)\\s*(?:x|by|×|\\*)\\s*(\\d+(?:\\.\\d+)?)(?:\\s+(\\d+(?:\\.\\d+)?)\\s*(?:ft|foot|feet|ceiling|ceilings|high))?', 'i');
-  var INTENT_ANCHOR_RE = new RegExp('\\b(?:quote\\s+(?:name|title)|call\\s+this\\s+quote|' +
+  var ASSEMBLY_RE = new RegExp('\\b(' + TRADE_ALT_SRC + ')\\b\\s+(\\d+(?:\\.\\d+)?)\\s*(?:x|by|×|\\*)\\s*(\\d+(?:\\.\\d+)?)' +
+    '(?:\\s+(\\d+(?:\\.\\d+)?)\\s*(?:ft|foot|feet|ceiling|ceilings|high)|' +
+    '\\s*(?:ft|foot)?\\s*with\\s+(\\d+(?:\\.\\d+)?)\\s*(?:ft|foot|feet|ceiling|ceilings|high))?', 'i');
+  var INTENT_ANCHOR_RE = new RegExp('\\b(?:quote\\s+(?:name|title)|call\\s+this\\s+quote|project\\s+is|' +
     '(?:(?:his|her|the|site|client(?:\'s)?|appliance(?:\'s)?)\\s*)?address|' +
     '(?:client(?:\'s)?|appliance(?:\'s)?|customer)(?:\\s+name)?(?=\\s+(?:is|should\\s+be)\\b)|' +
     '(?:line\\s+item|new\\s+(?:line|item))|' +
-    '\\d+(?:\\.\\d+)?\\s+(?:' + UNIT_RE_SRC + ')\\b|' +
+    '(?:a|an|\\d+(?:\\.\\d+)?)\\s+(?:' + UNIT_RE_SRC + ')\\b|' +
     '(?:' + TRADE_ALT_SRC + ')(?=\\s*\\d+\\s*(?:x|by)\\b))', 'gi');
 
   /** Split filler-cleaned speech into intent segments at anchor boundaries. */
@@ -324,12 +378,17 @@
   // Construction-y words that signal an intended line item that never fully
   // resolved ("we need a gallon", "40 bucks for that") -> skipped_items.
   var CONSTRUCTION_HINT_RE = /\b(need|needs|needed|gallons?|sheets?|boxes?|bags?|rolls?|pieces?|units?|studs?|bucks|dollars|sq\s*ft|linear\s*ft|hours?|hrs?)\b/i;
+  // Private job-site / sub-contractor concerns -> internal_crew_notes.
+  var INTERNAL_NOTE_RE = /\b(crew|subpanel|sub out|capacity|joists|insulation sub|plumbing stack|moisture|inspect before|foundation crack|subfloor|permit)\b/i;
 
-  /** Split a master transcript into sentences on [.!?] boundaries (the
-   *  recorder joins finals with ". "). */
+  /** Split a master transcript into sentences on [.!?] boundaries plus compound
+   *  clause connectors (", and", ", plus", ";", bare "plus"), so a run-on
+   *  final like "15 gallons of paint, plus 20 sheets drywall" yields two
+   *  sentences (the recorder also joins finals with ". "). */
   function splitSentences(text) {
     return String(text || '')
       .replace(/([.!?])\s+/g, '$1|---SEP---|')
+      .replace(/\b(?:,\s*(?:and|plus|also|as well as)|;\s*|\bplus\b)\s+/gi, '|---SEP---|')
       .split('|---SEP---|')
       .map(function (s) { return s.trim(); })
       .filter(Boolean);
@@ -364,9 +423,9 @@
   function parseWalkthroughTranscript(transcript) {
     var raw = String(transcript || '').trim();
     var data = {
-      title: null, client_name: null, site_address: null,
-      rooms: {}, general_notes: [], skipped_items: [], problems: [],
-      matched: 0, raw: raw,
+      quote_title: null, client_name: null, site_address: null,
+      rooms: {}, client_scope_notes: [], internal_crew_notes: [],
+      skipped_items: [], problems: [], matched: 0, raw: raw,
     };
     if (!raw) return data;
 
@@ -374,7 +433,7 @@
     _lastAdd = null;
     _lastRoom = null;
     var sentences = splitSentences(raw);
-    var currentRoom = 'Main Area';
+    var currentRoom = 'General Area';
     roomBucket(data, currentRoom);
 
     for (var s = 0; s < sentences.length; s++) {
@@ -403,7 +462,10 @@
 
       for (var i = 0; i < segments.length; i++) {
         var seg = segments[i];
-        var segNorm = normalizeTranscript(seg);
+        // Segments come from the already-normalized sentence; re-normalizing
+        // would lowercase canonical alias names ("GFCI Receptacle" ->
+        // "gfci receptacle") and corrupt them, so use the segment verbatim.
+        var segNorm = seg;
         // A later clause in a run-on final can still re-scope ("bathroom 2
         // needs 10 gallons of paint" following kitchen items).
         var segRoom = detectRoom(segNorm) || detectRoom(seg);
@@ -412,7 +474,7 @@
         var titleMatch = seg.match(TITLE_RE);
         if (titleMatch && titleMatch[1]) {
           var cleanTitle = toTitleCaseText(cleanLeading(titleMatch[1]));
-          if (cleanTitle.length > 2 && !/^(is|the|be)$/i.test(cleanTitle)) data.title = cleanTitle;
+          if (cleanTitle.length > 2 && !/^(is|the|be)$/i.test(cleanTitle)) data.quote_title = cleanTitle;
           continue;
         }
         var addressMatch = seg.match(ADDRESS_RE);
@@ -457,19 +519,28 @@
           }
           continue;
         }
-        // Unmatched meaningful speech: unresolved construction phrases get a
-        // reason; everything else lands in general_notes (never dropped). A
+        // Unmatched meaningful speech: private crew/sub concerns, unresolved
+        // construction phrases, or short fragments get reasons; longer
+        // client-facing phrases land in client_scope_notes (never dropped). A
         // room-marker phrase ("next room is the kitchen") sets context and is
-        // neither.
+        // none of these.
         if (seg.length >= 3 && !segNorm.match(ASSEMBLY_RE) &&
             !detectRoom(seg) && !detectRoom(segNorm)) {
-          if (CONSTRUCTION_HINT_RE.test(segNorm)) {
+          var cleanNote = seg.replace(/^(?:note|notes|site\s+notes?|crew\s+notes?|general\s+notes?)[:\s-]*/i, '').trim();
+          if (INTERNAL_NOTE_RE.test(segNorm) || INTERNAL_NOTE_RE.test(cleanNote)) {
+            data.internal_crew_notes.push(cleanNote || seg);
+          } else if (CONSTRUCTION_HINT_RE.test(segNorm)) {
             data.skipped_items.push({
               originalText: seg,
               reason: 'Could not resolve complete quantity, unit, or pricing parameters',
             });
+          } else if (seg.split(/\s+/).length < 4) {
+            data.skipped_items.push({
+              originalText: seg,
+              reason: 'Fragment lacked complete trade item or dimension parameters',
+            });
           } else {
-            data.general_notes.push(seg);
+            data.client_scope_notes.push(cleanNote || seg);
           }
         }
       }
@@ -480,14 +551,22 @@
       var asmRe = new RegExp(ASSEMBLY_RE.source, 'gi');
       var am;
       while ((am = asmRe.exec(normalized)) !== null) {
+        var asmLen = parseFloat(am[2]);
+        var asmWid = parseFloat(am[3]);
+        // Skip degenerate matches ("drywall 0 by 0") without breaking the
+        // global-sweep lastIndex contract.
+        if (!(asmLen > 0) || !(asmWid > 0)) {
+          if (am.index === asmRe.lastIndex) asmRe.lastIndex++;
+          continue;
+        }
         roomBucket(data, currentRoom).assemblies.push({
           id: 'asm-' + (++_itemSeq),
           checked: true,
           trade: am[1].toLowerCase(),
           trade_key: matchTrade(am[1]),
-          length: parseFloat(am[2]),
-          width: parseFloat(am[3]),
-          height: am[4] ? parseFloat(am[4]) : 8,
+          length: asmLen,
+          width: asmWid,
+          height: am[4] ? parseFloat(am[4]) : (am[5] ? parseFloat(am[5]) : 8),
         });
         _lastAdd = 'asm';
         _lastRoom = currentRoom;
@@ -501,7 +580,7 @@
       lineCount += data.rooms[k].line_items.length;
       asmCount += data.rooms[k].assemblies.length;
     });
-    data.matched = (data.title ? 1 : 0) + (data.client_name ? 1 : 0) +
+    data.matched = (data.quote_title ? 1 : 0) + (data.client_name ? 1 : 0) +
       (data.site_address ? 1 : 0) + lineCount + asmCount;
 
     // ---- Problem diagnostics for the review drawer --------------------------
@@ -534,6 +613,7 @@
     cleanFillers: cleanFillers,
     detectRoom: detectRoom,
     stripRoomPhrase: stripRoomPhrase,
+    aliasMaterial: aliasMaterial,
   };
   if (typeof window !== 'undefined') window.BQWalkthroughParser = BQWalkthroughParser;
   if (typeof module !== 'undefined' && module.exports) {

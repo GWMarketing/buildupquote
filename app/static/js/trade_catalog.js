@@ -21,7 +21,7 @@
     paint: ['paint', 'painting', 'primer', 'stain', 'coating', 'sealer', 'interior paint', 'exterior paint'],
     flooring: ['flooring', 'vinyl plank', 'laminate', 'hardwood', 'tile', 'carpet', 'lvp', 'lvt', 'linoleum'],
     tile: ['tile', 'tiling', 'backsplash', 'shower tile', 'porcelain', 'ceramic'],
-    electrical: ['electrical', 'wiring', 'lighting', 'fixtures', 'receptacles', 'switches', 'conduit', 'subpanel'],
+    electrical: ['electrical', 'wiring', 'lighting', 'fixtures', 'receptacles', 'receptacle', 'outlet', 'switches', 'conduit', 'subpanel', 'wire', 'romex'],
     plumbing: ['plumbing', 'rough plumbing', 'drain', 'fixtures', 'vanity hookup', 'toilet', 'shower valve', 'pex'],
     trim: ['trim', 'baseboard', 'molding', 'casing', 'crown molding', 'door trim', 'finish carpentry'],
     insulation: ['insulation', 'batt insulation', 'fiberglass', 'rockwool', 'rigid foam', 'spray foam'],

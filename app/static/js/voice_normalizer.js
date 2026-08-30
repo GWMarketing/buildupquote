@@ -17,8 +17,18 @@
 (function () {
   'use strict';
 
+  var ConstructionDictionary = null;
+  if (typeof window !== 'undefined' && window.BQConstructionDictionary) {
+    ConstructionDictionary = window.BQConstructionDictionary;
+  } else if (typeof require === 'function') {
+    try { ConstructionDictionary = require('./construction_dictionary.js'); } catch (e) { /* keep null */ }
+  }
+
   // Exact spec table plus everything needed to rebuild numbers from speech.
-  var NUMBER_WORDS = {
+  // The canonical table lives in the construction dictionary (so the "two by
+  // four" -> "2 by 4" conversion happens before material aliases run); this
+  // local copy is the fallback when the dictionary isn't loaded.
+  var NUMBER_WORDS = (ConstructionDictionary && ConstructionDictionary.NUMBER_WORDS) || {
     zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7,
     eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13,
     fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18,
@@ -38,7 +48,7 @@
   };
 
   // Filler / conversational fluff (spec list + a few real-world extras).
-  var FILLER_RE = /\b(you know|um+|uh+|like|roughly|around|about|approximately|please|can you|could you|let'?s add|let us add|let'?s do|add a|add an|add|maybe|kind of|sort of|all right|alright|so)\b/gi;
+  var FILLER_RE = /\b(you know|um+|uh+|like|roughly|around|about|approximately|please|can you|could you|let'?s add|let us add|let'?s do|add a|add an|add|maybe|kind of|sort of|all right|alright|so|we are gonna need|we'?ll need|we will need)\b/gi;
 
   var ONES_SRC = 'one|two|three|four|five|six|seven|eight|nine';
   var TEENS_SRC = 'ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen';
@@ -80,14 +90,23 @@
   function normalizeSpokenTranscript(raw) {
     var text = String(raw == null ? '' : raw).toLowerCase().trim();
     text = convertNumberWords(text);
+    // Material aliases run at the lexical layer ("sheetrock" -> "Drywall",
+    // "pot lights" -> "Recessed LED Fixtures", "2 by 4" -> "2x4 SPF Studs")
+    // so every downstream consumer sees one canonical material name. The
+    // dictionary's aliasMaterial is idempotent, so already-canonical text is
+    // never double-applied.
+    if (ConstructionDictionary && ConstructionDictionary.aliasMaterial) {
+      text = ConstructionDictionary.aliasMaterial(text);
+    }
     text = text
       // "18 bucks" / "16 dollars" -> "$18" / "$16"
       .replace(/\b(\d+(?:\.\d+)?)\s*(bucks|dollars)\b/g, '$$$1')
       // bare "bucks"/"dollars" -> "$"
       .replace(/\b(bucks|dollars)\b/g, '$')
-      // "$30 a gallon" / "4 per unit" -> "$30 /ea" (price context only, so
-      // quantity speech like "add a gallon of paint" is left alone)
-      .replace(/\b(\$?\d+(?:\.\d+)?)\s+(?:a|per)\s+(?:piece|each|unit|gallon|sheet)\b/g, '$1 /ea')
+      // "$30 a gallon" / "4 per unit" / "$18 a pop" -> "$30 /ea" (price
+      // context only, so quantity speech like "add a gallon of paint" is left
+      // alone)
+      .replace(/\b(\$?\d+(?:\.\d+)?)\s+(?:a|per)\s+(?:piece|each|unit|gallon|sheet|box|bag|roll|pop)\b/g, '$1 /ea')
       // unambiguous "each" -> "/ea"
       .replace(/\beach\b/g, '/ea')
       // dimensional: "half inch" / "1/2 inch" -> 1/2", "five eighths" -> 5/8"
@@ -121,7 +140,7 @@
    *  mid-sentence pauses ("is 1400 Mockingbird" -> "1400 Mockingbird"). */
   function cleanLeadingStopWords(str) {
     return String(str || '').trim()
-      .replace(/^(is|it is|it's|at|be|to|the|should be|a|for)\s+/i, '')
+      .replace(/^(is|it is|it's|at|be|to|the|should be|a|for|in|and)\s+/i, '')
       .trim();
   }
 

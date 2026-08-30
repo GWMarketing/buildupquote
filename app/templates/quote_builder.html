@@ -68,8 +68,8 @@
         <div x-show="walkthroughParsed && walkthroughParsed.matched" x-cloak
              class="space-y-2 rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-xs">
           <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Parsed from transcript</p>
-          <template x-if="walkthroughParsed && walkthroughParsed.title">
-            <p class="text-slate-300">Title: <strong class="text-white" x-text="walkthroughParsed.title"></strong></p>
+          <template x-if="walkthroughParsed && walkthroughParsed.quote_title">
+            <p class="text-slate-300">Title: <strong class="text-white" x-text="walkthroughParsed.quote_title"></strong></p>
           </template>
           <template x-if="walkthroughParsed && walkthroughParsed.client_name">
             <p class="text-slate-300">Client: <strong class="text-white" x-text="walkthroughParsed.client_name"></strong></p>
@@ -81,7 +81,8 @@
           <template x-if="walkthroughParsed &&
                           (walkthroughParsed.problems.length ||
                            walkthroughParsed.skipped_items.length ||
-                           walkthroughParsed.general_notes.length)" x-cloak>
+                           walkthroughParsed.client_scope_notes.length ||
+                           walkthroughParsed.internal_crew_notes.length)" x-cloak>
             <div class="space-y-1 border-t border-amber-500/20 pt-2">
               <p class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">
                 <i data-lucide="alert-triangle" class="h-3 w-3"></i> Diagnostics
@@ -92,8 +93,19 @@
               <template x-for="(sk, si) in walkthroughParsed.skipped_items" :key="'sk' + si">
                 <p class="text-xs text-slate-400" x-text="'Skipped: ' + sk.originalText + ' — ' + sk.reason"></p>
               </template>
-              <template x-for="(n, ni) in walkthroughParsed.general_notes" :key="'n' + ni">
-                <p class="text-xs text-slate-400" x-text="'Note: ' + n"></p>
+              <template x-if="walkthroughParsed.internal_crew_notes.length">
+                <p class="flex items-center gap-1.5 pt-1 text-[10px] font-bold uppercase tracking-wider text-amber-400/90">
+                  <i data-lucide="lock" class="h-3 w-3"></i> Internal job-site / crew notes (private)
+                </p>
+                <template x-for="(n, ni) in walkthroughParsed.internal_crew_notes" :key="'in' + ni">
+                  <p class="text-xs text-amber-200/90" x-text="n"></p>
+                </template>
+              </template>
+              <template x-if="walkthroughParsed.client_scope_notes.length">
+                <p class="pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Client proposal notes</p>
+                <template x-for="(n, ni) in walkthroughParsed.client_scope_notes" :key="'cn' + ni">
+                  <p class="text-xs text-slate-300" x-text="n"></p>
+                </template>
               </template>
             </div>
           </template>
@@ -1839,8 +1851,8 @@ function quoteBuilder(quoteId) {
         line_items: rooms[k].line_items || [],
         assemblies: rooms[k].assemblies || [],
       }));
-      // Items with no explicit room ("Main Area") sink to the bottom.
-      return groups.sort((a, b) => (a.room === 'Main Area') - (b.room === 'Main Area'));
+      // Items with no explicit room ("General Area") sink to the bottom.
+      return groups.sort((a, b) => (a.room === 'General Area') - (b.room === 'General Area'));
     },
     startWalkthrough() {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1931,9 +1943,9 @@ function quoteBuilder(quoteId) {
     applyWalkthroughChecked() {
       const p = this.walkthroughParsed;
       if (!p) return false;
-      if (p.title) {
-        this.quote.title = p.title;
-        this.patch({ title: p.title });
+      if (p.quote_title) {
+        this.quote.title = p.quote_title;
+        this.patch({ title: p.quote_title });
         this.flashVoiceTarget('[data-voice-field="title"]');
       }
       if (p.site_address) {
