@@ -78,33 +78,44 @@
           </template>
           <template x-if="walkthroughParsed && walkthroughParsed.line_items.length">
             <div class="border-t border-slate-700 pt-1">
-              <p class="mb-1 font-semibold text-slate-300">Line items</p>
+              <p class="mb-1 font-semibold text-slate-300">Line items <span class="font-normal text-slate-500">(edit before adding)</span></p>
               <template x-for="(it, idx) in walkthroughParsed.line_items" :key="idx">
-                <label class="flex cursor-pointer items-center gap-2 text-slate-400 hover:text-slate-200">
-                  <input type="checkbox" x-model="it.checked" class="h-3.5 w-3.5 accent-amber-500">
-                  <span x-text="it.qty + ' ' + it.unit + ' ' + it.description + (it.unit_cost ? ' @ $' + it.unit_cost : '')"></span>
-                </label>
+                <div class="flex items-center gap-1.5 py-1">
+                  <input type="checkbox" x-model="it.checked" class="h-3.5 w-3.5 shrink-0 accent-amber-500">
+                  <input x-model.number="it.qty" type="number" min="0" step="0.001"
+                         class="w-14 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
+                  <span class="w-8 shrink-0 text-slate-500" x-text="it.unit"></span>
+                  <input x-model="it.description"
+                         class="min-w-0 flex-1 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-xs text-white focus:border-amber-500">
+                  <input x-model.number="it.unit_cost" type="number" min="0" step="0.01"
+                         class="w-16 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
+                </div>
               </template>
             </div>
           </template>
           <template x-if="walkthroughParsed && walkthroughParsed.assemblies.length">
             <div class="border-t border-slate-700 pt-1">
-              <p class="mb-1 font-semibold text-slate-300">Assemblies</p>
+              <p class="mb-1 font-semibold text-slate-300">Assemblies <span class="font-normal text-slate-500">(edit before adding)</span></p>
               <template x-for="(a, idx) in walkthroughParsed.assemblies" :key="idx">
-                <label class="flex cursor-pointer items-center gap-2 text-slate-400 hover:text-slate-200">
-                  <input type="checkbox" x-model="a.checked" class="h-3.5 w-3.5 accent-amber-500">
-                  <span x-text="a.trade + ' ' + a.length + 'x' + a.width + (a.height ? ' @ ' + a.height + 'ft' : '')"></span>
-                </label>
+                <div class="flex items-center gap-1.5 py-1">
+                  <input type="checkbox" x-model="a.checked" class="h-3.5 w-3.5 shrink-0 accent-amber-500">
+                  <input x-model="a.trade" class="w-20 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-xs text-white focus:border-amber-500">
+                  <input x-model.number="a.length" type="number" min="0" step="0.1"
+                         class="w-12 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
+                  <span class="text-slate-500">x</span>
+                  <input x-model.number="a.width" type="number" min="0" step="0.1"
+                         class="w-12 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
+                  <span class="text-slate-500">@</span>
+                  <input x-model.number="a.height" type="number" min="0" step="0.1"
+                         class="w-12 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
+                  <span class="text-slate-500">ft</span>
+                </div>
               </template>
             </div>
           </template>
           <template x-if="walkthroughParsed && walkthroughParsed.notes.length">
             <p class="text-slate-500" x-text="'Notes: ' + walkthroughParsed.notes.length + ' unmatched phrase(s)'"></p>
           </template>
-          <button @click="applyWalkthrough()"
-                  class="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-sm font-bold text-slate-950 transition hover:bg-amber-600">
-            <i data-lucide="check-check" class="h-4 w-4"></i> Apply to Quote
-          </button>
         </div>
 
         <!-- Mini audio player -->
@@ -134,6 +145,19 @@
                 class="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 shadow transition hover:bg-amber-600">
           <i data-lucide="download" class="h-4 w-4"></i> Save Audio to Phone
         </button>
+
+        <!-- Primary actions: merge checked scope into the quote -->
+        <div x-show="walkthroughParsed && walkthroughParsed.matched" x-cloak class="space-y-2 border-t border-slate-700 pt-3">
+          <button @click="applyWalkthrough()"
+                  class="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 shadow transition hover:bg-amber-600">
+            <i data-lucide="check-check" class="h-4 w-4"></i> Add Selected to Quote
+          </button>
+          <button @click="applyWalkthroughAndRecord()"
+                  class="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/50 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-400 transition hover:bg-emerald-500/20"
+                  title="Add the checked scope, then start recording the next room">
+            <i data-lucide="mic" class="h-4 w-4"></i> Add to Quote &amp; Scope Next Room
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1837,8 +1861,19 @@ function quoteBuilder(quoteId) {
         : 'No items detected — try the audio below or re-record');
     },
     applyWalkthrough() {
+      if (!this.applyWalkthroughChecked()) return;
+      this.voiceReviewOpen = false;
+      BQ.toast('✓ Walkthrough applied to quote', 'success');
+    },
+    applyWalkthroughAndRecord() {
+      if (!this.applyWalkthroughChecked()) return;
+      this.voiceReviewOpen = false;
+      this.startWalkthrough();
+      BQ.toast('✓ Applied — recording the next room. Walk it and speak the scope.', 'success');
+    },
+    applyWalkthroughChecked() {
       const p = this.walkthroughParsed;
-      if (!p) return;
+      if (!p) return false;
       if (p.title) {
         this.quote.title = p.title;
         this.patch({ title: p.title });
@@ -1870,9 +1905,8 @@ function quoteBuilder(quoteId) {
           }
         }
       }
-      this.voiceReviewOpen = false;
-      BQ.toast('✓ Walkthrough applied to quote', 'success');
       this.refreshIcons();
+      return true;
     },
     applyWalkthroughAssembly(a) {
       const t = String(a.trade || '').toLowerCase();
