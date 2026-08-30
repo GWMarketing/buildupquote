@@ -85,3 +85,30 @@ test('normalizeNumbers never applies pricing/dimensional idioms', () => {
 test('normalizeNumbers strips fillers', () => {
   assert.strictEqual(V.normalizeNumbers('you know 1400 Mockingbird Lane'), '1400 Mockingbird Lane');
 });
+
+// ---- toTitleCase / cleanLeadingStopWords (addresses, titles, names) ---------
+
+test('toTitleCase capitalizes words and preserves digit prefixes', () => {
+  assert.strictEqual(V.toTitleCase('1400 Mockingbird Lane'), '1400 Mockingbird Lane');
+  assert.strictEqual(V.toTitleCase('123 Main St'), '123 Main St');
+  assert.strictEqual(V.toTitleCase('master bath remodel'), 'Master Bath Remodel');
+  assert.strictEqual(V.toTitleCase('john o\'brien'), 'John O\'brien');
+  assert.strictEqual(V.toTitleCase('1/2" drywall'), '1/2" Drywall');
+  assert.strictEqual(V.toTitleCase(''), '');
+  assert.strictEqual(V.toTitleCase(null), '');
+});
+
+test('toTitleCase leaves already-formatted names intact', () => {
+  assert.strictEqual(V.toTitleCase('Five Points Roofing'), 'Five Points Roofing');
+  assert.strictEqual(V.toTitleCase('Half Moon Bay'), 'Half Moon Bay');
+});
+
+test('cleanLeadingStopWords strips connective prefixes', () => {
+  assert.strictEqual(V.cleanLeadingStopWords('is 1400 Mockingbird Lane'), '1400 Mockingbird Lane');
+  assert.strictEqual(V.cleanLeadingStopWords('should be Master Bath Remodel'), 'Master Bath Remodel');
+  assert.strictEqual(V.cleanLeadingStopWords('at 77 Oak Ave'), '77 Oak Ave');
+  assert.strictEqual(V.cleanLeadingStopWords('the main office'), 'main office');
+  assert.strictEqual(V.cleanLeadingStopWords('it\'s the garage'), 'the garage');
+  assert.strictEqual(V.cleanLeadingStopWords('1400 Mockingbird Lane'), '1400 Mockingbird Lane');
+  assert.strictEqual(V.cleanLeadingStopWords('  is 500 Broadway  '), '500 Broadway');
+});

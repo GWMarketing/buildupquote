@@ -565,6 +565,9 @@ class CrmApiTestCase(unittest.TestCase):
         # Voice normalizer loads before the parser it feeds.
         self.assertLess(html.index("/static/js/voice_normalizer.js"),
                         html.index("/static/js/smart_voice_parser.js"))
+        # ...and the commander loads after it (accumulator feeds the parser).
+        self.assertLess(html.index("/static/js/smart_voice_parser.js"),
+                        html.index("/static/js/voice_commander.js"))
         # The parser ships the spec-alias + parametric assembly extraction.
         parser = self.client.get("/static/js/smart_voice_parser.js").text
         self.assertIn("parseVoiceInput: processConversationalVoice", parser)

@@ -155,3 +155,7 @@ table.grid-table td { padding: .35rem .5rem; border-bottom: 1px solid #f1f5f9; v
 
 
 
+
+/* Green flash for voice-recognized fields / rows */
+@keyframes bq-flash { 0%, 100% { background-color: transparent; } 50% { background-color: rgba(16, 185, 129, 0.22); } }
+.bq-flash { animation: bq-flash 0.9s ease-in-out 2; border-radius: 0.5rem; }

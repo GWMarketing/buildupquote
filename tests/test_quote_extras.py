@@ -203,17 +203,25 @@ class QuoteExtrasTestCase(unittest.TestCase):
             self.assertIn(needle, r.text, needle)
 
     def test_builder_voice_engine_renders_resilient_restart(self):
-        """The speech loop restarts on a 150ms timer after onend and clears it
-        on stop so 'mic off' can't resurrect the engine."""
+        """The speech loop runs through the debounced commander: live interim
+        results, 1200ms silence dispatch, 150ms onend restart, flash targets."""
         self.register("extras-voice@acme.com")
         r = self.client.get("/quotes/new")
         html = r.text
-        for needle in ("rec.continuous = true", "rec.interimResults = false",
-                       "rec.lang = 'en-US'", "voiceRestartTimer",
-                       "clearTimeout(this.voiceRestartTimer)",
-                       "if (!this.voiceOn || this.voiceRec !== rec) return;",
-                       "setTimeout(", "150"):
+        for needle in ("rec.continuous = true", "rec.interimResults = true",
+                       "rec.lang = 'en-US'", "voiceCommander", "liveInterimTranscript",
+                       "onResult(e.results)", "isMicOffPhrase",
+                       "data-voice-field=\"title\"", "data-voice-field=\"site_address\"",
+                       "data-voice-field=\"client_name\"", "data-voice-row",
+                       "flashVoiceTarget", "bq-flash", "Heard"):
             self.assertIn(needle, html, needle)
+        # The commander module owns the accumulator + keepalive lifecycle.
+        js_resp = self.client.get("/static/js/voice_commander.js")
+        self.assertEqual(js_resp.status_code, 200, js_resp.text)
+        js = js_resp.text
+        for needle in ("speechBuffer", "DEBOUNCE_MS", "1200", "restartTimer",
+                       "150", "createVoiceCommander", "onEnd"):
+            self.assertIn(needle, js, needle)
 
 
 if __name__ == "__main__":

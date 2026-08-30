@@ -43,9 +43,35 @@ test('address detection injects into site_address', () => {
     'the address of the client\'s home is fourteen hundred Mockingbird Lane', captureHandlers());
   assert.strictEqual(r3.value, '1400 Mockingbird Lane');
 
+  // "his/her" prefix + "should be" connector + title-casing.
+  const r5 = V.processConversationalVoice('his address is fourteen hundred mockingbird lane', captureHandlers());
+  assert.strictEqual(r5.value, '1400 Mockingbird Lane');
+  const r6 = V.processConversationalVoice('site address should be 77 oak ave', captureHandlers());
+  assert.strictEqual(r6.value, '77 Oak Ave');
+
   // Proper nouns with number words survive intact.
   const r4 = V.processConversationalVoice('site address is Half Moon Bay', captureHandlers());
   assert.strictEqual(r4.value, 'Half Moon Bay');
+});
+
+test('quote title branch sets the title field', () => {
+  const h = captureHandlers();
+  const r = V.processConversationalVoice('quote name should be Master Bath Remodel', h);
+  assert.strictEqual(r.action, 'set_field');
+  assert.strictEqual(r.field, 'title');
+  assert.strictEqual(h._calls.fields.title, 'Master Bath Remodel');
+
+  const r2 = V.processConversationalVoice('call this quote Garage Addition', captureHandlers());
+  assert.strictEqual(r2.value, 'Garage Addition');
+
+  const r3 = V.processConversationalVoice('quote title is kitchen reno', captureHandlers());
+  assert.strictEqual(r3.value, 'Kitchen Reno');
+});
+
+test('quote title stop-word guard skips bare connective titles', () => {
+  const h = captureHandlers();
+  V.processConversationalVoice('quote name should be the', h);
+  assert.strictEqual(h._calls.fields.title, undefined);
 });
 
 test('client name detection', () => {
@@ -62,6 +88,11 @@ test('client name detection', () => {
   const h2 = captureHandlers();
   V.processConversationalVoice('the client name is Five Points Roofing', h2);
   assert.strictEqual(h2._calls.fields.client_name, 'Five Points Roofing');
+
+  // Names are title-cased.
+  const h3 = captureHandlers();
+  V.processConversationalVoice('customer should be john o\'brien', h3);
+  assert.strictEqual(h3._calls.fields.client_name, 'John O\'brien');
 });
 
 test('line item: gallons with cost', () => {
@@ -175,6 +206,13 @@ test('mic off stops the engine', () => {
 test('"stop mic" also stops the engine', () => {
   const h = captureHandlers();
   const r = V.processConversationalVoice('stop mic', h);
+  assert.strictEqual(r.action, 'mic_off');
+  assert.strictEqual(h._calls.stopMic, 1);
+});
+
+test('"cancel voice" also stops the engine', () => {
+  const h = captureHandlers();
+  const r = V.processConversationalVoice('cancel voice', h);
   assert.strictEqual(r.action, 'mic_off');
   assert.strictEqual(h._calls.stopMic, 1);
 });

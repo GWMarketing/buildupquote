@@ -102,11 +102,36 @@
     return stripFillers(convertNumberWords(String(raw == null ? '' : raw).trim()));
   }
 
+  /** Title-case for addresses, titles, client names. Digit-prefixed tokens
+   *  ("1400", "1/2\"") are preserved verbatim. */
+  function toTitleCase(str) {
+    if (!str) return '';
+    return String(str)
+      .toLowerCase()
+      .split(' ')
+      .filter(Boolean)
+      .map(function (word) {
+        if (/^\d/.test(word)) return word;
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      })
+      .join(' ');
+  }
+
+  /** Strip leading prepositions / connective stop-words left behind by
+   *  mid-sentence pauses ("is 1400 Mockingbird" -> "1400 Mockingbird"). */
+  function cleanLeadingStopWords(str) {
+    return String(str || '').trim()
+      .replace(/^(is|it is|it's|at|be|to|the|should be|a|for)\s+/i, '')
+      .trim();
+  }
+
   var BQVoiceNormalizer = {
     NUMBER_WORDS: NUMBER_WORDS,
     convertNumberWords: convertNumberWords,
     normalizeSpokenTranscript: normalizeSpokenTranscript,
     normalizeNumbers: normalizeNumbers,
+    toTitleCase: toTitleCase,
+    cleanLeadingStopWords: cleanLeadingStopWords,
   };
 
   if (typeof window !== 'undefined') window.BQVoiceNormalizer = BQVoiceNormalizer;

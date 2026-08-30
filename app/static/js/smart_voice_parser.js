@@ -39,6 +39,18 @@
       : cleanFillers(text);
   }
 
+  function toTitleCaseText(text) {
+    return (Normalizer && Normalizer.toTitleCase)
+      ? Normalizer.toTitleCase(text)
+      : text;
+  }
+
+  function cleanLeading(text) {
+    return (Normalizer && Normalizer.cleanLeadingStopWords)
+      ? Normalizer.cleanLeadingStopWords(text)
+      : String(text || '').trim();
+  }
+
   function cleanFillers(text) {
     return String(text || '')
       .replace(FILLER_RE, '')
@@ -144,9 +156,16 @@
   // ------------------------------------------------------------------
   // Contextual target anchors
   // ------------------------------------------------------------------
-  var ADDRESS_RE = /\b(?:the\s+)?(?:site\s+|client(?:'s)?\s+(?:home\s+|house\s+)?)?address(?:\s+of\s+the\s+client(?:'s)?\s+home)?\s+(?:is\s*[,:.]?\s*|:\s*)?(.+)$/i;
-  var CLIENT_RE = /\b(?:set\s+)?(?:the\s+)?(?:client(?:'s)?(?:\s+name)?|customer)\s+(?:is\s+|to\s+|name\s+is\s+)?([A-Za-z][A-Za-z0-9\s.'-]{1,40})$/i;
-  var MIC_OFF_RE = /\b(mic off|turn off mic|turn the mic off|stop listening|stop mic|shut (?:the )?mic off|mute mic)\b/i;
+  // "his address is 1400 Mockingbird Ln", "site address should be 123 Main St",
+  // "the address of the client's home is 500 Broadway", "address 77 Oak Ave".
+  var ADDRESS_RE = /\b(?:(?:his|her|the|site|client(?:'s)?)\s+)?address(?:\s+of\s+the\s+(?:client(?:'s)?\s+)?home)?(?:\s*(?:is\s*[,:.]?\s*|should\s+be\s*[,:.]?\s*|:)\s*)?(.+)$/i;
+  var CLIENT_RE = /\b(?:set\s+)?(?:the\s+)?(?:client(?:'s)?(?:\s+name)?|customer)\s+(?:is\s+|to\s+|name\s+is\s+|should\s+be\s+)?([A-Za-z][A-Za-z0-9\s.'-]{1,40})$/i;
+  var MIC_OFF_RE = /\b(mic off|turn off mic|turn the mic off|stop listening|stop mic|cancel voice|shut (?:the )?mic off|mute mic)\b/i;
+  var TITLE_RE = /(?:quote\s+(?:name|title)(?:\s+should\s+be|\s+is)?|call\s+this\s+quote)\s+(.+)/i;
+
+  function isMicOffPhrase(text) {
+    return MIC_OFF_RE.test(String(text || ''));
+  }
 
   // Parametric assembly with explicit dimensions: "drywall 12 by 14 9 ft ceiling",
   // "framing ten by twelve nine foot". Runs on the normalized text so spoken
@@ -172,27 +191,39 @@
     var cleaned = cleanFillers(raw);
     var normalized = normalizeTranscript(cleaned);
 
-    // 2. Site / client address
+    // 2. Quote title / name: "quote name should be Master Bath Remodel",
+    //    "call this quote Garage Addition"
+    var titleMatch = cleaned.match(TITLE_RE);
+    if (titleMatch && titleMatch[1]) {
+      var cleanTitle = toTitleCaseText(cleanLeading(titleMatch[1]));
+      if (cleanTitle.length > 2 && !/^(is|the|be)$/i.test(cleanTitle)) {
+        if (handlers.setFieldValue) handlers.setFieldValue('title', cleanTitle);
+        notify('Quote name set to: ' + cleanTitle);
+        return { action: 'set_field', field: 'title', value: cleanTitle };
+      }
+    }
+
+    // 3. Site / client address (numbers -> digits, then title-cased; the
+    //    case-preserving numbers pass means "Half Moon Bay" stays intact)
     var addressMatch = cleaned.match(ADDRESS_RE);
     if (addressMatch && addressMatch[1]) {
-      // Number words help here ("fourteen hundred" -> 1400), but only the
-      // case-preserving numbers pass so "Half Moon Bay" stays intact.
-      var addressValue = normalizeNumbers(addressMatch[1]);
+      var addressValue = toTitleCaseText(cleanLeading(normalizeNumbers(addressMatch[1])));
       if (handlers.setFieldValue) handlers.setFieldValue('site_address', addressValue);
       notify('Address set to: ' + addressValue);
       return { action: 'set_field', field: 'site_address', value: addressValue };
     }
 
-    // 3. Client name (filler-only cleaning so "Five Points Roofing" survives)
+    // 4. Client name (title-cased; filler-only cleaning so "Five Points
+    //    Roofing" survives — the full lexer would turn it into "5 Points")
     var clientMatch = cleaned.match(CLIENT_RE);
     if (clientMatch && clientMatch[1]) {
-      var clientName = cleanFillers(clientMatch[1]);
+      var clientName = toTitleCaseText(cleanLeading(cleanFillers(clientMatch[1])));
       if (handlers.setFieldValue) handlers.setFieldValue('client_name', clientName);
       notify('Client set to: ' + clientName);
       return { action: 'set_field', field: 'client_name', value: clientName };
     }
 
-    // 4. Parametric assembly with explicit dimensions
+    // 5. Parametric assembly with explicit dimensions
     var assemblyDim = normalized.match(ASSEMBLY_RE);
     if (assemblyDim) {
       var asm = {
@@ -256,6 +287,7 @@
     parseLineItem: parseLineItem,
     processConversationalVoice: processConversationalVoice,
     parseVoiceInput: processConversationalVoice,  // spec-alias
+    isMicOffPhrase: isMicOffPhrase,
     normalizeSpokenTranscript: normalizeTranscript,
     normalizeNumbers: normalizeNumbers,
   };
