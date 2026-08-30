@@ -23,7 +23,8 @@ test('full walkthrough transcript extracts every entity once', () => {
   assert.strictEqual(d.site_address, '1846.5 A Nuisance Lane');
   assert.strictEqual(d.line_items.length, 2);
   assert.deepStrictEqual(d.line_items[0], {
-    id: 'line-1', checked: true, qty: 15, unit: 'gal', description: 'Paint', unit_cost: 18, type: 'material',
+    id: 'line-1', checked: true, qty: 15, unit: 'gal', description: 'Paint',
+    unit_cost: 18, type: 'material', trade: 'paint', room: null,
   });
   assert.strictEqual(d.line_items[1].qty, 20);
   assert.strictEqual(d.line_items[1].description, 'Drywall');
@@ -45,7 +46,8 @@ test('spoken numbers normalize in staged parse', () => {
   assert.strictEqual(d.client_name, 'Brandon');
   assert.strictEqual(d.site_address, '1400 Mockingbird Lane');
   assert.deepStrictEqual(d.line_items[0], {
-    id: 'line-1', checked: true, qty: 15, unit: 'gal', description: 'Paint', unit_cost: 18, type: 'material',
+    id: 'line-1', checked: true, qty: 15, unit: 'gal', description: 'Paint',
+    unit_cost: 18, type: 'material', trade: 'paint', room: null,
   });
 });
 
@@ -53,10 +55,12 @@ test('parametric assemblies extract dims', () => {
   const d = parseWalkthroughTranscript('drywall 12 by 14 9 ft ceiling framing ten by twelve');
   assert.strictEqual(d.assemblies.length, 2);
   assert.deepStrictEqual(d.assemblies[0], {
-    id: 'asm-1', checked: true, trade: 'drywall', length: 12, width: 14, height: 9,
+    id: 'asm-1', checked: true, trade: 'drywall', trade_key: 'drywall',
+    length: 12, width: 14, height: 9, room: null,
   });
   assert.deepStrictEqual(d.assemblies[1], {
-    id: 'asm-2', checked: true, trade: 'framing', length: 10, width: 12, height: 8,
+    id: 'asm-2', checked: true, trade: 'framing', trade_key: 'framing',
+    length: 10, width: 12, height: 8, room: null,
   });
 });
 
@@ -118,5 +122,65 @@ test('segmentIntents splits multi-intent utterances', () => {
 test('parseLineItem still parses a single line', () => {
   assert.deepStrictEqual(parseLineItem('20 sheets drywall'), {
     qty: 20, unit: 'sheet', description: 'Drywall', unit_cost: 0, type: 'material',
+    trade: 'drywall',
   });
+});
+
+test('items are grouped by room context', () => {
+  const d = parseWalkthroughTranscript(
+    'in the kitchen add 15 gallons of paint. in the garage add 10 gallons of paint');
+  assert.strictEqual(d.line_items.length, 2);
+  assert.deepStrictEqual(
+    d.line_items.map(it => [it.description, it.qty, it.room]),
+    [['Paint', 15, 'Kitchen'], ['Paint', 10, 'Garage']]);
+});
+
+test('room phrases are stripped and re-scope assemblies', () => {
+  const d = parseWalkthroughTranscript(
+    'in the master bedroom 20 sheets drywall. in the bathroom drywall 10 by 12');
+  assert.strictEqual(d.line_items[0].description, 'Drywall');
+  assert.strictEqual(d.line_items[0].room, 'Master Bedroom');
+  assert.strictEqual(d.assemblies[0].room, 'Bathroom');
+  assert.strictEqual(d.assemblies[0].trade_key, 'drywall');
+});
+
+test('numbered rooms and next-room markers set context', () => {
+  const d = parseWalkthroughTranscript(
+    'next room is the kitchen. bedroom 2 needs 10 gallons of paint at 18 bucks a piece');
+  assert.strictEqual(d.line_items.length, 1);
+  assert.strictEqual(d.line_items[0].room, 'Bedroom 2');
+  assert.strictEqual(d.line_items[0].qty, 10);
+  assert.strictEqual(d.line_items[0].unit_cost, 18);
+  assert.strictEqual(d.notes.length, 0); // room markers are never unmatched notes
+});
+
+test('expanded trades parse assemblies and set trade_key', () => {
+  const d = parseWalkthroughTranscript(
+    'plumbing 10 by 12 electrical 6 by 8 roofing 30 by 40 sheetrock 12 by 14');
+  assert.strictEqual(d.assemblies.length, 4);
+  assert.deepStrictEqual(
+    d.assemblies.map(a => [a.trade, a.trade_key]),
+    [['plumbing', 'plumbing'], ['electrical', 'electrical'],
+     ['roofing', 'roofing'], ['sheetrock', 'drywall']]);
+});
+
+test('line items guess a trade from the description', () => {
+  const d = parseWalkthroughTranscript('add 10 sheets drywall and 5 gallons of paint');
+  assert.strictEqual(d.line_items[0].trade, 'drywall');
+  assert.strictEqual(d.line_items[1].trade, 'paint');
+});
+
+test('client capture stops at the next clause boundary', () => {
+  const d = parseWalkthroughTranscript(
+    'client name is Brandon next room is the kitchen in the kitchen add 15 gallons of paint');
+  assert.strictEqual(d.client_name, 'Brandon');
+  assert.strictEqual(d.line_items[0].room, 'Kitchen');
+  assert.strictEqual(d.notes.length, 0);
+});
+
+test('problems surface no-price lines, and unmatched notes', () => {
+  const d = parseWalkthroughTranscript(
+    '15 gallons of paint. remind me to call about the water heater');
+  assert.ok(d.problems.some(p => p.level === 'warn' && /no price/.test(p.text)));
+  assert.ok(d.problems.some(p => p.level === 'info' && /water heater/.test(p.text)));
 });

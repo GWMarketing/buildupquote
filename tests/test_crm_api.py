@@ -567,6 +567,13 @@ class CrmApiTestCase(unittest.TestCase):
         # Voice normalizer loads before the batch parser it feeds.
         self.assertLess(html.index("/static/js/voice_normalizer.js"),
                         html.index("/static/js/batch_walkthrough_parser.js"))
+        # ...and the trade catalog loads before both (parser depends on it).
+        self.assertLess(html.index("/static/js/trade_catalog.js"),
+                        html.index("/static/js/voice_normalizer.js"))
+        catalog = self.client.get("/static/js/trade_catalog.js")
+        self.assertEqual(catalog.status_code, 200, catalog.text)
+        for needle in ("TRADE_SYNONYMS", "matchTrade", "describeTrade"):
+            self.assertIn(needle, catalog.text)
         # ...and no legacy real-time dictation files are loaded anymore.
         self.assertNotIn("/static/js/smart_voice_parser.js", html)
         self.assertNotIn("/static/js/voice_commander.js", html)

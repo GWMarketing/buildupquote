@@ -4,11 +4,20 @@
  * returns structured data for the review drawer's "Apply to Quote" step:
  *
  *   { title, client_name, site_address, line_items: [...] (aggregated),
- *     assemblies: [...], notes: [...], matched, raw }
+ *     assemblies: [...], notes: [...], problems: [...], matched, raw }
+ *
+ * Line items carry { qty, unit, description, unit_cost, type, trade } where
+ * trade is guessed from the description via the trade catalog; assemblies
+ * carry { trade (spoken term), trade_key (canonical slug), length, width,
+ * height }. Items also carry `room` (label from the room-context detection:
+ * "in the kitchen", "for the master bedroom", "bedroom 2") so the drawer can
+ * group scope by room. `problems` lists diagnostics (no-price lines, missing
+ * assembly dimensions, unmatched phrases) for the review step.
  *
  * Pure functions, no DOM deps: window.BQWalkthroughParser + CommonJS for Node
  * tests (tests/js/batch_walkthrough_parser.test.js). Depends on the shared
- * lexical normalizer (voice_normalizer.js).
+ * lexical normalizer (voice_normalizer.js) and the trade catalog
+ * (trade_catalog.js).
  */
 (function () {
   'use strict';
@@ -18,6 +27,13 @@
     Normalizer = window.BQVoiceNormalizer;
   } else if (typeof require === 'function') {
     try { Normalizer = require('./voice_normalizer.js'); } catch (e) { /* keep null */ }
+  }
+
+  var TradeCatalog = null;
+  if (typeof window !== 'undefined' && window.BQTradeCatalog) {
+    TradeCatalog = window.BQTradeCatalog;
+  } else if (typeof require === 'function') {
+    try { TradeCatalog = require('./trade_catalog.js'); } catch (e) { /* keep null */ }
   }
 
   var FILLER_RE = /\b(you know|um+|uh+|like|roughly|around|about|approximately|please|can you|could you|let'?s add|let us add|let'?s do|add a|add an|add|maybe|kind of|sort of|all right|alright|so)\b/gi;
@@ -87,6 +103,112 @@
     return String(word || '').charAt(0).toUpperCase() + String(word || '').slice(1);
   }
 
+  function escapeRegExp(str) {
+    return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  // ---- Trade recognition (expanded vocabulary from trade_catalog.js) --------
+  var FALLBACK_TRADES = [
+    'drywall', 'sheetrock', 'gypsum', 'plaster', 'wallboard', 'taping', 'mudding',
+    'framing', 'studs', 'stud', 'timber', 'rough carpentry', 'partition wall',
+    'partition', 'wood framing', 'paint', 'painting', 'primer', 'stain',
+    'flooring', 'vinyl plank', 'laminate', 'hardwood', 'tile', 'carpet', 'lvp',
+    'lvt', 'linoleum', 'backsplash', 'shower tile', 'porcelain', 'ceramic',
+    'electrical', 'wiring', 'lighting', 'fixtures', 'receptacles', 'switches',
+    'conduit', 'subpanel', 'plumbing', 'rough plumbing', 'drain', 'vanity hookup',
+    'toilet', 'shower valve', 'pex', 'trim', 'baseboard', 'molding', 'casing',
+    'crown molding', 'door trim', 'finish carpentry', 'insulation',
+    'batt insulation', 'fiberglass', 'rockwool', 'rigid foam', 'spray foam',
+    'roofing', 'shingles', 'underlayment', 'flashing', 'siding', 'hardie',
+    'vinyl siding', 'cladding', 'demolition', 'demo', 'tear out', 'removal',
+    'strip out', 'concrete', 'slab', 'footing', 'flatwork', 'masonry',
+    'foundation',
+  ];
+
+  /** Canonical trade slug for a description / spoken term (or null). */
+  function matchTrade(text) {
+    if (TradeCatalog && TradeCatalog.matchTrade) return TradeCatalog.matchTrade(text);
+    if (!text) return null;
+    var clean = String(text).toLowerCase().trim();
+    for (var i = 0; i < FALLBACK_TRADES.length; i++) {
+      if (clean.indexOf(FALLBACK_TRADES[i]) !== -1) return FALLBACK_TRADES[i];
+    }
+    return null;
+  }
+
+  /** Regex alternation source covering every trade synonym, longest-first. */
+  function tradeAlternationSource() {
+    var syns = [];
+    var src = (TradeCatalog && TradeCatalog.TRADE_SYNONYMS) || null;
+    if (src) {
+      Object.keys(src).forEach(function (k) {
+        (src[k] || []).forEach(function (s) {
+          if (syns.indexOf(s) === -1) syns.push(s);
+        });
+      });
+    } else {
+      syns = FALLBACK_TRADES.slice();
+    }
+    syns.sort(function (a, b) { return b.length - a.length; });
+    return syns.map(escapeRegExp).join('|');
+  }
+
+  // ---- Room-context detection -----------------------------------------------
+  // Rooms only register when the word follows a location cue ("in the
+  // kitchen", "for the master bedroom", "at bedroom 2") or a bare "the
+  // kitchen" — so "add 20 deck boards" never re-tags the current room.
+  var ROOM_WORDS = [
+    'master bedroom', 'guest bedroom', 'spare bedroom', 'master bathroom',
+    'guest bathroom', 'powder room', 'half bathroom', 'laundry room',
+    'utility room', 'walk-in closet', 'walk in closet', 'living room',
+    'family room', 'great room', 'dining room', 'sitting room', 'crawl space',
+    'master bath', 'guest bath', 'half bath', 'mud room', 'mudroom',
+    'bathroom', 'bath room', 'bedroom', 'kitchen', 'garage', 'basement',
+    'lower level', 'cellar', 'attic', 'hallway', 'stairwell', 'staircase',
+    'landing', 'entryway', 'foyer', 'corridor', 'closet', 'laundry', 'stairs',
+    'hall', 'office', 'study', 'den', 'porch', 'deck', 'patio', 'balcony',
+    'veranda', 'exterior', 'outside', 'facade', 'front yard', 'back yard',
+    'backyard', 'driveway', 'sidewalk', 'roof',
+  ];
+
+  var ROOM_ALT_SRC = ROOM_WORDS.slice()
+    .sort(function (a, b) { return b.length - a.length; })
+    .map(escapeRegExp)
+    .join('|');
+
+  var ROOM_NUM_RE = new RegExp('\\b(bedroom|bathroom|bath|garage|office|den)\\s+(\\d{1,2})(?!\\s*(?:' + UNIT_RE_SRC + ')\\b)', 'i');
+  var ROOM_NUM_CUE_RE = new RegExp('\\b(?:in|for|at|on|into|near|inside|outside|upstairs|downstairs)\\s+(?:(?:the|a|an|this|that)\\s+)?(' + ROOM_ALT_SRC + ')(?:\\s+(\\d{1,2})(?!\\s*(?:' + UNIT_RE_SRC + ')\\b))?\\b', 'i');
+  var ROOM_THE_RE = new RegExp('\\bthe\\s+(' + ROOM_ALT_SRC + ')\\b', 'i');
+  // Trailing location phrase stripped from line-item descriptions so
+  // "drywall in the kitchen" and "drywall in the garage" stay distinct rows
+  // (each tagged with its own room) instead of leaking the phrase into the
+  // description.
+  var ROOM_STRIP_RE = new RegExp('\\s+(?:in|for|at|on|into)\\s+(?:(?:the|a|an|this|that)\\s+)?(' +
+    ROOM_ALT_SRC + '|(?:bedroom|bathroom|bath|garage|office|den)\\s+\\d{1,2})[\\s,.;:]*$', 'i');
+
+  /** Return the display label of the room a phrase is scoped to, or null.
+   *  Cue phrases win ("in the master bedroom" beats the bare "bedroom N" rule,
+   *  which is what keeps "in the garage 10 gallons of paint" scoped to the
+   *  Garage and not the phantom "Garage 10"). */
+  function roomLabel(room, num) {
+    return toTitleCaseText(num ? room + ' ' + num : room);
+  }
+
+  function detectRoom(text) {
+    var t = String(text || '');
+    var m = t.match(ROOM_NUM_CUE_RE);
+    if (m) return roomLabel(m[1], m[2]);
+    m = t.match(ROOM_THE_RE);
+    if (m) return roomLabel(m[1], null);
+    m = t.match(ROOM_NUM_RE);
+    if (m) return roomLabel(m[1], m[2]);
+    return null;
+  }
+
+  function stripRoomPhrase(text) {
+    return String(text || '').replace(ROOM_STRIP_RE, '').trim();
+  }
+
   // "at $18 a piece", "18 bucks each", "for 40" ... (the normalizer turns these
   // into "$18 /ea" tokens; the legacy idioms stay as a defensive fallback).
   var COST_RE = /(?:\s+(?:at|for|@|around|roughly|about|is)\s*|\s+)?\$?(\d+(?:\.\d+)?)(?:\s*(?:(?:a|per)\s+(?:piece|each|unit|gallon|sheet|square|box|bag|roll)|each|bucks?(?:\s+(?:each|a\s+(?:piece|each)))?|dollars?(?:\s+(?:each|a\s+(?:piece|each)))?|\/ea))?\s*$/i;
@@ -113,17 +235,22 @@
     var qty = 1;
     var unit = 'unit';
     var desc = body;
-    var qtyMatch = body.match(/^[^\d]*(\d+(?:\.\d+)?)/);
     var unitMatch = body.match(UNIT_RE);
-    if (unitMatch && qtyMatch) {
-      qty = parseFloat(qtyMatch[1]) || 1;
+    if (unitMatch) {
+      // The quantity is the number immediately before the unit ("bedroom 2
+      // needs 10 gallons of paint" -> 10, not 2).
+      var qtyPre = body.slice(0, unitMatch.index).match(/(\d+(?:\.\d+)?)\s*$/);
+      qty = qtyPre ? parseFloat(qtyPre[1]) || 1 : 1;
       unit = normalizeUnit(unitMatch[1]);
       desc = body.slice(unitMatch.index + unitMatch[0].length)
         .replace(/^(?:of|of the)\s+/i, '')
         .trim();
-    } else if (qtyMatch) {
-      qty = parseFloat(qtyMatch[1]) || 1;
-      desc = body.slice(qtyMatch.index + qtyMatch[0].length).trim();
+    } else {
+      var qtyMatch = body.match(/^[^\d]*(\d+(?:\.\d+)?)/);
+      if (qtyMatch) {
+        qty = parseFloat(qtyMatch[1]) || 1;
+        desc = body.slice(qtyMatch.index + qtyMatch[0].length).trim();
+      }
     }
     desc = desc
       .replace(/^(?:line\s+)?(?:item|line|new\s+(?:item|line))\s*/i, '')
@@ -132,21 +259,22 @@
       .trim();
     return {
       qty: qty, unit: unit, description: capitalize(desc || 'Custom Item'),
-      unit_cost: unitCost, type: 'material',
+      unit_cost: unitCost, type: 'material', trade: matchTrade(desc),
     };
   }
 
   // ---- Intent anchors -------------------------------------------------------
   var ADDRESS_RE = /\b(?:(?:his|her|the|site|client(?:'s)?)\s+)?address(?:\s+of\s+the\s+(?:client(?:'s)?\s+)?home)?(?:\s*(?:is\s*[,:.]?\s*|should\s+be\s*[,:.]?\s*|:)\s*)?(.+)$/i;
-  var CLIENT_RE = /\b(?:set\s+)?(?:the\s+)?(?:client(?:'s)?(?:\s+name)?|appliance(?:'s)?(?:\s+name)?|customer)\s+(?:is\s+|to\s+|name\s+is\s+|should\s+be\s+)?([A-Za-z][A-Za-z0-9\s.'-]{1,40})$/i;
+  var CLIENT_RE = /\b(?:set\s+)?(?:the\s+)?(?:client(?:'s)?(?:\s+name)?|appliance(?:'s)?(?:\s+name)?|customer)\s+(?:is\s+|to\s+|name\s+is\s+|should\s+be\s+)?([A-Za-z][A-Za-z0-9.'-]*?(?:\s+[A-Za-z][A-Za-z0-9.'-]*?){0,3}?)(?=\s+(?:is|next|the|then|and|in|at|for|with|should|his|her)\b|$)/i;
   var TITLE_RE = /(?:quote\s+(?:name|title)(?:\s+should\s+be|\s+is)?|call\s+this\s+quote)\s+(.+)/i;
-  var ASSEMBLY_RE = /\b(drywall|framing|stud|partition|tile|flooring|paint|trim)\b\s+(\d+(?:\.\d+)?)\s*(?:x|by|×|\*)\s*(\d+(?:\.\d+)?)(?:\s+(\d+(?:\.\d+)?)\s*(?:ft|foot|feet|ceiling|ceilings|high))?/i;
+  var TRADE_ALT_SRC = tradeAlternationSource();
+  var ASSEMBLY_RE = new RegExp('\\b(' + TRADE_ALT_SRC + ')\\b\\s+(\\d+(?:\\.\\d+)?)\\s*(?:x|by|×|\\*)\\s*(\\d+(?:\\.\\d+)?)(?:\\s+(\\d+(?:\\.\\d+)?)\\s*(?:ft|foot|feet|ceiling|ceilings|high))?', 'i');
   var INTENT_ANCHOR_RE = new RegExp('\\b(?:quote\\s+(?:name|title)|call\\s+this\\s+quote|' +
     '(?:(?:his|her|the|site|client(?:\'s)?|appliance(?:\'s)?)\\s*)?address|' +
     '(?:client(?:\'s)?|appliance(?:\'s)?|customer)(?:\\s+name)?(?=\\s+(?:is|should\\s+be)\\b)|' +
     '(?:line\\s+item|new\\s+(?:line|item))|' +
     '\\d+(?:\\.\\d+)?\\s+(?:' + UNIT_RE_SRC + ')\\b|' +
-    '(?:drywall|framing|stud|partition|tile|flooring|paint|trim)(?=\\s*\\d+\\s*(?:x|by)\\b))', 'gi');
+    '(?:' + TRADE_ALT_SRC + ')(?=\\s*\\d+\\s*(?:x|by)\\b))', 'gi');
 
   /** Split filler-cleaned speech into intent segments at anchor boundaries. */
   function segmentIntents(text) {
@@ -206,13 +334,14 @@
     var raw = String(transcript || '').trim();
     var data = {
       title: null, client_name: null, site_address: null,
-      line_items: [], assemblies: [], notes: [], matched: 0, raw: raw,
+      line_items: [], assemblies: [], notes: [], problems: [], matched: 0, raw: raw,
     };
     if (!raw) return data;
 
     _itemSeq = 0;
     _lastAdd = null;
     var sentences = splitSentences(raw);
+    var currentRoom = null;
 
     for (var s = 0; s < sentences.length; s++) {
       var sentence = sentences[s];
@@ -227,11 +356,20 @@
 
       var cleaned = cleanFillers(sentence);
       var normalized = normalizeTranscript(cleaned);
+      // Room context: "in the kitchen", "for the master bedroom", "bedroom 2",
+      // or a bare "the garage" all re-scope the items that follow. "add 20
+      // deck boards" (no cue) keeps the previous room.
+      var roomNow = detectRoom(normalized) || detectRoom(cleaned);
+      if (roomNow) currentRoom = roomNow;
       var segments = segmentIntents(normalized);
 
       for (var i = 0; i < segments.length; i++) {
         var seg = segments[i];
         var segNorm = normalizeTranscript(seg);
+        // A later clause in a run-on final can still re-scope ("bathroom 2
+        // needs 10 gallons of paint" following kitchen items).
+        var segRoom = detectRoom(segNorm) || detectRoom(seg);
+        if (segRoom) currentRoom = segRoom;
 
         var titleMatch = seg.match(TITLE_RE);
         if (titleMatch && titleMatch[1]) {
@@ -251,16 +389,22 @@
         }
         if (isLineItemPhrase(segNorm)) {
           var item = parseLineItem(segNorm);
+          item.room = currentRoom;
+          // Drop a trailing location phrase ("drywall in the kitchen" ->
+          // "drywall") so aggregation keys on the material, not the room.
+          if (currentRoom) item.description = stripRoomPhrase(item.description) || item.description;
           var itemDesc = String(item.description || '').trim();
           if (!itemDesc || itemDesc.length < 2 || itemDesc === 'Custom Item' ||
               LINE_ITEM_BLACKLIST_RE.test(segNorm) || LINE_ITEM_BLACKLIST_RE.test(itemDesc)) {
             continue;
           }
-          // Aggregate identical rows across the whole walkthrough.
+          // Aggregate identical rows across the whole walkthrough (same
+          // material, price AND room — drywall in two rooms stays separate).
           var existing = null;
           for (var j = 0; j < data.line_items.length; j++) {
             var x = data.line_items[j];
-            if (x.unit === item.unit && x.description === item.description && x.unit_cost === item.unit_cost) {
+            if (x.unit === item.unit && x.description === item.description &&
+                x.unit_cost === item.unit_cost && x.room === item.room) {
               existing = x; break;
             }
           }
@@ -274,8 +418,11 @@
           }
           continue;
         }
-        // Unmatched meaningful speech -> notes (never silently dropped).
-        if (seg.length >= 3 && !segNorm.match(ASSEMBLY_RE)) data.notes.push(seg);
+        // Unmatched meaningful speech -> notes (never silently dropped). A
+        // room-marker phrase ("next room is the kitchen") sets context and is
+        // NOT an unmatched note.
+        if (seg.length >= 3 && !segNorm.match(ASSEMBLY_RE) &&
+            !detectRoom(seg) && !detectRoom(segNorm)) data.notes.push(seg);
       }
 
       // Per-sentence assembly sweep: catches every "drywall 12 by 14 9 ft"
@@ -288,9 +435,11 @@
           id: 'asm-' + (++_itemSeq),
           checked: true,
           trade: am[1].toLowerCase(),
+          trade_key: matchTrade(am[1]),
           length: parseFloat(am[2]),
           width: parseFloat(am[3]),
           height: am[4] ? parseFloat(am[4]) : 8,
+          room: currentRoom,
         });
         _lastAdd = 'asm';
         if (am.index === asmRe.lastIndex) asmRe.lastIndex++;
@@ -299,6 +448,27 @@
 
     data.matched = (data.title ? 1 : 0) + (data.client_name ? 1 : 0) +
       (data.site_address ? 1 : 0) + data.line_items.length + data.assemblies.length;
+
+    // ---- Problem diagnostics for the review drawer --------------------------
+    data.line_items.forEach(function (it) {
+      if (!it.unit_cost) {
+        data.problems.push({
+          level: 'warn',
+          text: '"' + it.description + '" has no price spoken — will apply at $0',
+        });
+      }
+    });
+    data.assemblies.forEach(function (a) {
+      if (!a.length || !a.width) {
+        data.problems.push({
+          level: 'warn',
+          text: capitalize(a.trade) + ' assembly is missing dimensions',
+        });
+      }
+    });
+    data.notes.forEach(function (n) {
+      data.problems.push({ level: 'info', text: 'Unmatched phrase: "' + n + '"' });
+    });
     return data;
   }
 
@@ -308,6 +478,8 @@
     parseLineItem: parseLineItem,
     isLineItemPhrase: isLineItemPhrase,
     cleanFillers: cleanFillers,
+    detectRoom: detectRoom,
+    stripRoomPhrase: stripRoomPhrase,
   };
   if (typeof window !== 'undefined') window.BQWalkthroughParser = BQWalkthroughParser;
   if (typeof module !== 'undefined' && module.exports) {
