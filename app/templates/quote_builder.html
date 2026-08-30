@@ -58,17 +58,57 @@
       <span class="shrink-0 font-bold uppercase tracking-wider text-slate-400">Heard</span>
       <span class="truncate" x-text="'\"' + liveInterimTranscript + '\"'"></span>
     </div>
-    <!-- Local session audio download (structured file name) -->
+    <!-- Walkthrough session audio -> review drawer -->
     <div x-show="voiceRecordingReady" x-cloak
-         class="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
-      <i data-lucide="audio-lines" class="h-4 w-4 shrink-0"></i>
-      <input x-model="voiceRecordingName" aria-label="Audio file name"
-             class="w-full min-w-0 rounded border border-emerald-500/30 bg-transparent px-1.5 py-1 text-xs text-emerald-800 outline-none focus:border-emerald-500 dark:text-emerald-300">
-      <button @click="downloadVoiceRecording()"
+         class="flex items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+      <span class="flex items-center gap-2"><i data-lucide="audio-lines" class="h-4 w-4 shrink-0"></i> Walkthrough audio recorded</span>
+      <button @click="voiceReviewOpen = true"
               class="flex shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 font-bold text-white transition hover:bg-emerald-700"
-              title="Download the session audio">
-        <i data-lucide="download" class="h-3.5 w-3.5"></i> Download
+              title="Review the walkthrough audio">
+        <i data-lucide="list-video" class="h-3.5 w-3.5"></i> Review
       </button>
+    </div>
+
+    <!-- Walkthrough Review drawer: play, rename, save to phone -->
+    <div x-show="voiceReviewOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-[#0B0F17]/80 p-4"
+         @keydown.escape.window="voiceReviewOpen = false">
+      <div class="w-full max-w-md space-y-4 rounded-2xl border border-slate-700 bg-[#0B0F17] p-6 text-white shadow-2xl">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h3 class="text-base font-bold">Walkthrough Review</h3>
+            <p class="mt-0.5 text-xs text-slate-400">Listen back to the site walkthrough, rename the file, and save the audio to your phone.</p>
+          </div>
+          <button @click="voiceReviewOpen = false" class="rounded-md p-1.5 text-slate-400 transition hover:text-white" title="Close">✕</button>
+        </div>
+
+        <!-- Mini audio player -->
+        <div class="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+          <button @click="playVoiceRecording()"
+                  class="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700"
+                  :title="voiceAudioPlaying ? 'Pause' : 'Play walkthrough audio'">
+            <i data-lucide="play" x-show="!voiceAudioPlaying" class="h-4 w-4"></i>
+            <i data-lucide="pause" x-show="voiceAudioPlaying" x-cloak class="h-4 w-4"></i>
+            <span x-text="voiceAudioPlaying ? 'Pause Walkthrough Audio' : 'Play Walkthrough Audio'"></span>
+          </button>
+          <audio x-ref="voiceAudio" :src="voiceRecordingUrl" preload="metadata"
+                 @play="voiceAudioPlaying = true" @pause="voiceAudioPlaying = false"
+                 @ended="voiceAudioPlaying = false" class="mt-2 hidden"></audio>
+        </div>
+
+        <!-- Editable filename, pre-filled from client + date -->
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-slate-400">File name</label>
+          <input x-model="voiceRecordingName" aria-label="Audio file name"
+                 class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-amber-500">
+          <p class="mt-1 text-[11px] text-slate-500">Pre-filled from the client name + date — edit anytime.</p>
+        </div>
+
+        <!-- Save -->
+        <button @click="downloadVoiceRecording()"
+                class="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 shadow transition hover:bg-amber-600">
+          <i data-lucide="download" class="h-4 w-4"></i> Save Audio to Phone
+        </button>
+      </div>
     </div>
       <div class="flex flex-wrap items-center gap-3">
         <button class="bq-btn-secondary" @click="openAssemblyDrawer = true">
@@ -1079,7 +1119,7 @@ function quoteBuilder(quoteId) {
     // ---- Voice-to-scope (natural conversational parser) ----
     voiceOn: false, voiceRec: null, voiceTranscript: '', voiceCommander: null, liveInterimTranscript: '',
     voiceMediaRecorder: null, voiceRecordingBlob: null, voiceRecordingUrl: '', voiceRecordingName: '',
-    voiceRecordingReady: false,
+    voiceRecordingReady: false, voiceReviewOpen: false, voiceAudioPlaying: false,
     activeField: null, voiceNotes: [],
     // ---- Material takeoff ----
     takeoffOpen: false, takeoffCopied: false,
@@ -1673,6 +1713,8 @@ function quoteBuilder(quoteId) {
       if (this.voiceRecordingUrl) { URL.revokeObjectURL(this.voiceRecordingUrl); this.voiceRecordingUrl = ''; }
       this.voiceRecordingName = '';
       this.voiceRecordingReady = false;
+      this.voiceReviewOpen = false;
+      this.voiceAudioPlaying = false;
     },
     stopVoiceRecorder() {
       if (this.voiceMediaRecorder && this.voiceMediaRecorder.state !== 'inactive') {
@@ -1686,14 +1728,24 @@ function quoteBuilder(quoteId) {
       if (this.voiceRec) { try { this.voiceRec.stop(); } catch (e) { /* ignore */ } }
       this.stopVoiceRecorder();
     },
+    playVoiceRecording() {
+      const audioEl = this.$refs.voiceAudio;
+      if (!audioEl || !this.voiceRecordingUrl) return;
+      if (audioEl.paused) {
+        audioEl.play().catch(() => { /* blocked/unsupported — player stays idle */ });
+      } else {
+        audioEl.pause();
+      }
+    },
     downloadVoiceRecording() {
       if (!this.voiceRecordingBlob) return;
       // Re-sanitize whatever is in the name input (editable) via the util.
       const name = (window.BQAudioFilename || { generateAudioFilename: (a) => a || '' })
         .generateAudioFilename('', this.voiceRecordingName, this.voiceRecordingBlob.type);
       this.voiceRecordingName = name;
-      if ((window.BQAudioFilename || {}).downloadBlob) {
-        window.BQAudioFilename.downloadBlob(this.voiceRecordingBlob, name);
+      if ((window.BQAudioFilename || {}).downloadBlob &&
+          window.BQAudioFilename.downloadBlob(this.voiceRecordingBlob, name)) {
+        BQ.toast('Audio saved to phone', 'success');
       }
     },
 
