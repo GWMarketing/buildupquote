@@ -38,7 +38,7 @@
   };
 
   // Filler / conversational fluff (spec list + a few real-world extras).
-  var FILLER_RE = /\b(you know|um+|uh+|like|roughly|around|about|approximately|please|can you|could you|let'?s add|let us add|let'?s do|add a|add an|add|maybe|kind of|sort of)\b/gi;
+  var FILLER_RE = /\b(you know|um+|uh+|like|roughly|around|about|approximately|please|can you|could you|let'?s add|let us add|let'?s do|add a|add an|add|maybe|kind of|sort of|all right|alright|so)\b/gi;
 
   var ONES_SRC = 'one|two|three|four|five|six|seven|eight|nine';
   var TEENS_SRC = 'ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen';

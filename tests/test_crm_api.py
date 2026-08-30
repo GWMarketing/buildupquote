@@ -568,11 +568,14 @@ class CrmApiTestCase(unittest.TestCase):
         # ...and the commander loads after it (accumulator feeds the parser).
         self.assertLess(html.index("/static/js/smart_voice_parser.js"),
                         html.index("/static/js/voice_commander.js"))
-        # The parser ships the spec-alias + parametric assembly extraction.
+        # The parser ships the spec-alias + parametric assembly extraction +
+        # multi-intent segmentation.
         parser = self.client.get("/static/js/smart_voice_parser.js").text
         self.assertIn("parseVoiceInput: processConversationalVoice", parser)
         self.assertIn("ASSEMBLY_RE", parser)
         self.assertIn("insertAssembly", parser)
+        self.assertIn("segmentIntents", parser)
+        self.assertIn("INTENT_ANCHOR_RE", parser)
 
     def test_login_page_has_no_shell_api_loop(self):
         """appShell runs on /login and /register too, so its badge refresh must

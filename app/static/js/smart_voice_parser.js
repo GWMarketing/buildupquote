@@ -15,7 +15,7 @@
   // ------------------------------------------------------------------
   // Step A: filler / conversational normalizer
   // ------------------------------------------------------------------
-  var FILLER_RE = /\b(you know|um+|uh+|like|roughly|around|about|approximately|please|can you|could you|let'?s add|let us add|let'?s do|add a|add an|add|maybe|kind of|sort of)\b/gi;
+  var FILLER_RE = /\b(you know|um+|uh+|like|roughly|around|about|approximately|please|can you|could you|let'?s add|let us add|let'?s do|add a|add an|add|maybe|kind of|sort of|all right|alright|so)\b/gi;
 
   // Lexical normalizer (voice_normalizer.js): number words -> digits, pricing
   // idioms -> "$18 /ea", dimensional idioms, fillers. Resolved from the browser
@@ -159,9 +159,40 @@
   // "his address is 1400 Mockingbird Ln", "site address should be 123 Main St",
   // "the address of the client's home is 500 Broadway", "address 77 Oak Ave".
   var ADDRESS_RE = /\b(?:(?:his|her|the|site|client(?:'s)?)\s+)?address(?:\s+of\s+the\s+(?:client(?:'s)?\s+)?home)?(?:\s*(?:is\s*[,:.]?\s*|should\s+be\s*[,:.]?\s*|:)\s*)?(.+)$/i;
-  var CLIENT_RE = /\b(?:set\s+)?(?:the\s+)?(?:client(?:'s)?(?:\s+name)?|customer)\s+(?:is\s+|to\s+|name\s+is\s+|should\s+be\s+)?([A-Za-z][A-Za-z0-9\s.'-]{1,40})$/i;
+  // "appliance name" is a common recognizer mishearing of "client name".
+  var CLIENT_RE = /\b(?:set\s+)?(?:the\s+)?(?:client(?:'s)?(?:\s+name)?|appliance(?:'s)?(?:\s+name)?|customer)\s+(?:is\s+|to\s+|name\s+is\s+|should\s+be\s+)?([A-Za-z][A-Za-z0-9\s.'-]{1,40})$/i;
   var MIC_OFF_RE = /\b(mic off|turn off mic|turn the mic off|stop listening|stop mic|cancel voice|shut (?:the )?mic off|mute mic)\b/i;
   var TITLE_RE = /(?:quote\s+(?:name|title)(?:\s+should\s+be|\s+is)?|call\s+this\s+quote)\s+(.+)/i;
+
+  // Multi-intent splitting: one utterance can carry several commands
+  // ("client name is Brandon his address is 1846.5 a nuisance lane"). Each
+  // intent anchor starts a new segment that the single-intent dispatcher
+  // handles independently. Anchors are chosen so a name/address regex can't
+  // swallow the following intent (e.g. the `$`-anchored client capture would
+  // otherwise absorb " his address is ...").
+  var INTENT_ANCHOR_RE = /\b(?:quote\s+(?:name|title)|call\s+this\s+quote|(?:(?:his|her|the|site|client(?:'s)?|appliance(?:'s)?)\s*)?address|(?:client(?:'s)?|appliance(?:'s)?|customer)(?:\s+name)?(?=\s+(?:is|should\s+be)\b)|(?:line\s+item|new\s+(?:line|item))|(?:drywall|framing|stud|partition|tile|flooring|paint|trim)(?=\s*\d+\s*(?:x|by)\b))/gi;
+
+  /** Split filler-cleaned speech into intent segments at anchor boundaries. */
+  function segmentIntents(text) {
+    var t = String(text || '').trim();
+    if (!t) return [];
+    var anchors = [];
+    var re = INTENT_ANCHOR_RE;
+    re.lastIndex = 0;
+    var m;
+    while ((m = re.exec(t)) !== null) {
+      anchors.push(m.index);
+      if (m.index === re.lastIndex) re.lastIndex++;   // never loop on empty matches
+    }
+    if (!anchors.length) return [t];
+    var segments = [];
+    for (var i = 0; i < anchors.length; i++) {
+      var end = (i + 1 < anchors.length) ? anchors[i + 1] : t.length;
+      var seg = t.slice(anchors[i], end).trim();
+      if (seg) segments.push(seg);
+    }
+    return segments;
+  }
 
   function isMicOffPhrase(text) {
     return MIC_OFF_RE.test(String(text || ''));
@@ -173,7 +204,9 @@
   var ASSEMBLY_RE = /\b(drywall|framing|stud|partition|tile|flooring|paint|trim)\b\s+(\d+(?:\.\d+)?)\s*(?:x|by|×|\*)\s*(\d+(?:\.\d+)?)(?:\s+(\d+(?:\.\d+)?)\s*(?:ft|foot|feet|ceiling|ceilings|high))?/i;
 
   // ------------------------------------------------------------------
-  // Master contextual dispatcher
+  // Master contextual dispatcher: splits multi-intent utterances into
+  // segments, applies each through the single-intent extractor, and falls
+  // back to focused-field/notes when nothing structured matched.
   // ------------------------------------------------------------------
   function processConversationalVoice(transcript, handlers) {
     var raw = String(transcript || '').trim();
@@ -181,7 +214,7 @@
     handlers = handlers || {};
     var notify = handlers.notify || function () {};
 
-    // 1. Mic deactivation
+    // 1. Mic deactivation (terminal — takes the whole utterance)
     if (MIC_OFF_RE.test(raw)) {
       if (handlers.stopMic) handlers.stopMic();
       notify('Mic turned off');
@@ -189,11 +222,37 @@
     }
 
     var cleaned = cleanFillers(raw);
-    var normalized = normalizeTranscript(cleaned);
+    var segments = segmentIntents(cleaned);
+    var results = [];
+    for (var i = 0; i < segments.length; i++) {
+      var r = dispatchSingleIntent(segments[i], handlers);
+      if (r) results.push(r);
+    }
 
-    // 2. Quote title / name: "quote name should be Master Bath Remodel",
-    //    "call this quote Garage Addition"
-    var titleMatch = cleaned.match(TITLE_RE);
+    if (results.length === 1) return results[0];
+    if (results.length > 1) {
+      // Several commands in one utterance: each handler already fired.
+      return { action: 'multi', results: results, primary: results[0] };
+    }
+
+    // No structured intent: active focused-field injection, else notes.
+    if (handlers.activeFocusedField && handlers.insertIntoActiveField) {
+      handlers.insertIntoActiveField(raw);
+      notify('Typed into ' + handlers.activeFocusedField);
+      return { action: 'focused', field: handlers.activeFocusedField };
+    }
+    if (handlers.appendSiteNotes) handlers.appendSiteNotes(raw);
+    notify('Noted (not matched to a field)');
+    return { action: 'notes' };
+  }
+
+  /** Extract exactly ONE intent from a segment (or null if none matches). */
+  function dispatchSingleIntent(segment, handlers) {
+    var notify = handlers.notify || function () {};
+    var normalized = normalizeTranscript(segment);
+
+    // Quote title: "quote name should be Master Bath Remodel", "call this quote X"
+    var titleMatch = segment.match(TITLE_RE);
     if (titleMatch && titleMatch[1]) {
       var cleanTitle = toTitleCaseText(cleanLeading(titleMatch[1]));
       if (cleanTitle.length > 2 && !/^(is|the|be)$/i.test(cleanTitle)) {
@@ -203,9 +262,8 @@
       }
     }
 
-    // 3. Site / client address (numbers -> digits, then title-cased; the
-    //    case-preserving numbers pass means "Half Moon Bay" stays intact)
-    var addressMatch = cleaned.match(ADDRESS_RE);
+    // Site / client address (numbers -> digits, then title-cased)
+    var addressMatch = segment.match(ADDRESS_RE);
     if (addressMatch && addressMatch[1]) {
       var addressValue = toTitleCaseText(cleanLeading(normalizeNumbers(addressMatch[1])));
       if (handlers.setFieldValue) handlers.setFieldValue('site_address', addressValue);
@@ -213,9 +271,8 @@
       return { action: 'set_field', field: 'site_address', value: addressValue };
     }
 
-    // 4. Client name (title-cased; filler-only cleaning so "Five Points
-    //    Roofing" survives — the full lexer would turn it into "5 Points")
-    var clientMatch = cleaned.match(CLIENT_RE);
+    // Client name (filler-only cleaning so "Five Points Roofing" survives)
+    var clientMatch = segment.match(CLIENT_RE);
     if (clientMatch && clientMatch[1]) {
       var clientName = toTitleCaseText(cleanLeading(cleanFillers(clientMatch[1])));
       if (handlers.setFieldValue) handlers.setFieldValue('client_name', clientName);
@@ -223,7 +280,7 @@
       return { action: 'set_field', field: 'client_name', value: clientName };
     }
 
-    // 5. Parametric assembly with explicit dimensions
+    // Parametric assembly with explicit dimensions
     var assemblyDim = normalized.match(ASSEMBLY_RE);
     if (assemblyDim) {
       var asm = {
@@ -247,8 +304,8 @@
       }
     }
 
-    // 5. Keyword-only assembly ("drywall partition"). Skipped for line-item
-    //    phrases so "15 gallons of paint" still creates a line item.
+    // Keyword-only assembly ("drywall partition"). Skipped for line-item
+    // phrases so "15 gallons of paint" still creates a line item.
     if (handlers.matchAssembly && !isLineItemPhrase(normalized)) {
       var assemblyCode2 = handlers.matchAssembly(normalized);
       if (assemblyCode2) {
@@ -257,7 +314,7 @@
       }
     }
 
-    // 6. Smart line item extraction
+    // Smart line item extraction
     if (isLineItemPhrase(normalized)) {
       var item = parseLineItem(normalized);
       if (handlers.addLineItem) handlers.addLineItem(item);
@@ -267,17 +324,7 @@
       return { action: 'add_line', item: item };
     }
 
-    // 7. Active focused-field injection
-    if (handlers.activeFocusedField && handlers.insertIntoActiveField) {
-      handlers.insertIntoActiveField(raw);
-      notify('Typed into ' + handlers.activeFocusedField);
-      return { action: 'focused', field: handlers.activeFocusedField };
-    }
-
-    // 8. General notes fallback (never silently drop speech)
-    if (handlers.appendSiteNotes) handlers.appendSiteNotes(raw);
-    notify('Noted (not matched to a field)');
-    return { action: 'notes' };
+    return null;
   }
 
   var BQSmartVoice = {
@@ -287,6 +334,7 @@
     parseLineItem: parseLineItem,
     processConversationalVoice: processConversationalVoice,
     parseVoiceInput: processConversationalVoice,  // spec-alias
+    segmentIntents: segmentIntents,
     isMicOffPhrase: isMicOffPhrase,
     normalizeSpokenTranscript: normalizeTranscript,
     normalizeNumbers: normalizeNumbers,

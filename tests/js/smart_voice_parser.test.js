@@ -195,6 +195,60 @@ test('parseVoiceInput is an alias of processConversationalVoice', () => {
   assert.strictEqual(V.parseVoiceInput, V.processConversationalVoice);
 });
 
+// ---- Multi-intent utterances + recognizer mishearings ----------------------
+
+test('reported transcript: appliance-name mishearing + address in one utterance', () => {
+  const h = captureHandlers();
+  const r = V.processConversationalVoice(
+    'All Right So Appliance Name Is Brandon His Address Is 1846.5 A Nuisance Lane', h);
+  assert.strictEqual(r.action, 'multi');
+  assert.strictEqual(h._calls.fields.client_name, 'Brandon');
+  assert.strictEqual(h._calls.fields.site_address, '1846.5 A Nuisance Lane');
+  assert.strictEqual(r.results.length, 2);
+  assert.strictEqual(r.results[0].field, 'client_name');
+  assert.strictEqual(r.results[1].field, 'site_address');
+});
+
+test('"appliance name" is treated as a client-name mishearing', () => {
+  const h = captureHandlers();
+  const r = V.processConversationalVoice('appliance name is Brandon', h);
+  assert.strictEqual(r.action, 'set_field');
+  assert.strictEqual(h._calls.fields.client_name, 'Brandon');
+});
+
+test('multi-intent: client name then address', () => {
+  const h = captureHandlers();
+  const r = V.processConversationalVoice('client name is John Doe address is 123 Main St', h);
+  assert.strictEqual(r.action, 'multi');
+  assert.strictEqual(h._calls.fields.client_name, 'John Doe');
+  assert.strictEqual(h._calls.fields.site_address, '123 Main St');
+});
+
+test('multi-intent: title + line item', () => {
+  const h = captureHandlers();
+  const r = V.processConversationalVoice('quote name is Garage Addition line item 15 gallons of paint at 18 bucks a piece', h);
+  assert.strictEqual(r.action, 'multi');
+  assert.strictEqual(h._calls.fields.title, 'Garage Addition');
+  assert.strictEqual(h._calls.lineItems.length, 1);
+  assert.strictEqual(h._calls.lineItems[0].description, 'Paint');
+});
+
+test('segmentIntents splits on intent anchors', () => {
+  assert.deepStrictEqual(
+    V.segmentIntents('client name is Brandon his address is 1846.5 a nuisance lane'),
+    ['client name is Brandon', 'his address is 1846.5 a nuisance lane']);
+  assert.deepStrictEqual(V.segmentIntents('15 gallons of paint at $18 a piece'), [
+    '15 gallons of paint at $18 a piece',
+  ]);
+  assert.deepStrictEqual(V.segmentIntents(''), []);
+});
+
+test('"all right so" is stripped as filler', () => {
+  assert.strictEqual(
+    V.cleanFillers('All Right So Appliance Name Is Brandon'),
+    'Appliance Name Is Brandon');
+});
+
 test('mic off stops the engine', () => {
   const h = captureHandlers();
   const r = V.processConversationalVoice('turn off mic', h);
