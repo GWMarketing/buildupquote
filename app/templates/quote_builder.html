@@ -58,6 +58,18 @@
       <span class="shrink-0 font-bold uppercase tracking-wider text-slate-400">Heard</span>
       <span class="truncate" x-text="'\"' + liveInterimTranscript + '\"'"></span>
     </div>
+    <!-- Local session audio download (structured file name) -->
+    <div x-show="voiceRecordingReady" x-cloak
+         class="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+      <i data-lucide="audio-lines" class="h-4 w-4 shrink-0"></i>
+      <input x-model="voiceRecordingName" aria-label="Audio file name"
+             class="w-full min-w-0 rounded border border-emerald-500/30 bg-transparent px-1.5 py-1 text-xs text-emerald-800 outline-none focus:border-emerald-500 dark:text-emerald-300">
+      <button @click="downloadVoiceRecording()"
+              class="flex shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 font-bold text-white transition hover:bg-emerald-700"
+              title="Download the session audio">
+        <i data-lucide="download" class="h-3.5 w-3.5"></i> Download
+      </button>
+    </div>
       <div class="flex flex-wrap items-center gap-3">
         <button class="bq-btn-secondary" @click="openAssemblyDrawer = true">
           <i data-lucide="layers" class="h-4 w-4 text-amber-500"></i> Insert Assembly
@@ -1066,6 +1078,8 @@ function quoteBuilder(quoteId) {
     contingencyOptions: [0, 5, 10, 15, 20],
     // ---- Voice-to-scope (natural conversational parser) ----
     voiceOn: false, voiceRec: null, voiceTranscript: '', voiceCommander: null, liveInterimTranscript: '',
+    voiceMediaRecorder: null, voiceRecordingBlob: null, voiceRecordingUrl: '', voiceRecordingName: '',
+    voiceRecordingReady: false,
     activeField: null, voiceNotes: [],
     // ---- Material takeoff ----
     takeoffOpen: false, takeoffCopied: false,
@@ -1612,6 +1626,35 @@ function quoteBuilder(quoteId) {
           sameCommandCooldownMs: 3000,
         });
       this.voiceCommander.start();
+      // Optional local session capture: record the mic alongside the speech
+      // engine so the contractor can download the audio with a structured
+      // <Client>_audioquote_<MM_DD_YY> name. Fails gracefully (speech still
+      // works) when MediaRecorder/audio capture is unavailable.
+      this.resetVoiceRecording();
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then((stream) => {
+            if (!this.voiceOn) { stream.getTracks().forEach(t => t.stop()); return; }
+            const mediaRec = new MediaRecorder(stream);
+            const chunks = [];
+            mediaRec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+            mediaRec.onstop = () => {
+              stream.getTracks().forEach(t => t.stop());
+              const blob = new Blob(chunks, { type: mediaRec.mimeType || 'audio/webm' });
+              this.voiceRecordingBlob = blob;
+              const clientName = (this.shareClient && this.shareClient.name) || '';
+              this.voiceRecordingName = (window.BQAudioFilename || { generateAudioFilename: (a) => a || '' })
+                .generateAudioFilename(clientName, '', blob.type);
+              if (this.voiceRecordingUrl) URL.revokeObjectURL(this.voiceRecordingUrl);
+              this.voiceRecordingUrl = URL.createObjectURL(blob);
+              this.voiceRecordingReady = true;
+              this.refreshIcons();
+            };
+            mediaRec.start();
+            this.voiceMediaRecorder = mediaRec;
+          })
+          .catch(() => { /* audio capture unavailable — speech still works */ });
+      }
       rec.onresult = (e) => { if (this.voiceCommander) this.voiceCommander.onResult(e.results); };
       rec.onend = () => { if (this.voiceCommander) this.voiceCommander.onEnd(); };
       rec.onerror = (ev) => {
@@ -1620,14 +1663,38 @@ function quoteBuilder(quoteId) {
         this.voiceOn = false;
         this.voiceTranscript = 'Voice error: ' + (ev.error || 'unknown') + ' — tap the mic to retry.';
         this.liveInterimTranscript = '';
+        this.stopVoiceRecorder();
       };
       try { rec.start(); } catch (e) { this.voiceOn = false; }
+    },
+    resetVoiceRecording() {
+      this.voiceMediaRecorder = null;
+      this.voiceRecordingBlob = null;
+      if (this.voiceRecordingUrl) { URL.revokeObjectURL(this.voiceRecordingUrl); this.voiceRecordingUrl = ''; }
+      this.voiceRecordingName = '';
+      this.voiceRecordingReady = false;
+    },
+    stopVoiceRecorder() {
+      if (this.voiceMediaRecorder && this.voiceMediaRecorder.state !== 'inactive') {
+        try { this.voiceMediaRecorder.stop(); } catch (e) { /* ignore */ }
+      }
     },
     stopVoice() {
       this.voiceOn = false;
       this.liveInterimTranscript = '';
       if (this.voiceCommander) { try { this.voiceCommander.stop(); } catch (e) { /* ignore */ } }
       if (this.voiceRec) { try { this.voiceRec.stop(); } catch (e) { /* ignore */ } }
+      this.stopVoiceRecorder();
+    },
+    downloadVoiceRecording() {
+      if (!this.voiceRecordingBlob) return;
+      // Re-sanitize whatever is in the name input (editable) via the util.
+      const name = (window.BQAudioFilename || { generateAudioFilename: (a) => a || '' })
+        .generateAudioFilename('', this.voiceRecordingName, this.voiceRecordingBlob.type);
+      this.voiceRecordingName = name;
+      if ((window.BQAudioFilename || {}).downloadBlob) {
+        window.BQAudioFilename.downloadBlob(this.voiceRecordingBlob, name);
+      }
     },
 
     // ---- Natural conversational command routing ----

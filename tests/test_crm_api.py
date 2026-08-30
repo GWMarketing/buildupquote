@@ -568,6 +568,12 @@ class CrmApiTestCase(unittest.TestCase):
         # ...and the commander loads after it (accumulator feeds the parser).
         self.assertLess(html.index("/static/js/smart_voice_parser.js"),
                         html.index("/static/js/voice_commander.js"))
+        # The audio-filename utility is loaded for local recording downloads.
+        self.assertIn("/static/js/audio_filename.js", html)
+        audio = self.client.get("/static/js/audio_filename.js").text
+        self.assertIn("generateAudioFilename", audio)
+        self.assertIn("_audioquote_", audio)
+        self.assertIn("downloadBlob", audio)
         # The parser ships the spec-alias + parametric assembly extraction +
         # multi-intent segmentation.
         parser = self.client.get("/static/js/smart_voice_parser.js").text

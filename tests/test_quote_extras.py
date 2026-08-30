@@ -214,7 +214,9 @@ class QuoteExtrasTestCase(unittest.TestCase):
                        "minConfidence: 0.3", "sameCommandCooldownMs: 3000",
                        "data-voice-field=\"title\"", "data-voice-field=\"site_address\"",
                        "data-voice-field=\"client_name\"", "data-voice-row",
-                       "flashVoiceTarget", "bq-flash", "Heard"):
+                       "flashVoiceTarget", "bq-flash", "Heard",
+                       "voiceMediaRecorder", "downloadVoiceRecording",
+                       "generateAudioFilename", "voiceRecordingReady", "audio-lines"):
             self.assertIn(needle, html, needle)
         # The commander module owns the accumulator + keepalive lifecycle +
         # the background-noise gates (confidence / junk / echo-dedup / cooldown).
