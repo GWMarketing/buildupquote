@@ -564,12 +564,12 @@ class CrmApiTestCase(unittest.TestCase):
         for needle in ("window.BQSearch", "BroadcastChannel('bq_updates')",
                        "BQ_SHELL_STATS_CHANGED", "metaKey", "searchIndex"):
             self.assertIn(needle, js.text)
-        # Voice normalizer loads before the parser it feeds.
+        # Voice normalizer loads before the batch parser it feeds.
         self.assertLess(html.index("/static/js/voice_normalizer.js"),
-                        html.index("/static/js/smart_voice_parser.js"))
-        # ...and the commander loads after it (accumulator feeds the parser).
-        self.assertLess(html.index("/static/js/smart_voice_parser.js"),
-                        html.index("/static/js/voice_commander.js"))
+                        html.index("/static/js/batch_walkthrough_parser.js"))
+        # ...and no legacy real-time dictation files are loaded anymore.
+        self.assertNotIn("/static/js/smart_voice_parser.js", html)
+        self.assertNotIn("/static/js/voice_commander.js", html)
         # The audio-filename utility is loaded for local recording downloads.
         self.assertIn("/static/js/audio_filename.js", html)
         audio = self.client.get("/static/js/audio_filename.js").text
@@ -579,14 +579,13 @@ class CrmApiTestCase(unittest.TestCase):
         # Alpine collapse plugin loads before Alpine core for smooth sections.
         self.assertLess(html.index("@alpinejs/collapse"),
                         html.index("alpinejs@3"))
-        # The parser ships the spec-alias + parametric assembly extraction +
-        # multi-intent segmentation.
-        parser = self.client.get("/static/js/smart_voice_parser.js").text
-        self.assertIn("parseVoiceInput: processConversationalVoice", parser)
-        self.assertIn("ASSEMBLY_RE", parser)
-        self.assertIn("insertAssembly", parser)
+        # The batch parser ships the staged extraction (no real-time dispatch).
+        parser = self.client.get("/static/js/batch_walkthrough_parser.js").text
+        self.assertIn("parseWalkthroughTranscript", parser)
         self.assertIn("segmentIntents", parser)
         self.assertIn("INTENT_ANCHOR_RE", parser)
+        self.assertIn("ASSEMBLY_RE", parser)
+        self.assertIn("LINE_ITEM_BLACKLIST_RE", parser)
 
     def test_login_page_has_no_shell_api_loop(self):
         """appShell runs on /login and /register too, so its badge refresh must

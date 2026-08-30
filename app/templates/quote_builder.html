@@ -5,36 +5,41 @@
   <!-- Quick actions (voice + save/export) - always visible -->
   <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
     <div class="space-y-4">
-      <!-- Voice-to-Scope: always at the top, speaks the scope from anywhere -->
-      <div class="flex shrink-0 items-center gap-2">
-        <button @click="toggleVoice()"
-                class="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition"
-                :class="voiceOn
-                  ? 'border-red-500/60 bg-red-500/15 text-red-400 animate-pulse'
-                  : 'border-amber-500/50 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400'"
-                :title="voiceOn ? 'Stop listening' : 'Speak the scope — e.g. \"drywall partition, 12 by 14\"'">
-          <span x-show="voiceOn" x-cloak class="relative flex h-2.5 w-2.5">
-            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75"></span>
-            <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500"></span>
-          </span>
-          <i data-lucide="mic" class="h-5 w-5"></i>
-          <span x-text="voiceOn ? 'Listening… (Say &quot;Mic Off&quot; to stop)' : 'Voice to Scope'"></span>
-        </button>
+      <!-- Staged walkthrough recorder: record the whole session, then review & apply -->
+      <div class="flex flex-wrap items-center gap-2">
+        <template x-if="!walkthroughActive">
+          <button @click="startWalkthrough()"
+                  class="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 shadow transition hover:bg-amber-600">
+            <i data-lucide="mic" class="h-4 w-4"></i> Record Walkthrough
+          </button>
+        </template>
+        <template x-if="walkthroughActive">
+          <button @click="stopWalkthrough()"
+                  class="flex items-center gap-2 rounded-lg border border-red-500/60 bg-red-500/15 px-4 py-2 text-sm font-bold text-red-400 animate-pulse"
+                  title="Stop recording and review what was parsed">
+            <span class="relative flex h-2.5 w-2.5">
+              <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75"></span>
+              <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500"></span>
+            </span>
+            <i data-lucide="square" class="h-4 w-4"></i>
+            <span x-text="'Stop & Review (' + walkthroughDuration + 's)'"></span>
+          </button>
+        </template>
       </div>
 
-    <!-- Live voice transcript / last-heard scope -->
-    <div x-show="voiceTranscript" x-cloak
-         class="flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-      <span class="truncate" x-text="voiceTranscript"></span>
-      <button @click="voiceTranscript = ''" class="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" title="Clear">✕</button>
+    <!-- Walkthrough session audio / parsed result -> review drawer -->
+    <div x-show="voiceRecordingReady || (walkthroughParsed && walkthroughParsed.matched)" x-cloak
+         class="flex items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+      <span class="flex items-center gap-2">
+        <i data-lucide="audio-lines" class="h-4 w-4 shrink-0"></i>
+        Walkthrough <span x-text="walkthroughParsed ? ('· ' + walkthroughParsed.matched + ' item(s) parsed') : 'audio recorded'"></span>
+      </span>
+      <button @click="voiceReviewOpen = true"
+              class="flex shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 font-bold text-white transition hover:bg-emerald-700"
+              title="Review the walkthrough">
+        <i data-lucide="list-video" class="h-3.5 w-3.5"></i> Review
+      </button>
     </div>
-    <!-- Live buffered phrase while listening -->
-    <div x-show="voiceOn && liveInterimTranscript" x-cloak
-         class="flex items-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-xs text-sky-600 dark:text-sky-400">
-      <span class="shrink-0 font-bold uppercase tracking-wider text-slate-400">Heard</span>
-      <span class="truncate" x-text="'\"' + liveInterimTranscript + '\"'"></span>
-    </div>
-    <!-- Walkthrough session audio -> review drawer -->
     <div x-show="voiceRecordingReady" x-cloak
          class="flex items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
       <span class="flex items-center gap-2"><i data-lucide="audio-lines" class="h-4 w-4 shrink-0"></i> Walkthrough audio recorded</span>
@@ -55,6 +60,45 @@
             <p class="mt-0.5 text-xs text-slate-400">Listen back to the site walkthrough, rename the file, and save the audio to your phone.</p>
           </div>
           <button @click="voiceReviewOpen = false" class="rounded-md p-1.5 text-slate-400 transition hover:text-white" title="Close">✕</button>
+        </div>
+
+
+        <!-- Parsed walkthrough entities (staged batch parse) -->
+        <div x-show="walkthroughParsed && walkthroughParsed.matched" x-cloak
+             class="space-y-2 rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-xs">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Parsed from transcript</p>
+          <template x-if="walkthroughParsed && walkthroughParsed.title">
+            <p class="text-slate-300">Title: <strong class="text-white" x-text="walkthroughParsed.title"></strong></p>
+          </template>
+          <template x-if="walkthroughParsed && walkthroughParsed.client_name">
+            <p class="text-slate-300">Client: <strong class="text-white" x-text="walkthroughParsed.client_name"></strong></p>
+          </template>
+          <template x-if="walkthroughParsed && walkthroughParsed.site_address">
+            <p class="text-slate-300">Address: <strong class="text-white" x-text="walkthroughParsed.site_address"></strong></p>
+          </template>
+          <template x-if="walkthroughParsed && walkthroughParsed.line_items.length">
+            <div class="border-t border-slate-700 pt-1">
+              <p class="mb-1 font-semibold text-slate-300">Line items</p>
+              <template x-for="(it, idx) in walkthroughParsed.line_items" :key="idx">
+                <p class="text-slate-400" x-text="it.qty + ' ' + it.unit + ' ' + it.description + (it.unit_cost ? ' @ $' + it.unit_cost : '')"></p>
+              </template>
+            </div>
+          </template>
+          <template x-if="walkthroughParsed && walkthroughParsed.assemblies.length">
+            <div class="border-t border-slate-700 pt-1">
+              <p class="mb-1 font-semibold text-slate-300">Assemblies</p>
+              <template x-for="(a, idx) in walkthroughParsed.assemblies" :key="idx">
+                <p class="text-slate-400" x-text="a.trade + ' ' + a.length + 'x' + a.width + (a.height ? ' @ ' + a.height + 'ft' : '')"></p>
+              </template>
+            </div>
+          </template>
+          <template x-if="walkthroughParsed && walkthroughParsed.notes.length">
+            <p class="text-slate-500" x-text="'Notes: ' + walkthroughParsed.notes.length + ' unmatched phrase(s)'"></p>
+          </template>
+          <button @click="applyWalkthrough()"
+                  class="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-sm font-bold text-slate-950 transition hover:bg-amber-600">
+            <i data-lucide="check-check" class="h-4 w-4"></i> Apply to Quote
+          </button>
         </div>
 
         <!-- Mini audio player -->
@@ -1191,11 +1235,12 @@ function quoteBuilder(quoteId) {
     // ---- Contingency buffer ----
     contingency: 10, contingencyVisible: false,
     contingencyOptions: [0, 5, 10, 15, 20],
-    // ---- Voice-to-scope (natural conversational parser) ----
-    voiceOn: false, voiceRec: null, voiceTranscript: '', voiceCommander: null, liveInterimTranscript: '',
+    // ---- Staged walkthrough recorder (transcript buffer + session audio) ----
+    walkthroughActive: false, walkthroughRec: null, walkthroughTranscript: [],
+    walkthroughDuration: 0, walkthroughTimer: null, walkthroughParsed: null,
     voiceMediaRecorder: null, voiceRecordingBlob: null, voiceRecordingUrl: '', voiceRecordingName: '',
     voiceRecordingReady: false, voiceReviewOpen: false, voiceAudioPlaying: false,
-    activeField: null, voiceNotes: [],
+    activeField: null,
     // ---- Material takeoff ----
     takeoffOpen: false, takeoffCopied: false,
 
@@ -1708,48 +1753,46 @@ function quoteBuilder(quoteId) {
       return rev > 0 ? Math.round(this.netProfit() / rev * 100) : 0;
     },
 
-    // ---- Hands-free voice-to-scope (continuous, natural-language) ----
-    toggleVoice() { this.voiceOn ? this.stopVoice() : this.startVoice(); },
-    startVoice() {
+    // ---- Staged walkthrough recorder (record whole session, parse on stop) ----
+    toggleWalkthrough() { this.walkthroughActive ? this.stopWalkthrough() : this.startWalkthrough(); },
+    startWalkthrough() {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SR) { BQ.toast('Voice input is not supported in this browser'); return; }
-      if (this.voiceOn) return;   // already listening
-      this.voiceOn = true;
-      this.voiceTranscript = 'Listening… say things like "address is 1400 Mockingbird Lane" or "15 gallons of paint at $18 a piece"';
-      this.voiceNotes = [];
+      if (this.walkthroughActive) return;   // already recording
+      this.walkthroughActive = true;
+      this.walkthroughTranscript = [];
+      this.walkthroughParsed = null;
+      this.walkthroughDuration = 0;
       const rec = new SR();
-      this.voiceRec = rec;
+      this.walkthroughRec = rec;
       rec.lang = 'en-US';
-      rec.continuous = true;   // keep listening across sentences
-      rec.interimResults = true;   // live interim chunks for the "Heard:" pill
-
-      // Debounced speech accumulator: buffers finalized chunks, dispatches the
-      // master parser after 1200ms of silence (or immediately on "mic off"),
-      // and owns the 150ms onend auto-restart so stale sessions can't
-      // resurrect a stopped mic.
-      this.voiceCommander = (window.BQVoiceCommander || { createVoiceCommander: () => null })
-        .createVoiceCommander({
-          onCommand: (t) => this.handleVoiceCommand(t),
-          onStatus: (s) => { this.liveInterimTranscript = s.interim || ''; },
-          onRestart: () => { try { rec.start(); } catch (e) { this.stopVoice(); } },
-          isTermination: (t) => !!(BQSmartVoice && BQSmartVoice.isMicOffPhrase(t)),
-          // Tuned for job-site background noise: 1.8s of silence before a
-          // phrase dispatches, low-confidence garbage dropped, and identical
-          // commands suppressed for 3s so a noisy echo can't re-fire.
-          debounceMs: 1800,
-          minConfidence: 0.3,
-          sameCommandCooldownMs: 3000,
-        });
-      this.voiceCommander.start();
-      // Optional local session capture: record the mic alongside the speech
-      // engine so the contractor can download the audio with a structured
-      // <Client>_audioquote_<MM_DD_YY> name. Fails gracefully (speech still
-      // works) when MediaRecorder/audio capture is unavailable.
+      rec.continuous = true;
+      rec.interimResults = false;
+      rec.onresult = (e) => {
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const r = e.results[i];
+          if (r.isFinal) this.walkthroughTranscript.push((r[0].transcript || '').trim());
+        }
+      };
+      rec.onend = () => {
+        // Staged keepalive: restart while the contractor is still recording.
+        if (this.walkthroughActive && this.walkthroughRec === rec) {
+          try { rec.start(); } catch (e) { this.walkthroughActive = false; }
+        }
+      };
+      rec.onerror = (ev) => {
+        // 'no-speech'/'aborted' are routine in continuous mode; keep recording.
+        if (ev && (ev.error === 'no-speech' || ev.error === 'aborted')) return;
+        this.walkthroughActive = false;
+        this.stopVoiceRecorder();
+      };
+      try { rec.start(); } catch (e) { this.walkthroughActive = false; }
+      // Optional local session audio (downloadable with a structured name).
       this.resetVoiceRecording();
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder) {
         navigator.mediaDevices.getUserMedia({ audio: true })
           .then((stream) => {
-            if (!this.voiceOn) { stream.getTracks().forEach(t => t.stop()); return; }
+            if (!this.walkthroughActive) { stream.getTracks().forEach(t => t.stop()); return; }
             const mediaRec = new MediaRecorder(stream);
             const chunks = [];
             mediaRec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
@@ -1768,19 +1811,70 @@ function quoteBuilder(quoteId) {
             mediaRec.start();
             this.voiceMediaRecorder = mediaRec;
           })
-          .catch(() => { /* audio capture unavailable — speech still works */ });
+          .catch(() => { /* audio capture unavailable — transcript still works */ });
       }
-      rec.onresult = (e) => { if (this.voiceCommander) this.voiceCommander.onResult(e.results); };
-      rec.onend = () => { if (this.voiceCommander) this.voiceCommander.onEnd(); };
-      rec.onerror = (ev) => {
-        // 'no-speech'/'aborted' are routine in continuous mode; keep listening.
-        if (ev && (ev.error === 'no-speech' || ev.error === 'aborted')) return;
-        this.voiceOn = false;
-        this.voiceTranscript = 'Voice error: ' + (ev.error || 'unknown') + ' — tap the mic to retry.';
-        this.liveInterimTranscript = '';
-        this.stopVoiceRecorder();
-      };
-      try { rec.start(); } catch (e) { this.voiceOn = false; }
+      this.walkthroughTimer = setInterval(() => { this.walkthroughDuration += 1; }, 1000);
+    },
+    stopWalkthrough() {
+      this.walkthroughActive = false;
+      if (this.walkthroughTimer) { clearInterval(this.walkthroughTimer); this.walkthroughTimer = null; }
+      if (this.walkthroughRec) { try { this.walkthroughRec.stop(); } catch (e) { /* ignore */ } }
+      this.stopVoiceRecorder();
+      // Staged parse: run the batch parser once over the whole transcript.
+      const full = this.walkthroughTranscript.join('. ');
+      this.walkthroughParsed = (window.BQWalkthroughParser || { parseWalkthroughTranscript: () => null })
+        .parseWalkthroughTranscript(full);
+      this.voiceReviewOpen = true;
+      this.refreshIcons();
+      BQ.toast(this.walkthroughParsed && this.walkthroughParsed.matched
+        ? '✓ Parsed ' + this.walkthroughParsed.matched + ' item(s) — review & apply'
+        : 'No items detected — try the audio below or re-record');
+    },
+    applyWalkthrough() {
+      const p = this.walkthroughParsed;
+      if (!p) return;
+      if (p.title) {
+        this.quote.title = p.title;
+        this.patch({ title: p.title });
+        this.flashVoiceTarget('[data-voice-field="title"]');
+      }
+      if (p.site_address) {
+        this.quote.site_address = p.site_address;
+        this.patch({ site_address: p.site_address });
+        this.flashVoiceTarget('[data-voice-field="site_address"]');
+      }
+      if (p.client_name) {
+        const match = this.clients.find(c => (c.name || '').toLowerCase() === p.client_name.toLowerCase());
+        if (match) {
+          this.quote.client_id = match.id;
+          this.patch({ client_id: match.id });
+          BQ.toast('✓ Client set to ' + match.name, 'success');
+          this.flashVoiceTarget('[data-voice-field="client_name"]');
+        } else {
+          BQ.toast('No client named "' + p.client_name + '" — add them under Clients');
+        }
+      }
+      (p.line_items || []).forEach((it) => this.addWalkthroughLineItem(it));
+      if (p.assemblies && p.assemblies.length) {
+        this.applyWalkthroughAssembly(p.assemblies[0]);
+        if (p.assemblies.length > 1) {
+          BQ.toast('Additional assemblies (' + (p.assemblies.length - 1) + ') — pick them from the Insert Assembly drawer');
+        }
+      }
+      this.voiceReviewOpen = false;
+      BQ.toast('✓ Walkthrough applied to quote', 'success');
+      this.refreshIcons();
+    },
+    applyWalkthroughAssembly(a) {
+      const t = String(a.trade || '').toLowerCase();
+      const asm = this.assemblies.find(x => ((x.name || '') + ' ' + (x.category || '')).toLowerCase().includes(t));
+      if (!asm) { BQ.toast('No assembly matches "' + a.trade + '"'); return; }
+      if (this.selectedCode !== asm.code) { this.dims = {}; this.selectedCode = asm.code; }
+      if (a.length && this.selectedInputs.includes('length')) this.dims.length = Number(a.length);
+      if (a.width && this.selectedInputs.includes('width')) this.dims.width = Number(a.width);
+      if (a.height && this.selectedInputs.includes('height')) this.dims.height = Number(a.height);
+      this.openAssemblyDrawer = true;
+      this.previewAssembly();
     },
     resetVoiceRecording() {
       this.voiceMediaRecorder = null;
@@ -1795,13 +1889,6 @@ function quoteBuilder(quoteId) {
       if (this.voiceMediaRecorder && this.voiceMediaRecorder.state !== 'inactive') {
         try { this.voiceMediaRecorder.stop(); } catch (e) { /* ignore */ }
       }
-    },
-    stopVoice() {
-      this.voiceOn = false;
-      this.liveInterimTranscript = '';
-      if (this.voiceCommander) { try { this.voiceCommander.stop(); } catch (e) { /* ignore */ } }
-      if (this.voiceRec) { try { this.voiceRec.stop(); } catch (e) { /* ignore */ } }
-      this.stopVoiceRecorder();
     },
     playVoiceRecording() {
       const audioEl = this.$refs.voiceAudio;
@@ -1823,56 +1910,7 @@ function quoteBuilder(quoteId) {
         BQ.toast('Audio saved to phone', 'success');
       }
     },
-
-    // ---- Natural conversational command routing ----
-    handleVoiceCommand(text) {
-      this.voiceTranscript = text;
-      const result = BQSmartVoice.processConversationalVoice(text, {
-        stopMic: () => this.stopVoice(),
-        notify: (msg) => BQ.toast('✓ ' + msg, 'success'),
-        setFieldValue: (field, val) => this.applyVoiceField(field, val),
-        addLineItem: (item) => this.addVoiceLineItem(item),
-        matchAssembly: (cleaned) => this.matchAssembly(cleaned),
-        activeFocusedField: this.activeField,
-        insertIntoActiveField: (raw) => this.insertIntoActiveField(raw),
-        appendSiteNotes: (raw) => this.appendVoiceNotes(raw),
-      });
-      this.lastParsed = result || { action: 'none' };
-      this.refreshIcons();
-    },
-
-    applyVoiceField(field, val) {
-      if (field === 'site_address') {
-        this.quote.site_address = val;
-        this.patch({ site_address: val });
-        this.flashVoiceTarget('[data-voice-field="site_address"]');
-      } else if (field === 'title') {
-        this.quote.title = val;
-        this.patch({ title: val });
-        this.flashVoiceTarget('[data-voice-field="title"]');
-      } else if (field === 'client_name') {
-        const match = this.clients.find(c => (c.name || '').toLowerCase() === String(val).toLowerCase());
-        if (match) {
-          this.quote.client_id = match.id;
-          this.patch({ client_id: match.id });
-          BQ.toast('✓ Client set to ' + match.name, 'success');
-          this.flashVoiceTarget('[data-voice-field="client_name"]');
-        } else {
-          BQ.toast('No client named "' + val + '" — add them under Clients');
-        }
-      }
-    },
-
-    flashVoiceTarget(selector) {
-      const el = document.querySelector(selector);
-      if (!el) return;
-      el.classList.remove('bq-flash');
-      void el.offsetWidth;   // restart the animation
-      el.classList.add('bq-flash');
-      setTimeout(() => el.classList.remove('bq-flash'), 2000);
-    },
-
-    addVoiceLineItem(item) {
+    addWalkthroughLineItem(item) {
       this.lines.push({
         id: undefined,
         description: item.description,
@@ -1888,55 +1926,14 @@ function quoteBuilder(quoteId) {
       this.refreshIcons();
       this.$nextTick(() => this.flashVoiceTarget('[data-voice-row]:last-child'));
     },
-
-    // "drywall partition", "tile flooring", "framing" -> assembly + drawer.
-    matchAssembly(cleaned) {
-      const t = String(cleaned || '').toLowerCase();
-      const words = ['drywall', 'framing', 'stud', 'partition', 'tile', 'flooring', 'paint'];
-      for (const a of this.assemblies) {
-        const hay = ((a.name || '') + ' ' + (a.category || '')).toLowerCase();
-        for (const w of words) {
-          if (t.includes(w) && hay.includes(w)) {
-            if (this.selectedCode !== a.code) { this.dims = {}; this.selectedCode = a.code; }
-            const dim = t.match(/(\d+(?:\.\d+)?)\s*(?:by|x|\*)\s*(\d+(?:\.\d+)?)/);
-            const height = t.match(/(\d+(?:\.\d+)?)\s*-?\s*(?:foot|feet|ft)?\s*(?:ceiling|ceilings|high)/);
-            if (dim) {
-              if (this.selectedInputs.includes('length')) this.dims.length = parseFloat(dim[1]);
-              if (this.selectedInputs.includes('width')) this.dims.width = parseFloat(dim[2]);
-            }
-            if (height && this.selectedInputs.includes('height')) this.dims.height = parseFloat(height[1]);
-            this.openAssemblyDrawer = true;
-            this.previewAssembly();
-            return a.code;
-          }
-        }
-      }
-      return null;
+    flashVoiceTarget(selector) {
+      const el = document.querySelector(selector);
+      if (!el) return;
+      el.classList.remove('bq-flash');
+      void el.offsetWidth;   // restart the animation
+      el.classList.add('bq-flash');
+      setTimeout(() => el.classList.remove('bq-flash'), 2000);
     },
-
-    insertIntoActiveField(raw) {
-      const f = this.activeField;
-      if (!f) return;
-      if (f === 'site_address') { this.quote.site_address = raw; this.patch({ site_address: raw }); }
-      else if (f === 'title') { this.quote.title = raw; this.patch({ title: raw }); }
-      else if (f.indexOf('line:') === 0) {
-        const parts = f.split(':');
-        const idx = parseInt(parts[1], 10);
-        const sub = parts[2];
-        if (this.lines[idx]) {
-          if (sub === 'description') this.lines[idx].description = raw;
-          else if (sub === 'quantity') this.lines[idx].quantity = parseFloat(raw.replace(/[^\d.]/g, '')) || 1;
-          else if (sub === 'unit_cost') this.lines[idx].unit_cost = parseFloat(raw.replace(/[^\d.]/g, '')) || 0;
-        }
-      }
-      this.refreshIcons();
-    },
-
-    appendVoiceNotes(raw) {
-      this.voiceNotes.push(raw);
-      this.voiceTranscript = 'Noted: ' + raw;
-    },
-
     // ---- Material takeoff & cut list ----
     takeoffCategory(row) {
       const t = ((row.trade || '') + ' ' + (row.description || '')).toLowerCase();

@@ -413,13 +413,13 @@ class CockpitApiTestCase(unittest.TestCase):
         self.assertIn("Payment Schedule", html)
         self.assertIn("50 / 50", html)
         self.assertIn("33 / 33 / 34", html)
-        # Hands-free voice-to-scope (Web Speech API, continuous + natural
-        # conversational parser), pinned to the top bar.
-        self.assertIn("Voice to Scope", html)
-        self.assertIn("toggleVoice", html)
+        # Staged walkthrough recorder (Web Speech API; record whole session,
+        # then parse the full transcript on stop).
+        self.assertIn("Record Walkthrough", html)
+        self.assertIn("startWalkthrough", html)
         self.assertIn("webkitSpeechRecognition", html)
-        self.assertIn("BQSmartVoice", html)
-        self.assertIn("handleVoiceCommand", html)
+        self.assertIn("BQWalkthroughParser", html)
+        self.assertIn("stopWalkthrough", html)
         self.assertIn("activeField", html)
         self.assertIn("rec.continuous = true", html)
         self.assertIn("previewAssembly", html)
@@ -433,8 +433,8 @@ class CockpitApiTestCase(unittest.TestCase):
         self.assertIn("contingencyAmount", html)
         self.assertIn("Contractor Financials", html)
         self.assertIn("netProfitPct", html)
-        self.assertIn("Voice-to-Scope", html)
-        self.assertIn("applyVoice", html)
+        self.assertIn("Walkthrough", html)
+        self.assertIn("applyWalkthrough", html)
 
 
 if __name__ == "__main__":

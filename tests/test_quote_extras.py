@@ -217,32 +217,34 @@ class QuoteExtrasTestCase(unittest.TestCase):
                        "Grand Total: ' + fmt(finalTotal())"):
             self.assertIn(needle, html, needle)
 
-    def test_builder_voice_engine_renders_resilient_restart(self):
-        """The speech loop runs through the debounced commander: live interim
-        results, 1200ms silence dispatch, 150ms onend restart, flash targets."""
+    def test_builder_walkthrough_recorder_renders_staged_flow(self):
+        """The staged walkthrough recorder buffers finals and parses the whole
+        transcript on stop (no real-time commander / interim dictation)."""
         self.register("extras-voice@acme.com")
         r = self.client.get("/quotes/new")
         html = r.text
-        for needle in ("rec.continuous = true", "rec.interimResults = true",
-                       "rec.lang = 'en-US'", "voiceCommander", "liveInterimTranscript",
-                       "onResult(e.results)", "isMicOffPhrase", "debounceMs: 1800",
-                       "minConfidence: 0.3", "sameCommandCooldownMs: 3000",
+        for needle in ("Record Walkthrough", "Stop & Review", "startWalkthrough",
+                       "stopWalkthrough", "walkthroughTranscript", "walkthroughDuration",
+                       "walkthroughParsed", "parseWalkthroughTranscript", "applyWalkthrough",
+                       "BQWalkthroughParser", "Apply to Quote", "rec.continuous = true",
+                       "rec.interimResults = false",
                        "data-voice-field=\"title\"", "data-voice-field=\"site_address\"",
                        "data-voice-field=\"client_name\"", "data-voice-row",
-                       "flashVoiceTarget", "bq-flash", "Heard",
+                       "flashVoiceTarget", "bq-flash", "audio-lines",
                        "voiceMediaRecorder", "downloadVoiceRecording",
-                       "generateAudioFilename", "voiceRecordingReady", "audio-lines",
+                       "generateAudioFilename", "voiceRecordingReady",
                        "voiceReviewOpen", "playVoiceRecording", "Save Audio to Phone",
                        "Play Walkthrough Audio", "x-ref=\"voiceAudio\""):
             self.assertIn(needle, html, needle)
-        # The commander module owns the accumulator + keepalive lifecycle +
-        # the background-noise gates (confidence / junk / echo-dedup / cooldown).
-        js_resp = self.client.get("/static/js/voice_commander.js")
+        # No legacy real-time dictation remains.
+        for gone in ("liveInterimTranscript", "voiceCommander", "BQSmartVoice",
+                     "isMicOffPhrase", "toggleVoice", "Voice to Scope", "Heard"):
+            self.assertNotIn(gone, html, gone)
+        # The batch parser ships the staged extraction.
+        js_resp = self.client.get("/static/js/batch_walkthrough_parser.js")
         self.assertEqual(js_resp.status_code, 200, js_resp.text)
         js = js_resp.text
-        for needle in ("speechBuffer", "DEBOUNCE_MS", "1800", "restartTimer",
-                       "150", "createVoiceCommander", "onEnd", "minConfidence",
-                       "sameCommandCooldownMs", "isMeaningful", "JUNK_RE"):
+        for needle in ("parseWalkthroughTranscript", "segmentIntents", "LINE_ITEM_BLACKLIST_RE"):
             self.assertIn(needle, js, needle)
 
 
