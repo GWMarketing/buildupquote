@@ -74,10 +74,10 @@ class UpgradesSubBidsTestCase(unittest.TestCase):
         qid = self.make_quote(auth)
         detail = self.set_lines(auth, qid, [
             {"description": "Drywall install", "item_type": "material",
-             "quantity": 10, "unit": "m2", "unit_cost": 20.0, "markup_percent": 20,
+             "quantity": 10, "unit": "sq ft", "unit_cost": 20.0, "markup_percent": 20,
              "is_optional": False},
             {"description": "Acoustic ceiling upgrade", "item_type": "material",
-             "quantity": 10, "unit": "m2", "unit_cost": 8.3333, "markup_percent": 20,
+             "quantity": 10, "unit": "sq ft", "unit_cost": 8.3333, "markup_percent": 20,
              "is_optional": True},
         ])
         required = next(l for l in detail["lines"] if not l["is_optional"])

@@ -16,5 +16,5 @@ def match_description(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """{"description": "12.5mm plasterboard install"} -> {"trade": "Drywall"}."""
+    """{"description": "1/2\" plasterboard install"} -> {"trade": "Drywall"}."""
     return {"trade": match_trade_from_description(payload.description, db)}

@@ -90,7 +90,6 @@
   var UNIT_ALIASES = {
     'sq ft': 'sq ft', 'sqft': 'sq ft', 'square feet': 'sq ft', 'square foot': 'sq ft', 'squares': 'sq',
     'lin ft': 'lin ft', 'linear feet': 'lin ft', 'linear foot': 'lin ft', 'lf': 'lin ft',
-    'sq m': 'm2', 'square meters': 'm2', 'square meter': 'm2', 'm2': 'm2',
     'sheets': 'sheet', 'sheet': 'sheet',
     'studs': 'stud', 'stud': 'stud', 'sticks': 'stick', 'stick': 'stick',
     'boxes': 'box', 'box': 'box',
@@ -104,7 +103,7 @@
     'hours': 'hr', 'hour': 'hr', 'hrs': 'hr', 'hr': 'hr',
   };
   var UNIT_RE_SRC = [
-    'sq\\s*ft', 'square\\s*feet?', 'sq\\s*m', 'square\\s*meters?', 'm2',
+    'sq\\s*ft', 'square\\s*feet?',
     'linear\\s*ft', 'linear\\s*feet?', 'lin\\s*ft', 'l\\s*f', 'lf',
     'gallons?', 'gals?', 'sheets?', 'studs?', 'sticks?', 'boxes?', 'bags?',
     'buckets?', 'pails?', 'rolls?', 'bundles?', 'fixtures?', 'squares?',

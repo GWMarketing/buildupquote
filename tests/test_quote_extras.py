@@ -52,7 +52,7 @@ class QuoteExtrasTestCase(unittest.TestCase):
     def add_line(self, auth, quote_id):
         r = self.client.put(f"/api/quotes/{quote_id}/lines", headers=auth, json=[{
             "description": "Drywall install", "item_type": "material",
-            "quantity": 10, "unit": "m2", "unit_cost": 20.0, "markup_percent": 20,
+            "quantity": 10, "unit": "sq ft", "unit_cost": 20.0, "markup_percent": 20,
         }])
         self.assertEqual(r.status_code, 200, r.text)
 

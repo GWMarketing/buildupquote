@@ -12,11 +12,12 @@ from app import models
 _CATALOG = [
     # Drywall
     {
-        "canonical_name": "Drywall board (12.5mm)",
-        "trade": "Drywall", "unit": "m2", "default_unit_cost": 8.90,
+        "canonical_name": "Drywall board (1/2\")",
+        "renamed_from": "Drywall board (12.5mm)",
+        "trade": "Drywall", "unit": "sq ft", "default_unit_cost": 8.90,
         "default_trade_type": "Material",
         "synonyms": ["drywall", "drywall board", "sheetrock", "gyprock",
-                     "plasterboard", "wall board", "12.5mm board", "gypsum board"],
+                     "plasterboard", "wall board", "1/2\" board", "gypsum board"],
     },
     {
         "canonical_name": "Drywall labour",
@@ -42,17 +43,19 @@ _CATALOG = [
     },
     # Plumbing
     {
-        "canonical_name": "PVC drain pipe (100mm)",
-        "trade": "Plumbing", "unit": "m", "default_unit_cost": 6.80,
+        "canonical_name": "PVC drain pipe (4\")",
+        "renamed_from": "PVC drain pipe (100mm)",
+        "trade": "Plumbing", "unit": "ft", "default_unit_cost": 6.80,
         "default_trade_type": "Material",
         "synonyms": ["pvc pipe", "drain pipe", "waste pipe", "4 inch pipe",
-                     "100mm pvc", "sewer pipe"],
+                     "4\" pvc", "sewer pipe"],
     },
     {
-        "canonical_name": "Copper supply pipe (15mm)",
-        "trade": "Plumbing", "unit": "m", "default_unit_cost": 9.50,
+        "canonical_name": "Copper supply pipe (1/2\")",
+        "renamed_from": "Copper supply pipe (15mm)",
+        "trade": "Plumbing", "unit": "ft", "default_unit_cost": 9.50,
         "default_trade_type": "Material",
-        "synonyms": ["copper pipe", "supply pipe", "supply line", "15mm copper",
+        "synonyms": ["copper pipe", "supply pipe", "supply line", "1/2\" copper",
                      "water pipe"],
     },
     {
@@ -64,7 +67,8 @@ _CATALOG = [
     },
     # Masonry
     {
-        "canonical_name": "Concrete blocks (100mm)",
+        "canonical_name": "Concrete blocks (4\")",
+        "renamed_from": "Concrete blocks (100mm)",
         "trade": "Masonry", "unit": "each", "default_unit_cost": 3.40,
         "default_trade_type": "Material",
         "synonyms": ["concrete block", "cinder block", "cmu", "cmu block",
@@ -72,7 +76,7 @@ _CATALOG = [
     },
     {
         "canonical_name": "Brick veneer",
-        "trade": "Masonry", "unit": "m2", "default_unit_cost": 48.00,
+        "trade": "Masonry", "unit": "sq ft", "default_unit_cost": 48.00,
         "default_trade_type": "Material",
         "synonyms": ["brick veneer", "face brick", "brick facing", "brick cladding"],
     },
@@ -86,14 +90,14 @@ _CATALOG = [
     # Tiling
     {
         "canonical_name": "Floor tile (ceramic)",
-        "trade": "Tiling", "unit": "m2", "default_unit_cost": 42.00,
+        "trade": "Tiling", "unit": "sq ft", "default_unit_cost": 42.00,
         "default_trade_type": "Material",
         "synonyms": ["floor tile", "ceramic tile", "porcelain tile", "wall tile",
                      "tile"],
     },
     {
         "canonical_name": "Tile adhesive",
-        "trade": "Tiling", "unit": "kg", "default_unit_cost": 3.50,
+        "trade": "Tiling", "unit": "lb", "default_unit_cost": 3.50,
         "default_trade_type": "Material",
         "synonyms": ["tile adhesive", "adhesive", "thinset", "thin set",
                      "tile glue", "tile cement"],
@@ -107,10 +111,11 @@ _CATALOG = [
     },
     # Paint
     {
-        "canonical_name": "Interior wall paint (10L)",
+        "canonical_name": "Interior wall paint (1 gal)",
+        "renamed_from": "Interior wall paint (10L)",
         "trade": "Paint", "unit": "each", "default_unit_cost": 65.00,
         "default_trade_type": "Material",
-        "synonyms": ["interior paint", "wall paint", "latex paint", "10l paint",
+        "synonyms": ["interior paint", "wall paint", "latex paint", "1 gal paint",
                      "emulsion", "paint"],
     },
     {
@@ -130,41 +135,56 @@ _CATALOG = [
     },
     {
         "canonical_name": "Skim coat plaster",
-        "trade": "Drywall", "unit": "kg", "default_unit_cost": 1.20,
+        "trade": "Drywall", "unit": "lb", "default_unit_cost": 1.20,
         "default_trade_type": "Material",
         "synonyms": ["skim", "skim coat", "skim plaster", "skimming", "finishing plaster",
                      "multifinish", "plaster skim"],
     },
     {
-        "canonical_name": "Tile grout (5kg)",
-        "trade": "Tiling", "unit": "bag", "default_unit_cost": 12.00,
+        "canonical_name": "Tile grout (25 lb)",
+        "renamed_from": "Tile grout (5kg)",
+        "trade": "Tiling", "unit": "box", "default_unit_cost": 12.00,
         "default_trade_type": "Material",
         "synonyms": ["grout", "tile grout", "joint filler", "anti-mould grout",
-                     "wall and floor grout", "grout bag"],
+                     "wall and floor grout", "grout box"],
     },
 ]
 
 
 def seed_trade_catalog(db: Session) -> None:
-    """Insert any catalog items that aren't there yet (matched on canonical
-    name). Synonyms are (re)created for new items only."""
+    """Insert/sync the imperial catalog. Items created under an earlier metric
+    name are renamed (matched via `renamed_from`) and every seeded row's unit
+    and synonyms converge to the current spec on every startup."""
     for spec in _CATALOG:
         item = (
             db.query(models.TradeCatalogItem)
             .filter(models.TradeCatalogItem.canonical_name == spec["canonical_name"])
             .first()
         )
-        if item is not None:
-            continue
-        item = models.TradeCatalogItem(
-            canonical_name=spec["canonical_name"],
-            trade=spec["trade"],
-            unit=spec["unit"],
-            default_unit_cost=spec["default_unit_cost"],
-            default_trade_type=spec["default_trade_type"],
-        )
-        db.add(item)
-        db.flush()
+        if item is None and spec.get("renamed_from"):
+            item = (
+                db.query(models.TradeCatalogItem)
+                .filter(models.TradeCatalogItem.canonical_name == spec["renamed_from"])
+                .first()
+            )
+        if item is None:
+            item = models.TradeCatalogItem(
+                canonical_name=spec["canonical_name"],
+                trade=spec["trade"],
+                unit=spec["unit"],
+                default_unit_cost=spec["default_unit_cost"],
+                default_trade_type=spec["default_trade_type"],
+            )
+            db.add(item)
+            db.flush()
+        else:
+            item.canonical_name = spec["canonical_name"]
+            item.trade = spec["trade"]
+            item.unit = spec["unit"]
+            db.add(item)
+            db.flush()
+        # Rebuild synonyms so metric aliases ("12.5mm board") are replaced.
+        db.query(models.TradeSynonym).filter_by(catalog_id=item.id).delete()
         for term in spec["synonyms"]:
             db.add(models.TradeSynonym(catalog_id=item.id, raw_term=term))
     db.commit()

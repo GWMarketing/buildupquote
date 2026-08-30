@@ -36,19 +36,20 @@ class PartitionWallCalculatorTest(_AppImportsMixin, unittest.TestCase):
         studs, track, boards, screws, labor = lines
         self.assertEqual(studs["trade"], "Carpentry")
         self.assertEqual(studs["type"], "Material")
-        self.assertEqual(studs["unit"], "pcs")
+        self.assertEqual(studs["unit"], "each")
         self.assertEqual(studs["unit_cost"], 4.50)
         self.assertEqual(studs["markup_pct"], 20)
-        # ceil((4 / 0.6) + 1) = 8 studs, then +10% waste -> 9
-        self.assertEqual(studs["quantity"], 9)
-        # ceil(4*2*1.1) = 9 m of track
+        # ceil((4 / 2) + 1) = 3 studs @ 24" OC, then +10% waste -> 4
+        self.assertEqual(studs["quantity"], 4)
+        # ceil(4*2*1.1) = 9 lin ft of track
+        self.assertEqual(track["unit"], "lin ft")
         self.assertEqual(track["quantity"], 9)
-        # 2 sides, 2.88 m2/sheet, +10% -> ceil(19.2/2.88*1.1) = 8 sheets
-        self.assertEqual(boards["quantity"], 8)
-        # 8 sheets * 30 screws / 200 per box -> 2 boxes
-        self.assertEqual(screws["quantity"], 2)
-        # 4*2.4 = 9.6 m2 * 0.45 h -> 4.3 h
-        self.assertEqual(labor["quantity"], 4.3)
+        # 2 sides, 32 sq ft/sheet (4'x8'), +10% -> ceil(19.2/32*1.1) = 1 sheet
+        self.assertEqual(boards["quantity"], 1)
+        # 1 sheet * 30 screws / 200 per box -> 1 box
+        self.assertEqual(screws["quantity"], 1)
+        # 4*2.4 = 9.6 sq ft * 0.05 h -> 0.5 h
+        self.assertEqual(labor["quantity"], 0.5)
         self.assertEqual(labor["type"], "Labor")
         self.assertEqual(labor["unit"], "hour")
 
@@ -60,17 +61,17 @@ class FloorTilingCalculatorTest(_AppImportsMixin, unittest.TestCase):
         tiles, adhesive, grout, labor = lines
         self.assertEqual(tiles["trade"], "Tiling")
         self.assertEqual(tiles["type"], "Material")
-        self.assertEqual(tiles["unit"], "m2")
+        self.assertEqual(tiles["unit"], "sq ft")
         self.assertEqual(tiles["unit_cost"], 28.00)
         self.assertEqual(tiles["markup_pct"], 25)
-        # 12 m2 * 1.12 waste = 13.44 m2
+        # 12 sq ft * 1.12 waste = 13.44 sq ft
         self.assertEqual(tiles["quantity"], 13.44)
-        # ceil(13.44 / 4) = 4 bags
-        self.assertEqual(adhesive["quantity"], 4)
-        # ceil(13.44 / 15) = 1 bag
+        # ceil(13.44 / 50) = 1 bag of thinset
+        self.assertEqual(adhesive["quantity"], 1)
+        # ceil(13.44 / 200) = 1 box of grout
         self.assertEqual(grout["quantity"], 1)
-        # 12 m2 * 0.75 h = 9.0 h
-        self.assertEqual(labor["quantity"], 9.0)
+        # 12 sq ft * 0.07 h = 0.8 h
+        self.assertEqual(labor["quantity"], 0.8)
         self.assertEqual(labor["type"], "Labor")
 
 
@@ -90,10 +91,10 @@ class DispatchTest(_AppImportsMixin, unittest.TestCase):
         first = lines[0]
         self.assertEqual(first["trade"], "Carpentry")
         self.assertEqual(first["item_type"], "material")  # lowercased from "Material"
-        self.assertEqual(first["unit"], "pcs")
-        self.assertEqual(first["quantity"], 9)
-        # subtotal = 9 * 4.50 * 1.20 = 48.60
-        self.assertAlmostEqual(first["subtotal"], 48.60, places=2)
+        self.assertEqual(first["unit"], "each")
+        self.assertEqual(first["quantity"], 4)
+        # subtotal = 4 * 4.50 * 1.20 = 21.60
+        self.assertAlmostEqual(first["subtotal"], 21.60, places=2)
 
     def test_dispatch_lowercases_trade_types(self):
         assembly = self._assembly(calculator="calculate_floor_tiling")
@@ -112,7 +113,7 @@ class DispatchTest(_AppImportsMixin, unittest.TestCase):
 
     def test_formula_components_still_work_without_calculator(self):
         component = self.assembly_component(
-            description="Plates", item_type="material", unit="m",
+            description="Plates", item_type="material", unit="lin ft",
             formula="length * 2", default_unit_cost=3.20, default_markup_percent=20,
         )
         assembly = self._assembly(calculator=None, components=[component])

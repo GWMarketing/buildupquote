@@ -400,16 +400,16 @@ class CrmApiTestCase(unittest.TestCase):
     def test_catalog_item_create_and_delete(self):
         auth = self.register("catcrud@acme.com")
         r = self.client.post("/api/catalog/items", headers=auth, json={
-            "trade": "Plumbing", "canonical_name": "15mm Copper Pipe 3m",
+            "trade": "Plumbing", "canonical_name": "1/2\" Copper Pipe 10 ft",
             "unit": "length", "default_unit_cost": 12.5, "default_trade_type": "Material",
         })
         self.assertEqual(r.status_code, 201, r.text)
         body = r.json()
-        self.assertEqual(body["canonical_name"], "15mm Copper Pipe 3m")
+        self.assertEqual(body["canonical_name"], "1/2\" Copper Pipe 10 ft")
         self.assertEqual(body["default_unit_cost"], 12.5)
         # Duplicate (case-insensitive) is rejected cleanly.
         r = self.client.post("/api/catalog/items", headers=auth, json={
-            "trade": "Plumbing", "canonical_name": "15mm copper pipe 3m",
+            "trade": "Plumbing", "canonical_name": "1/2\" copper pipe 10 ft",
             "unit": "length", "default_unit_cost": 12.5,
         })
         self.assertEqual(r.status_code, 400, r.text)
@@ -419,7 +419,7 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertEqual(r.json()["deleted"], True)
         r = self.client.get("/api/catalog/items", headers=auth)
         names = [i["canonical_name"] for i in r.json()]
-        self.assertNotIn("15mm Copper Pipe 3m", names)
+        self.assertNotIn("1/2\" Copper Pipe 10 ft", names)
 
     def test_catalog_page_renders_manager(self):
         r = self.client.get("/catalog")
@@ -449,7 +449,7 @@ class CrmApiTestCase(unittest.TestCase):
     def test_dashboard_stats_computes_analytics(self):
         auth = self.register("dashstat@acme.com")
         line = [{"description": "Shingles", "item_type": "material", "quantity": 10,
-                 "unit": "m2", "unit_cost": 20, "markup_percent": 20}]
+                 "unit": "sq ft", "unit_cost": 20, "markup_percent": 20}]
         q1 = self.make_quote(auth, "Draft roof")
         self.client.put(f"/api/quotes/{q1}/lines", headers=auth, json=line)
         q2 = self.make_quote(auth, "Sent gutter")
@@ -645,7 +645,7 @@ class CrmApiTestCase(unittest.TestCase):
         qid = self.make_quote(auth, "Roof and Gutter Proposal")
         self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
             {"description": "Shingles", "item_type": "material", "quantity": 10,
-             "unit": "m2", "unit_cost": 20, "markup_percent": 20},
+             "unit": "sq ft", "unit_cost": 20, "markup_percent": 20},
         ])
         session = SessionLocal()
         quote = session.query(models.Quote).filter(models.Quote.id == qid).first()
@@ -717,7 +717,7 @@ class CrmApiTestCase(unittest.TestCase):
         qid = self.make_quote(auth, "Locked proposal")
         self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
             {"description": "Shingles", "item_type": "material", "quantity": 10,
-             "unit": "m2", "unit_cost": 20, "markup_percent": 20},
+             "unit": "sq ft", "unit_cost": 20, "markup_percent": 20},
         ])
         session = SessionLocal()
         pub = session.query(models.Quote).filter(models.Quote.id == qid).first().public_uuid
@@ -837,7 +837,7 @@ class CrmApiTestCase(unittest.TestCase):
         self.client.patch(f"/api/quotes/{qid}", headers=auth, json={"client_id": client["id"]})
         self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
             {"description": "Shingles", "item_type": "material", "quantity": 10,
-             "unit": "m2", "unit_cost": 20, "markup_percent": 20},
+             "unit": "sq ft", "unit_cost": 20, "markup_percent": 20},
         ])
         r = self.client.get(f"/api/quotes/{qid}/export-pdf", headers=auth)
         self.assertEqual(r.status_code, 200, r.text)
@@ -866,7 +866,7 @@ class CrmApiTestCase(unittest.TestCase):
         qid = self.make_quote(auth)
         self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
             {"description": "Shingles", "item_type": "material", "quantity": 10,
-             "unit": "m2", "unit_cost": 20, "markup_percent": 20},
+             "unit": "sq ft", "unit_cost": 20, "markup_percent": 20},
         ])
         session = SessionLocal()
         pub = session.query(models.Quote).filter(models.Quote.id == qid).first().public_uuid
@@ -1107,7 +1107,7 @@ class CrmApiTestCase(unittest.TestCase):
 
         r = self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
             {"description": "Shingles", "item_type": "material", "trade": "Roofing",
-             "quantity": 10, "unit": "m2", "unit_cost": 20, "markup_percent": 20},
+             "quantity": 10, "unit": "sq ft", "unit_cost": 20, "markup_percent": 20},
             {"description": "Labour", "item_type": "labor", "trade": "Roofing",
              "quantity": 4, "unit": "hr", "unit_cost": 50, "markup_percent": 0},
         ])
@@ -1153,7 +1153,7 @@ class CrmApiTestCase(unittest.TestCase):
         qid = self.make_quote(auth)
         self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
             {"description": "Shingles", "item_type": "material", "quantity": 10,
-             "unit": "m2", "unit_cost": 20, "markup_percent": 20},
+             "unit": "sq ft", "unit_cost": 20, "markup_percent": 20},
         ])
         r = self.client.get(f"/api/quotes/{qid}/export-pdf", headers=auth)
         self.assertEqual(r.status_code, 200, r.text)
@@ -1183,7 +1183,7 @@ class CrmApiTestCase(unittest.TestCase):
                    trade="Carpentry", needs_review=False, margin=20):
         return {
             "#": label, "Include": include, "Trade": trade, "Section": "Scope",
-            "Description": description, "Qty": qty, "Unit": "m2",
+            "Description": description, "Qty": qty, "Unit": "sq ft",
             "Unit Cost": unit_cost, "Margin %": margin, "Material": material,
             "Insurance RCV": 0.0, "Insurance O&P": None, "Code Cite": False,
             "Needs Review": needs_review, "Review Note": "", "Recoverable Depreciation": 0.0,
@@ -1269,10 +1269,10 @@ class CrmApiTestCase(unittest.TestCase):
         r = self.client.get("/api/catalog/autocorrect", params={"q": "dryw"}, headers=auth)
         self.assertEqual(r.status_code, 200, r.text)
         results = r.json()["results"]
-        hit = next((res for res in results if res["canonical_name"] == "Drywall board (12.5mm)"), None)
+        hit = next((res for res in results if res["canonical_name"] == 'Drywall board (1/2")'), None)
         self.assertIsNotNone(hit, results)
         self.assertEqual(hit["trade"], "Drywall")
-        self.assertEqual(hit["unit"], "m2")
+        self.assertEqual(hit["unit"], "sq ft")
         self.assertGreater(hit["default_unit_cost"], 0)
         self.assertEqual(hit["default_trade_type"], "material")
 
@@ -1284,7 +1284,7 @@ class CrmApiTestCase(unittest.TestCase):
     def test_catalog_autocorrect_matches_slang_aliases(self):
         auth = self.register("catalog3@acme.com")
         r = self.client.get("/api/catalog/autocorrect", params={"q": "sheetrock"}, headers=auth)
-        self.assertTrue(any(res["canonical_name"] == "Drywall board (12.5mm)"
+        self.assertTrue(any(res["canonical_name"] == 'Drywall board (1/2")'
                             for res in r.json()["results"]), r.text)
         r = self.client.get("/api/catalog/autocorrect", params={"q": "2x4"}, headers=auth)
         self.assertTrue(any(res["canonical_name"] == "Timber wall stud (2x4)"
@@ -1301,17 +1301,17 @@ class CrmApiTestCase(unittest.TestCase):
         auth = self.register("catalog5@acme.com")
         r = self.client.get("/api/catalog/autocorrect", params={"q": "concrete block"}, headers=auth)
         self.assertEqual(r.status_code, 200, r.text)
-        self.assertTrue(any(res["canonical_name"] == "Concrete blocks (100mm)"
+        self.assertTrue(any(res["canonical_name"] == 'Concrete blocks (4")'
                             for res in r.json()["results"]), r.text)
 
     def test_catalog_seed_covers_standard_materials(self):
         auth = self.register("catalog6@acme.com")
         for q, expected in [
-            ("plasterboard", "Drywall board (12.5mm)"),
+            ("plasterboard", 'Drywall board (1/2")'),
             ("2x4", "Timber wall stud (2x4)"),
             ("screws", "Drywall screws (box of 200)"),
             ("adhesive", "Tile adhesive"),
-            ("grout", "Tile grout (5kg)"),
+            ("grout", "Tile grout (25 lb)"),
             ("skim", "Skim coat plaster"),
         ]:
             r = self.client.get("/api/catalog/autocorrect", params={"q": q}, headers=auth)
@@ -1333,12 +1333,12 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertEqual(body["assembly_type"], "stud_wall")
         self.assertEqual(len(body["lines"]), 5)
         first = body["lines"][0]
-        self.assertEqual(first["description"], "70mm Metal/Timber Studs (2.4m)")
+        self.assertEqual(first["description"], "2x4 Metal/Timber Studs (2.4 ft)")
         self.assertEqual(first["item_type"], "material")
         self.assertEqual(first["trade"], "Carpentry")
-        self.assertEqual(first["unit"], "pcs")
-        self.assertEqual(first["quantity"], 9)
-        self.assertAlmostEqual(first["subtotal"], 48.60, places=2)
+        self.assertEqual(first["unit"], "each")
+        self.assertEqual(first["quantity"], 4)
+        self.assertAlmostEqual(first["subtotal"], 21.60, places=2)
         self.assertGreater(body["total"], 0)
 
     def test_calculate_assembly_floor_tiling(self):

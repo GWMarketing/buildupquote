@@ -29,7 +29,6 @@
     // Area & Length
     'sq ft': 'sq ft', 'sqft': 'sq ft', 'square feet': 'sq ft', 'square foot': 'sq ft', 'squares': 'sq',
     'lin ft': 'lin ft', 'linear feet': 'lin ft', 'linear foot': 'lin ft', 'lf': 'lin ft',
-    'sq m': 'm2', 'square meters': 'm2', 'square meter': 'm2', 'm2': 'm2',
     // Quantity units
     'sheets': 'sheet', 'sheet': 'sheet',
     'studs': 'stud', 'stud': 'stud', 'sticks': 'stick', 'stick': 'stick',

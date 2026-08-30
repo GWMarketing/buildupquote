@@ -36,7 +36,7 @@ test('buildIndex shapes the four categories', () => {
   const idx = buildIndex(
     [{ id: 1, title: 'Roof replacement', client_name: 'Jane Doe', site_address: '10 Main St', status: 'sent' }],
     [{ id: 7, name: 'Jane Doe', email: 'jane@x.com', phone: '555', site_address: '10 Main St' }],
-    [{ id: 3, canonical_name: 'Asphalt shingles', trade: 'Roofing', unit: 'm2', default_trade_type: 'Material' }],
+    [{ id: 3, canonical_name: 'Asphalt shingles', trade: 'Roofing', unit: 'sq ft', default_trade_type: 'Material' }],
     [{ code: 'DRYWALL', name: 'Drywall partition', category: 'Framing', description: '2x4 studs' }],
   );
   assert.strictEqual(idx.quotes[0].href, '/quotes/1');

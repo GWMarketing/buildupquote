@@ -111,7 +111,7 @@ class ReplicatorTaxesWarrantyTestCase(unittest.TestCase):
         qid = self.make_quote(auth)
         self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[
             {"description": "Drywall material", "item_type": "material",
-             "quantity": 10, "unit": "m2", "unit_cost": 20.0, "markup_percent": 20},
+             "quantity": 10, "unit": "sq ft", "unit_cost": 20.0, "markup_percent": 20},
             {"description": "Install labor", "item_type": "labor",
              "quantity": 10, "unit": "hr", "unit_cost": 50.0, "markup_percent": 20},
         ])
@@ -156,7 +156,7 @@ class ReplicatorTaxesWarrantyTestCase(unittest.TestCase):
         qid = self.make_quote(auth)
         self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[{
             "description": "Drywall material", "item_type": "material",
-            "quantity": 10, "unit": "m2", "unit_cost": 20.0, "markup_percent": 20,
+            "quantity": 10, "unit": "sq ft", "unit_cost": 20.0, "markup_percent": 20,
         }])
         self.client.patch(f"/api/quotes/{qid}", headers=auth, json={
             "status": "sent",
@@ -216,7 +216,7 @@ class ReplicatorTaxesWarrantyTestCase(unittest.TestCase):
         qid = self.make_quote(auth)
         self.client.put(f"/api/quotes/{qid}/lines", headers=auth, json=[{
             "description": "Drywall material", "item_type": "material",
-            "quantity": 10, "unit": "m2", "unit_cost": 20.0, "markup_percent": 20,
+            "quantity": 10, "unit": "sq ft", "unit_cost": 20.0, "markup_percent": 20,
         }])
         warranty = [
             "1-Year craftsmanship warranty on all labor.",

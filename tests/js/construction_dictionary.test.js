@@ -24,7 +24,7 @@ test('CONSTRUCTION_UNITS normalizes spoken and short unit words', () => {
     'units': 'ea', 'pieces': 'ea', 'each': 'ea',
     'sq ft': 'sq ft', 'sqft': 'sq ft', 'square feet': 'sq ft', 'squares': 'sq',
     'lin ft': 'lin ft', 'linear feet': 'lin ft', 'lf': 'lin ft',
-    'm2': 'm2', 'hours': 'hr',
+    'hours': 'hr',
   };
   for (const [word, out] of Object.entries(cases)) {
     assert.strictEqual(normalizeUnit(word), out, word);
