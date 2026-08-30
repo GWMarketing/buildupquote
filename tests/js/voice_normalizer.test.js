@@ -45,11 +45,31 @@ test('pricing idioms normalize to dollar + /ea', () => {
 test('material aliases run at the lexical layer', () => {
   assert.strictEqual(V.normalizeSpokenTranscript('20 sheets of sheetrock'), '20 sheets of Drywall');
   assert.strictEqual(V.normalizeSpokenTranscript('add a box of gfci outlet'), 'box of GFCI Receptacle');
-  assert.strictEqual(V.normalizeSpokenTranscript('two by four studs'), '2x4 SPF Studs studs');
+  // "two by four studs" -> alias '2x4 SPF Studs studs' -> dedup -> one word.
+  assert.strictEqual(V.normalizeSpokenTranscript('two by four studs'), '2x4 SPF Studs');
   assert.strictEqual(V.normalizeSpokenTranscript('8 recessed lights'), '8 Recessed LED Fixtures');
   // Idempotent: normalizing already-canonical text never double-applies.
   // (The pipeline lowercases, so the canonical input round-trips lowercase.)
   assert.strictEqual(V.normalizeSpokenTranscript('8 Recessed LED Fixtures'), '8 recessed led fixtures');
+});
+
+test('deduplicateWords collapses adjacent duplicates', () => {
+  assert.strictEqual(V.deduplicateWords('Thinset Mortar Mortar'), 'Thinset Mortar');
+  assert.strictEqual(V.deduplicateWords('Greenboard Drywall drywall'), 'Greenboard Drywall');
+  assert.strictEqual(V.deduplicateWords('Paint paint paint'), 'Paint');
+  assert.strictEqual(V.deduplicateWords('Single Pole Switch'), 'Single Pole Switch');
+});
+
+test('dimensional idioms convert only in lumber context', () => {
+  assert.strictEqual(V.normalizeSpokenTranscript('half inch drywall'), '1/2" drywall');
+  assert.strictEqual(V.normalizeSpokenTranscript('three quarter inch subfloor'), '3/4" OSB Subfloor');
+  assert.strictEqual(V.normalizeSpokenTranscript('one inch drywall'), '1" drywall');
+  assert.strictEqual(V.normalizeSpokenTranscript('five eighths drywall'), '5/8" drywall');
+  // Never in plain speech, and never the plumbing/electrical "rough" /
+  // "rough-in".
+  assert.strictEqual(V.normalizeSpokenTranscript('half inch gap'), 'half inch gap');
+  assert.strictEqual(V.normalizeSpokenTranscript('rough in the plumbing'), 'rough in the plumbing');
+  assert.strictEqual(V.normalizeSpokenTranscript('rough-in electrical'), 'rough-in electrical');
 });
 
 test('new planning fillers are stripped', () => {

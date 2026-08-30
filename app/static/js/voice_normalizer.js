@@ -90,6 +90,17 @@
   function normalizeSpokenTranscript(raw) {
     var text = String(raw == null ? '' : raw).toLowerCase().trim();
     text = convertNumberWords(text);
+    text = text
+      // Dimensional idioms run FIRST, before material aliases, so "three
+      // quarter inch subfloor" -> '3/4" subfloor' -> alias -> '3/4" OSB
+      // Subfloor' (single dimension). Only when the dimension precedes a
+      // lumber/material word (or ends the phrase) -- plain speech and the
+      // plumbing/electrical word "rough" / "rough-in" are never transformed.
+      .replace(/\b(half|1\/2)\s*inch\b(?=\s+(?:drywall|board|subfloor|plywood|lumber|gypsum|sheetrock|osb|ply|cement|backer|tile|hardwood|plank|stud|framing|trim|stock|dimension)\b|$)/gi, '1/2"')
+      .replace(/\b(?:three\s*quarter|3\s*quarter|3\/4)\s*inch\b(?=\s+(?:drywall|board|subfloor|plywood|lumber|gypsum|sheetrock|osb|ply|cement|backer|tile|hardwood|plank|stud|framing|trim|stock|dimension)\b|$)/gi, '3/4"')
+      .replace(/\b(?:one|1)\s*inch\b(?=\s+(?:drywall|board|subfloor|plywood|lumber|gypsum|sheetrock|osb|ply|cement|backer|tile|hardwood|plank|stud|framing|trim|stock|dimension)\b|$)/gi, '1"')
+      .replace(/\b5\s*eighths(?:\s*inch)?\b(?=\s+(?:drywall|board|subfloor|plywood|lumber|gypsum|sheetrock|osb|ply|cement|backer|tile|hardwood|plank|stud|framing|trim|stock|dimension)\b|$)/gi, '5/8"')
+      .replace(/\b5\/8\s*inch\b(?=\s+(?:drywall|board|subfloor|plywood|lumber|gypsum|sheetrock|osb|ply|cement|backer|tile|hardwood|plank|stud|framing|trim|stock|dimension)\b|$)/gi, '5/8"');
     // Material aliases run at the lexical layer ("sheetrock" -> "Drywall",
     // "pot lights" -> "Recessed LED Fixtures", "2 by 4" -> "2x4 SPF Studs")
     // so every downstream consumer sees one canonical material name. The
@@ -108,11 +119,7 @@
       // alone)
       .replace(/\b(\$?\d+(?:\.\d+)?)\s+(?:a|per)\s+(?:piece|each|unit|gallon|sheet|box|bag|roll|pop)\b/g, '$1 /ea')
       // unambiguous "each" -> "/ea"
-      .replace(/\beach\b/g, '/ea')
-      // dimensional: "half inch" / "1/2 inch" -> 1/2", "five eighths" -> 5/8"
-      .replace(/\b(half|1\/2)\s*inch\b/g, '1/2"')
-      .replace(/\b5\s*eighths(?:\s*inch)?\b/g, '5/8"')
-      .replace(/\b5\/8\s*inch\b/g, '5/8"');
+      .replace(/\beach\b/g, '/ea');
     return stripFillers(text);
   }
 
@@ -151,6 +158,8 @@
     normalizeNumbers: normalizeNumbers,
     toTitleCase: toTitleCase,
     cleanLeadingStopWords: cleanLeadingStopWords,
+    deduplicateWords: (ConstructionDictionary && ConstructionDictionary.deduplicateWords) ||
+      function (s) { return String(s || '').replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1').trim(); },
   };
 
   if (typeof window !== 'undefined') window.BQVoiceNormalizer = BQVoiceNormalizer;

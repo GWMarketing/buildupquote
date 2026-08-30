@@ -252,3 +252,34 @@ test('internal crew notes are separated from client scope notes', () => {
   // The "note" prefix is stripped from the internal note.
   assert.ok(!/^note\b/.test(d.internal_crew_notes[0]));
 });
+
+test('"nevermind on X" only discards its own clause', () => {
+  const d = parseWalkthroughTranscript('nevermind on the paint, add 20 sheets drywall');
+  assert.strictEqual(allLines(d).length, 1);
+  assert.strictEqual(allLines(d)[0].description, 'Drywall');
+  assert.strictEqual(allLines(d)[0].qty, 20);
+  // Only the discarded clause is logged, and the rest of the room still lands.
+  assert.strictEqual(d.skipped_items.length, 1);
+  assert.ok(/nevermind on the paint/.test(d.skipped_items[0].originalText));
+});
+
+test('"scratch that" after a comma retracts only the preceding clause', () => {
+  const d = parseWalkthroughTranscript('15 gallons of paint, scratch that, 20 sheets drywall');
+  assert.strictEqual(allLines(d).length, 1);
+  assert.strictEqual(allLines(d)[0].description, 'Drywall');
+  assert.ok(d.skipped_items.some(s => /scratch that/.test(s.originalText)));
+});
+
+test('compound line items hard-split on " and " with quantities', () => {
+  const d = parseWalkthroughTranscript('8 recessed lights and 2 boxes of gfci outlet');
+  assert.strictEqual(allLines(d).length, 2);
+  assert.deepStrictEqual(allLines(d).map(i => [i.qty, i.unit, i.description]), [
+    [8, 'ea', 'Recessed LED Fixtures'],
+    [2, 'box', 'GFCI Receptacle'],
+  ]);
+  // "and" without a quantity on both sides stays one phrase ("paint and
+  // primer" is a single material).
+  const m = parseWalkthroughTranscript('5 gallons of paint and primer');
+  assert.strictEqual(allLines(m).length, 1);
+  assert.strictEqual(allLines(m)[0].description, 'Paint and primer');
+});

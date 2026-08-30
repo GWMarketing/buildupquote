@@ -73,6 +73,26 @@ test('aliasMaterial is idempotent on already-canonical text', () => {
   }
 });
 
+test('deduplicateWords collapses adjacent duplicates', () => {
+  const { deduplicateWords } = require('../../app/static/js/construction_dictionary.js');
+  assert.strictEqual(deduplicateWords('Thinset Mortar Mortar'), 'Thinset Mortar');
+  assert.strictEqual(deduplicateWords('Greenboard Drywall drywall'), 'Greenboard Drywall');
+  assert.strictEqual(deduplicateWords('Paint paint'), 'Paint');
+  assert.strictEqual(deduplicateWords('2x4 SPF Studs studs'), '2x4 SPF Studs');
+});
+
+test('aliases match whole phrases and dedup post-replacement', () => {
+  // "greenboard drywall" is matched as a whole, not "greenboard" alone, so no
+  // duplicate "drywall" survives.
+  assert.strictEqual(aliasMaterial('greenboard drywall'), 'Greenboard Drywall');
+  assert.strictEqual(aliasMaterial('greenboard'), 'Greenboard Drywall');
+  // "2 by 4 studs" -> '2x4 SPF Studs studs' -> dedup -> one.
+  assert.strictEqual(aliasMaterial('2 by 4 studs'), '2x4 SPF Studs');
+  // "three quarter inch subfloor" dimension + alias collapse to one.
+  assert.strictEqual(aliasMaterial('3/4" subfloor'), '3/4" OSB Subfloor');
+  assert.strictEqual(aliasMaterial('3/4" 3/4" subfloor'), '3/4" OSB Subfloor');
+});
+
 test('TRADE_MATERIAL_ALIASES includes every cataloged trade group', () => {
   assert.strictEqual(TRADE_MATERIAL_ALIASES.length, 20);
 });

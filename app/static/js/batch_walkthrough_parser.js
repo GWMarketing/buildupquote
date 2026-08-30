@@ -351,19 +351,35 @@
       anchors.push(m.index);
       if (m.index === re.lastIndex) re.lastIndex++;
     }
-    if (!anchors.length) return [t];
+    var raw = [];
+    if (!anchors.length) {
+      raw.push(t);
+    } else {
+      for (var i = 0; i < anchors.length; i++) {
+        // The first segment keeps any leading context ("i think we need 15
+        // gallons of paint") so conversational blacklist words aren't dropped
+        // before the first qty/unit anchor.
+        var start = (i === 0 && anchors[i] > 0) ? 0 : anchors[i];
+        var end = (i + 1 < anchors.length) ? anchors[i + 1] : t.length;
+        var seg = t.slice(start, end).trim();
+        // Drop trailing connectives ("15 gallons of paint ... and") so a
+        // following qty/unit anchor doesn't leave "and" in the cost capture.
+        seg = seg.replace(/\s+(?:and|then)\s*$/i, '').trim();
+        if (seg) raw.push(seg);
+      }
+    }
+    // Hard split on " and " when EVERY part carries a quantity token, so a
+    // compound line item ("8 recessed lights and 5 cans of paint", "2 boxes
+    // of tile and 3 rolls of tape") doesn't get smashed into one row.
     var segments = [];
-    for (var i = 0; i < anchors.length; i++) {
-      // The first segment keeps any leading context ("i think we need 15
-      // gallons of paint") so conversational blacklist words aren't dropped
-      // before the first qty/unit anchor.
-      var start = (i === 0 && anchors[i] > 0) ? 0 : anchors[i];
-      var end = (i + 1 < anchors.length) ? anchors[i + 1] : t.length;
-      var seg = t.slice(start, end).trim();
-      // Drop trailing connectives ("15 gallons of paint ... and") so a
-      // following qty/unit anchor doesn't leave "and" in the cost capture.
-      seg = seg.replace(/\s+(?:and|then)\s*$/i, '').trim();
-      if (seg) segments.push(seg);
+    for (var k = 0; k < raw.length; k++) {
+      var andParts = raw[k].split(/\s+and\s+/i);
+      var allNumeric = andParts.length > 1 && andParts.every(function (p) { return /\d/.test(p); });
+      if (allNumeric) {
+        andParts.forEach(function (p) { var s = p.trim(); if (s) segments.push(s); });
+      } else {
+        segments.push(raw[k]);
+      }
     }
     return segments;
   }
@@ -384,10 +400,20 @@
    *  clause connectors (", and", ", plus", ";", bare "plus"), so a run-on
    *  final like "15 gallons of paint, plus 20 sheets drywall" yields two
    *  sentences (the recorder also joins finals with ". "). */
+  // A bare comma starts a NEW sub-clause only when what follows clearly opens
+  // one (a quantity, a line-item verb, a correction word, or a clause word) --
+  // so "nevermind on the paint, add 20 sheets drywall" splits into two clauses
+  // and the discard only kills its own sub-clause, while "1400 Mockingbird
+  // Lane, Springfield" stays intact.
+  var CLAUSE_START_SRC = 'a|an|the|add|put|need|we|let|then|next|this|that|i|it|they|there|so|please|and|plus|also|scratch|cancel|never|forget|ignore|actually|don\'?t|dont|\\d+(?:\\.\\d+)?';
+
   function splitSentences(text) {
     return String(text || '')
       .replace(/([.!?])\s+/g, '$1|---SEP---|')
+      // Compound connectors first (", and", ", plus", ", also", ";", "plus")
       .replace(/\b(?:,\s*(?:and|plus|also|as well as)|;\s*|\bplus\b)\s+/gi, '|---SEP---|')
+      // Then bare-comma clause starts (see CLAUSE_START_SRC above).
+      .replace(new RegExp(',\\s+(?=(?:' + CLAUSE_START_SRC + ')\\b)', 'gi'), '|---SEP---|')
       .split('|---SEP---|')
       .map(function (s) { return s.trim(); })
       .filter(Boolean);

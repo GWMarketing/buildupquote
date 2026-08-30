@@ -48,7 +48,7 @@
   var TRADE_MATERIAL_ALIASES = [
     // Drywall & Masonry
     { pattern: /\b(sheet\s*rock|gypsum\s*board|wall\s*board)\b/gi, replacement: 'Drywall' },
-    { pattern: /\b(green\s*board|moisture\s*resistant\s*drywall)\b/gi, replacement: 'Greenboard Drywall' },
+    { pattern: /\b(green\s*board(?:\s*drywall)?|moisture\s*resistant\s*drywall)\b/gi, replacement: 'Greenboard Drywall' },
     { pattern: /\b(purple\s*board)\b/gi, replacement: 'Purple Board Drywall' },
     { pattern: /\b(cement\s*board|durock|hardie\s*backer|wonder\s*board)\b/gi, replacement: 'Cement Backer Board' },
     { pattern: /\b(joint\s*compound|drywall\s*mud|all\s*purpose\s*mud|sheetrock\s*mud)\b/gi, replacement: 'Joint Compound' },
@@ -86,12 +86,21 @@
     return w;
   }
 
+  /** Collapse adjacent repeated words ("Thinset Mortar Mortar" -> "Thinset
+   *  Mortar", "Greenboard Drywall drywall" -> "Greenboard Drywall"), which
+   *  material aliases can leave behind when the spoken phrase already carried
+   *  the canonical word ("greenboard drywall"). Case-insensitive. */
+  function deduplicateWords(str) {
+    return String(str || '').replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1').trim();
+  }
+
   /** Rewrite a raw description through every material alias, in order.
    *  Idempotent: an alias whose replacement is NOT matched by its own pattern
    *  ("recessed led" -> "Recessed LED Fixtures") is skipped when the canonical
    *  name is already present, so re-running on canonical text never
    *  double-applies. Self-consistent aliases ("batt insulation" -> "Batt
-   *  Insulation") re-apply safely every time. */
+   *  Insulation") re-apply safely every time. Adjacent duplicates from the
+   *  aliases are collapsed at the end. */
   function aliasMaterial(text) {
     if (!text) return '';
     var out = String(text);
@@ -103,7 +112,11 @@
       out = out.replace(entry.pattern, entry.replacement);
       outLower = out.toLowerCase();
     });
-    return out.replace(/\s{2,}/g, ' ').trim();
+    // Collapse adjacent duplicate words AND repeated dimension tokens
+    // ("3/4\" 3/4\" OSB Subfloor" from "three quarter inch subfloor" ->
+    // "3/4\" OSB Subfloor").
+    return deduplicateWords(out.replace(/\s{2,}/g, ' '))
+      .replace(/\b(\d+(?:\.\d+)?\/\d+")(?:\s+\1)+/g, '$1');
   }
 
   var BQConstructionDictionary = {
@@ -112,6 +125,7 @@
     TRADE_MATERIAL_ALIASES: TRADE_MATERIAL_ALIASES,
     normalizeUnit: normalizeUnit,
     aliasMaterial: aliasMaterial,
+    deduplicateWords: deduplicateWords,
   };
 
   if (typeof window !== 'undefined') window.BQConstructionDictionary = BQConstructionDictionary;
