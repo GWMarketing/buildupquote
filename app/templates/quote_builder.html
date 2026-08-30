@@ -1056,7 +1056,7 @@ function quoteBuilder(quoteId) {
     contingency: 10, contingencyVisible: false,
     contingencyOptions: [0, 5, 10, 15, 20],
     // ---- Voice-to-scope (natural conversational parser) ----
-    voiceOn: false, voiceRec: null, voiceTranscript: '',
+    voiceOn: false, voiceRec: null, voiceTranscript: '', voiceRestartTimer: null,
     activeField: null, voiceNotes: [],
     // ---- Material takeoff ----
     takeoffOpen: false, takeoffCopied: false,
@@ -1575,6 +1575,7 @@ function quoteBuilder(quoteId) {
     startVoice() {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SR) { BQ.toast('Voice input is not supported in this browser'); return; }
+      if (this.voiceOn) return;   // already listening
       this.voiceOn = true;
       this.voiceTranscript = 'Listening… say things like "address is 1400 Mockingbird Lane" or "15 gallons of paint at $18 a piece"';
       this.voiceNotes = [];
@@ -1593,8 +1594,16 @@ function quoteBuilder(quoteId) {
         if (t) this.handleVoiceCommand(t);
       };
       rec.onend = () => {
-        // Auto-restart unless the user asked to stop ("mic off" / button).
-        if (this.voiceOn) { try { rec.start(); } catch (e) { this.voiceOn = false; } }
+        // Resilient auto-restart: browsers silently drop the session after
+        // idle gaps, so after a short pause bring it back — but only if this
+        // is still the active recognition AND the user hasn't said "mic off".
+        if (this.voiceOn && this.voiceRec === rec) {
+          this.voiceRestartTimer = setTimeout(() => {
+            this.voiceRestartTimer = null;
+            if (!this.voiceOn || this.voiceRec !== rec) return;
+            try { rec.start(); } catch (e) { this.voiceOn = false; }
+          }, 150);
+        }
       };
       rec.onerror = (ev) => {
         // 'no-speech'/'aborted' are routine in continuous mode; keep listening.
@@ -1606,6 +1615,10 @@ function quoteBuilder(quoteId) {
     },
     stopVoice() {
       this.voiceOn = false;
+      if (this.voiceRestartTimer) {
+        clearTimeout(this.voiceRestartTimer);
+        this.voiceRestartTimer = null;
+      }
       if (this.voiceRec) { try { this.voiceRec.stop(); } catch (e) { /* ignore */ } }
     },
 

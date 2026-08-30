@@ -202,6 +202,19 @@ class QuoteExtrasTestCase(unittest.TestCase):
                        "Deposit Payment", "payment_instructions", "savePaymentInstructions"):
             self.assertIn(needle, r.text, needle)
 
+    def test_builder_voice_engine_renders_resilient_restart(self):
+        """The speech loop restarts on a 150ms timer after onend and clears it
+        on stop so 'mic off' can't resurrect the engine."""
+        self.register("extras-voice@acme.com")
+        r = self.client.get("/quotes/new")
+        html = r.text
+        for needle in ("rec.continuous = true", "rec.interimResults = false",
+                       "rec.lang = 'en-US'", "voiceRestartTimer",
+                       "clearTimeout(this.voiceRestartTimer)",
+                       "if (!this.voiceOn || this.voiceRec !== rec) return;",
+                       "setTimeout(", "150"):
+            self.assertIn(needle, html, needle)
+
 
 if __name__ == "__main__":
     unittest.main()

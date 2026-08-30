@@ -562,6 +562,9 @@ class CrmApiTestCase(unittest.TestCase):
         for needle in ("window.BQSearch", "BroadcastChannel('bq_updates')",
                        "BQ_SHELL_STATS_CHANGED", "metaKey", "searchIndex"):
             self.assertIn(needle, js.text)
+        # Voice normalizer loads before the parser it feeds.
+        self.assertLess(html.index("/static/js/voice_normalizer.js"),
+                        html.index("/static/js/smart_voice_parser.js"))
 
     def test_login_page_has_no_shell_api_loop(self):
         """appShell runs on /login and /register too, so its badge refresh must

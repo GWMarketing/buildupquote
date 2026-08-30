@@ -15,7 +15,29 @@
   // ------------------------------------------------------------------
   // Step A: filler / conversational normalizer
   // ------------------------------------------------------------------
-  var FILLER_RE = /\b(you know|um+|uh+|like|roughly|around|about|approximately|please|can you|could you|let'?s add|let us add|add a|add an|add|maybe|kind of|sort of)\b/gi;
+  var FILLER_RE = /\b(you know|um+|uh+|like|roughly|around|about|approximately|please|can you|could you|let'?s add|let us add|let'?s do|add a|add an|add|maybe|kind of|sort of)\b/gi;
+
+  // Lexical normalizer (voice_normalizer.js): number words -> digits, pricing
+  // idioms -> "$18 /ea", dimensional idioms, fillers. Resolved from the browser
+  // global, or required directly under Node so the test suite stays standalone.
+  var Normalizer = null;
+  if (typeof window !== 'undefined' && window.BQVoiceNormalizer) {
+    Normalizer = window.BQVoiceNormalizer;
+  } else if (typeof require === 'function') {
+    try { Normalizer = require('./voice_normalizer.js'); } catch (e) { /* keep null */ }
+  }
+
+  function normalizeTranscript(text) {
+    return (Normalizer && Normalizer.normalizeSpokenTranscript)
+      ? Normalizer.normalizeSpokenTranscript(text)
+      : cleanFillers(text);
+  }
+
+  function normalizeNumbers(text) {
+    return (Normalizer && Normalizer.normalizeNumbers)
+      ? Normalizer.normalizeNumbers(text)
+      : cleanFillers(text);
+  }
 
   function cleanFillers(text) {
     return String(text || '')
@@ -47,10 +69,11 @@
   };
 
   var UNIT_RE_SRC = [
-    'gallons?', 'gals?', 'sheets?', 'studs?', 'boxes?', 'bags?', 'rolls?',
-    'squares?', 'pieces?', 'units?', 'hours?', 'hrs?',
+    // Multi-word units first so "square feet" isn't short-circuited by "square".
     'sq\\s*ft', 'square\\s*feet?', 'sq\\s*m', 'square\\s*meters?', 'm2',
     'linear\\s*ft', 'linear\\s*feet?', 'lin\\s*ft', 'l\\s*f', 'lf',
+    'gallons?', 'gals?', 'sheets?', 'studs?', 'boxes?', 'bags?', 'rolls?',
+    'squares?', 'pieces?', 'units?', 'hours?', 'hrs?',
   ].join('|');
   var UNIT_RE = new RegExp('(' + UNIT_RE_SRC + ')\\b', 'i');
 
@@ -60,7 +83,7 @@
   }
 
   // "at $18 a piece", "18 bucks each", "16 dollars each", "for 40" ...
-  var COST_RE = /(?:\s+(?:at|for|@|around|roughly|about|is)\s*|\s+)?\$?(\d+(?:\.\d+)?)(?:\s*(?:(?:a|per)\s+(?:piece|each|unit|gallon|sheet|square|box|bag|roll)|each|bucks?(?:\s+(?:each|a\s+(?:piece|each)))?|dollars?(?:\s+(?:each|a\s+(?:piece|each)))?))?\s*$/i;
+  var COST_RE = /(?:\s+(?:at|for|@|around|roughly|about|is)\s*|\s+)?\$?(\d+(?:\.\d+)?)(?:\s*(?:(?:a|per)\s+(?:piece|each|unit|gallon|sheet|square|box|bag|roll)|each|bucks?(?:\s+(?:each|a\s+(?:piece|each)))?|dollars?(?:\s+(?:each|a\s+(?:piece|each)))?|\/ea))?\s*$/i;
 
   var LINE_TRIGGER_RE = /\b(line item|line items?|new item|new line|add item|an item|item)\b/i;
   var UNIT_TRIGGER_RE = new RegExp('\\b(?:' + UNIT_RE_SRC + ')\\b', 'i');
@@ -70,7 +93,7 @@
   }
 
   function parseLineItem(text) {
-    var t = cleanFillers(text);
+    var t = normalizeTranscript(text);
 
     // Cost first: a trailing "$18 a piece" / "18 bucks each" / "for 40".
     var unitCost = 0;
@@ -123,7 +146,7 @@
   // ------------------------------------------------------------------
   var ADDRESS_RE = /\b(?:the\s+)?(?:site\s+|client(?:'s)?\s+(?:home\s+|house\s+)?)?address(?:\s+of\s+the\s+client(?:'s)?\s+home)?\s+(?:is\s*[,:.]?\s*|:\s*)?(.+)$/i;
   var CLIENT_RE = /\b(?:set\s+)?(?:the\s+)?(?:client(?:'s)?(?:\s+name)?|customer)\s+(?:is\s+|to\s+|name\s+is\s+)?([A-Za-z][A-Za-z0-9\s.'-]{1,40})$/i;
-  var MIC_OFF_RE = /\b(mic off|turn off mic|turn the mic off|stop listening|shut (?:the )?mic off|mute mic)\b/i;
+  var MIC_OFF_RE = /\b(mic off|turn off mic|turn the mic off|stop listening|stop mic|shut (?:the )?mic off|mute mic)\b/i;
 
   // ------------------------------------------------------------------
   // Master contextual dispatcher
@@ -146,7 +169,9 @@
     // 2. Site / client address
     var addressMatch = cleaned.match(ADDRESS_RE);
     if (addressMatch && addressMatch[1]) {
-      var addressValue = cleanFillers(addressMatch[1]);
+      // Number words help here ("fourteen hundred" -> 1400), but only the
+      // case-preserving numbers pass so "Half Moon Bay" stays intact.
+      var addressValue = normalizeNumbers(addressMatch[1]);
       if (handlers.setFieldValue) handlers.setFieldValue('site_address', addressValue);
       notify('Address set to: ' + addressValue);
       return { action: 'set_field', field: 'site_address', value: addressValue };
@@ -199,6 +224,8 @@
     isLineItemPhrase: isLineItemPhrase,
     parseLineItem: parseLineItem,
     processConversationalVoice: processConversationalVoice,
+    normalizeSpokenTranscript: normalizeTranscript,
+    normalizeNumbers: normalizeNumbers,
   };
 
   if (typeof window !== 'undefined') window.BQSmartVoice = BQSmartVoice;

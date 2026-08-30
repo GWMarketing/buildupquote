@@ -36,6 +36,15 @@ test('address detection injects into site_address', () => {
 
   const r2 = V.processConversationalVoice('site address is 123 Main St', captureHandlers());
   assert.strictEqual(r2.value, '123 Main St');
+
+  // Spoken numbers normalize to digits (case-preserving).
+  const r3 = V.processConversationalVoice(
+    'the address of the client\'s home is fourteen hundred Mockingbird Lane', captureHandlers());
+  assert.strictEqual(r3.value, '1400 Mockingbird Lane');
+
+  // Proper nouns with number words survive intact.
+  const r4 = V.processConversationalVoice('site address is Half Moon Bay', captureHandlers());
+  assert.strictEqual(r4.value, 'Half Moon Bay');
 });
 
 test('client name detection', () => {
@@ -46,6 +55,12 @@ test('client name detection', () => {
 
   const r2 = V.processConversationalVoice('customer is Bob Smith', captureHandlers());
   assert.strictEqual(r2.value, 'Bob Smith');
+
+  // Client names are never run through the lexical normalizer, so number-word
+  // names ("Five Points Roofing") keep their exact spelling.
+  const h2 = captureHandlers();
+  V.processConversationalVoice('the client name is Five Points Roofing', h2);
+  assert.strictEqual(h2._calls.fields.client_name, 'Five Points Roofing');
 });
 
 test('line item: gallons with cost', () => {
@@ -63,8 +78,27 @@ test('line item: drywall sheets at dollars each', () => {
   const item = h._calls.lineItems[0];
   assert.strictEqual(item.qty, 20);
   assert.strictEqual(item.unit, 'sheet');
-  assert.strictEqual(item.description, 'Half inch drywall');
+  assert.strictEqual(item.description, '1/2" drywall');
   assert.strictEqual(item.unit_cost, 16);
+});
+
+test('line item: spoken number words and spoken price', () => {
+  const h = captureHandlers();
+  V.processConversationalVoice('add fifteen gallons of paint at eighteen bucks a piece', h);
+  const item = h._calls.lineItems[0];
+  assert.deepStrictEqual(item, {
+    qty: 15, unit: 'gal', description: 'Paint', unit_cost: 18, type: 'material',
+  });
+});
+
+test('line item: compound quantity "two hundred fifty"', () => {
+  const h = captureHandlers();
+  V.processConversationalVoice('line item two hundred fifty square feet of tile at 4 dollars a square', h);
+  const item = h._calls.lineItems[0];
+  assert.strictEqual(item.qty, 250);
+  assert.strictEqual(item.unit, 'sq ft');
+  assert.strictEqual(item.unit_cost, 4);
+  assert.strictEqual(item.description, 'Tile');
 });
 
 test('line item: studs 2 by 4 at bucks a piece', () => {
@@ -92,6 +126,13 @@ test('mic off stops the engine', () => {
   assert.strictEqual(r.action, 'mic_off');
   assert.strictEqual(h._calls.stopMic, 1);
   assert.ok(h._calls.notifies.some(n => n.includes('Mic turned off')));
+});
+
+test('"stop mic" also stops the engine', () => {
+  const h = captureHandlers();
+  const r = V.processConversationalVoice('stop mic', h);
+  assert.strictEqual(r.action, 'mic_off');
+  assert.strictEqual(h._calls.stopMic, 1);
 });
 
 test('focused field fallback routes speech into the active input', () => {
