@@ -565,6 +565,11 @@ class CrmApiTestCase(unittest.TestCase):
         # Voice normalizer loads before the parser it feeds.
         self.assertLess(html.index("/static/js/voice_normalizer.js"),
                         html.index("/static/js/smart_voice_parser.js"))
+        # The parser ships the spec-alias + parametric assembly extraction.
+        parser = self.client.get("/static/js/smart_voice_parser.js").text
+        self.assertIn("parseVoiceInput: processConversationalVoice", parser)
+        self.assertIn("ASSEMBLY_RE", parser)
+        self.assertIn("insertAssembly", parser)
 
     def test_login_page_has_no_shell_api_loop(self):
         """appShell runs on /login and /register too, so its badge refresh must

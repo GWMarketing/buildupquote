@@ -148,6 +148,11 @@
   var CLIENT_RE = /\b(?:set\s+)?(?:the\s+)?(?:client(?:'s)?(?:\s+name)?|customer)\s+(?:is\s+|to\s+|name\s+is\s+)?([A-Za-z][A-Za-z0-9\s.'-]{1,40})$/i;
   var MIC_OFF_RE = /\b(mic off|turn off mic|turn the mic off|stop listening|stop mic|shut (?:the )?mic off|mute mic)\b/i;
 
+  // Parametric assembly with explicit dimensions: "drywall 12 by 14 9 ft ceiling",
+  // "framing ten by twelve nine foot". Runs on the normalized text so spoken
+  // numbers ("ten by twelve") already read as digits.
+  var ASSEMBLY_RE = /\b(drywall|framing|stud|partition|tile|flooring|paint|trim)\b\s+(\d+(?:\.\d+)?)\s*(?:x|by|×|\*)\s*(\d+(?:\.\d+)?)(?:\s+(\d+(?:\.\d+)?)\s*(?:ft|foot|feet|ceiling|ceilings|high))?/i;
+
   // ------------------------------------------------------------------
   // Master contextual dispatcher
   // ------------------------------------------------------------------
@@ -165,6 +170,7 @@
     }
 
     var cleaned = cleanFillers(raw);
+    var normalized = normalizeTranscript(cleaned);
 
     // 2. Site / client address
     var addressMatch = cleaned.match(ADDRESS_RE);
@@ -177,7 +183,7 @@
       return { action: 'set_field', field: 'site_address', value: addressValue };
     }
 
-    // 3. Client name
+    // 3. Client name (filler-only cleaning so "Five Points Roofing" survives)
     var clientMatch = cleaned.match(CLIENT_RE);
     if (clientMatch && clientMatch[1]) {
       var clientName = cleanFillers(clientMatch[1]);
@@ -186,9 +192,43 @@
       return { action: 'set_field', field: 'client_name', value: clientName };
     }
 
-    // 4. Smart line item extraction
-    if (isLineItemPhrase(cleaned)) {
-      var item = parseLineItem(cleaned);
+    // 4. Parametric assembly with explicit dimensions
+    var assemblyDim = normalized.match(ASSEMBLY_RE);
+    if (assemblyDim) {
+      var asm = {
+        trade: assemblyDim[1].toLowerCase(),
+        length: parseFloat(assemblyDim[2]),
+        width: parseFloat(assemblyDim[3]),
+        height: assemblyDim[4] ? parseFloat(assemblyDim[4]) : 8,
+      };
+      if (handlers.insertAssembly) {
+        handlers.insertAssembly(asm);
+        notify(asm.trade + ' assembly: ' + asm.length + "' x " + asm.width +
+          (asm.height ? ' @ ' + asm.height + 'ft' : '') + ' added');
+        return { action: 'assembly', dims: asm };
+      }
+      if (handlers.matchAssembly) {
+        var assemblyCode = handlers.matchAssembly(normalized);
+        if (assemblyCode) {
+          notify('Matched assembly: ' + assemblyCode + ' (' + asm.length + "' x " + asm.width + ')');
+          return { action: 'assembly', code: assemblyCode, dims: asm };
+        }
+      }
+    }
+
+    // 5. Keyword-only assembly ("drywall partition"). Skipped for line-item
+    //    phrases so "15 gallons of paint" still creates a line item.
+    if (handlers.matchAssembly && !isLineItemPhrase(normalized)) {
+      var assemblyCode2 = handlers.matchAssembly(normalized);
+      if (assemblyCode2) {
+        notify('Matched assembly: ' + assemblyCode2);
+        return { action: 'assembly', code: assemblyCode2 };
+      }
+    }
+
+    // 6. Smart line item extraction
+    if (isLineItemPhrase(normalized)) {
+      var item = parseLineItem(normalized);
       if (handlers.addLineItem) handlers.addLineItem(item);
       notify(item.qty + ' ' + item.unit + ' ' + item.description + ' @ ' +
         (item.unit_cost ? '$' + item.unit_cost.toFixed(2) + '/' + item.unit : 'no cost') +
@@ -196,23 +236,14 @@
       return { action: 'add_line', item: item };
     }
 
-    // 5. Assembly keyword match (builder flow: "drywall partition")
-    if (handlers.matchAssembly) {
-      var assemblyCode = handlers.matchAssembly(cleaned);
-      if (assemblyCode) {
-        notify('Matched assembly: ' + assemblyCode);
-        return { action: 'assembly', code: assemblyCode };
-      }
-    }
-
-    // 6. Active focused-field injection
+    // 7. Active focused-field injection
     if (handlers.activeFocusedField && handlers.insertIntoActiveField) {
       handlers.insertIntoActiveField(raw);
       notify('Typed into ' + handlers.activeFocusedField);
       return { action: 'focused', field: handlers.activeFocusedField };
     }
 
-    // 7. General notes fallback (never silently drop speech)
+    // 8. General notes fallback (never silently drop speech)
     if (handlers.appendSiteNotes) handlers.appendSiteNotes(raw);
     notify('Noted (not matched to a field)');
     return { action: 'notes' };
@@ -224,6 +255,7 @@
     isLineItemPhrase: isLineItemPhrase,
     parseLineItem: parseLineItem,
     processConversationalVoice: processConversationalVoice,
+    parseVoiceInput: processConversationalVoice,  // spec-alias
     normalizeSpokenTranscript: normalizeTranscript,
     normalizeNumbers: normalizeNumbers,
   };

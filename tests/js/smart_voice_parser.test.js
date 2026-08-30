@@ -6,12 +6,13 @@ const assert = require('node:assert');
 const V = require('../../app/static/js/smart_voice_parser.js');
 
 function captureHandlers(overrides) {
-  const calls = { stopMic: 0, fields: {}, lineItems: [], notes: [], focused: [], notifies: [] };
+  const calls = { stopMic: 0, fields: {}, lineItems: [], notes: [], focused: [], notifies: [], insertAssembly: [] };
   return Object.assign({
     stopMic() { calls.stopMic++; },
     notify(msg) { calls.notifies.push(msg); },
     setFieldValue(field, val) { calls.fields[field] = val; },
     addLineItem(item) { calls.lineItems.push(item); },
+    insertAssembly(asm) { calls.insertAssembly.push(asm); },
     insertIntoActiveField(text) { calls.focused.push(text); },
     appendSiteNotes(text) { calls.notes.push(text); },
   }, overrides, { _calls: calls });
@@ -118,6 +119,49 @@ test('line item: no cost falls back to zero', () => {
   assert.strictEqual(item.qty, 100);
   assert.strictEqual(item.unit_cost, 0);
   assert.strictEqual(item.description, 'Drywall');
+});
+
+// ---- Parametric assembly (spec parseVoiceInput branch #4) -------------------
+
+test('assembly with explicit dims routes to insertAssembly', () => {
+  const h = captureHandlers();
+  const r = V.processConversationalVoice('drywall 12 by 14 9 ft ceiling', h);
+  assert.strictEqual(r.action, 'assembly');
+  assert.deepStrictEqual(r.dims, { trade: 'drywall', length: 12, width: 14, height: 9 });
+  assert.deepStrictEqual(h._calls.insertAssembly[0], { trade: 'drywall', length: 12, width: 14, height: 9 });
+});
+
+test('assembly dims normalize spoken numbers', () => {
+  const h = captureHandlers();
+  const r = V.processConversationalVoice('framing ten by twelve nine foot ceilings', h);
+  assert.strictEqual(r.action, 'assembly');
+  assert.deepStrictEqual(r.dims, { trade: 'framing', length: 10, width: 12, height: 9 });
+});
+
+test('assembly with x notation and default height', () => {
+  const h = captureHandlers();
+  V.processConversationalVoice('paint 12 x 14', h);
+  assert.deepStrictEqual(h._calls.insertAssembly[0], { trade: 'paint', length: 12, width: 14, height: 8 });
+});
+
+test('keyword-only assembly phrase falls back to matchAssembly', () => {
+  const h = captureHandlers({ matchAssembly: (t) => 'DRYWALL' });
+  const r = V.processConversationalVoice('drywall partition', h);
+  assert.strictEqual(r.action, 'assembly');
+  assert.strictEqual(r.code, 'DRYWALL');
+  assert.strictEqual(h._calls.insertAssembly.length, 0);
+});
+
+test('line items mentioning assembly keywords stay line items', () => {
+  const h = captureHandlers({ matchAssembly: (t) => 'PAINT' });
+  V.processConversationalVoice('15 gallons of paint at $18 a piece', h);
+  assert.strictEqual(h._calls.insertAssembly.length, 0);
+  assert.strictEqual(h._calls.lineItems.length, 1);
+  assert.strictEqual(h._calls.lineItems[0].description, 'Paint');
+});
+
+test('parseVoiceInput is an alias of processConversationalVoice', () => {
+  assert.strictEqual(V.parseVoiceInput, V.processConversationalVoice);
 });
 
 test('mic off stops the engine', () => {
