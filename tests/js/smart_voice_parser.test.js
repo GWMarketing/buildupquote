@@ -249,6 +249,55 @@ test('"all right so" is stripped as filler', () => {
     'Appliance Name Is Brandon');
 });
 
+// ---- Line-item runaway guards -------------------------------------------------
+
+test('bare "item with okay" never spawns a line item', () => {
+  const h = captureHandlers();
+  const r = V.processConversationalVoice('item with okay', h);
+  assert.strictEqual(h._calls.lineItems.length, 0);
+  assert.strictEqual(r.action, 'notes');
+});
+
+test('conversational statements route to notes, not line items', () => {
+  for (const phrase of [
+    'this paint is not going to work',
+    'add line item not going to work',
+    'line item with okay',
+    '15 gallons of paint okay',
+    'i think we need 15 gallons of paint',
+  ]) {
+    const h = captureHandlers();
+    const r = V.processConversationalVoice(phrase, h);
+    assert.strictEqual(h._calls.lineItems.length, 0, phrase);
+    assert.strictEqual(r.action, 'notes', phrase);
+  }
+});
+
+test('a bare "line item" with no content is not inserted as Custom Item', () => {
+  const h = captureHandlers();
+  const r = V.processConversationalVoice('line item', h);
+  assert.strictEqual(h._calls.lineItems.length, 0);
+  assert.strictEqual(r.action, 'notes');
+});
+
+test('"put down" is a valid line-item trigger', () => {
+  const h = captureHandlers();
+  const r = V.processConversationalVoice('put down 4 boxes of tile', h);
+  assert.strictEqual(r.action, 'add_line');
+  assert.deepStrictEqual(h._calls.lineItems[0], {
+    qty: 4, unit: 'box', description: 'Tile', unit_cost: 0, type: 'material',
+  });
+});
+
+test('strict [number]+[unit] sequence triggers without a keyword', () => {
+  const h = captureHandlers();
+  const r = V.processConversationalVoice('20 sheets drywall', h);
+  assert.strictEqual(r.action, 'add_line');
+  assert.strictEqual(h._calls.lineItems[0].qty, 20);
+  assert.strictEqual(h._calls.lineItems[0].unit, 'sheet');
+  assert.strictEqual(h._calls.lineItems[0].description, 'Drywall');
+});
+
 test('mic off stops the engine', () => {
   const h = captureHandlers();
   const r = V.processConversationalVoice('turn off mic', h);

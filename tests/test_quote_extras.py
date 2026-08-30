@@ -211,7 +211,7 @@ class QuoteExtrasTestCase(unittest.TestCase):
         for needle in ("rec.continuous = true", "rec.interimResults = true",
                        "rec.lang = 'en-US'", "voiceCommander", "liveInterimTranscript",
                        "onResult(e.results)", "isMicOffPhrase", "debounceMs: 1800",
-                       "minConfidence: 0.3", "sameCommandCooldownMs: 2500",
+                       "minConfidence: 0.3", "sameCommandCooldownMs: 3000",
                        "data-voice-field=\"title\"", "data-voice-field=\"site_address\"",
                        "data-voice-field=\"client_name\"", "data-voice-row",
                        "flashVoiceTarget", "bq-flash", "Heard"):

@@ -97,11 +97,17 @@
   // "at $18 a piece", "18 bucks each", "16 dollars each", "for 40" ...
   var COST_RE = /(?:\s+(?:at|for|@|around|roughly|about|is)\s*|\s+)?\$?(\d+(?:\.\d+)?)(?:\s*(?:(?:a|per)\s+(?:piece|each|unit|gallon|sheet|square|box|bag|roll)|each|bucks?(?:\s+(?:each|a\s+(?:piece|each)))?|dollars?(?:\s+(?:each|a\s+(?:piece|each)))?|\/ea))?\s*$/i;
 
-  var LINE_TRIGGER_RE = /\b(line item|line items?|new item|new line|add item|an item|item)\b/i;
-  var UNIT_TRIGGER_RE = new RegExp('\\b(?:' + UNIT_RE_SRC + ')\\b', 'i');
+  // Strict line-item intent keywords. A bare "item" word is NOT enough —
+  // conversational statements like "item with okay" must not spawn a row.
+  var LINE_TRIGGER_RE = /\b(?:line\s+item|new\s+(?:item|line)|add\s+(?:a\s+|an\s+)?(?:line\s+)?item|put\s+(?:down|in))\b/i;
+  // Strict [Number] + [Trade Unit] sequence ("15 gallons", "20 sheets") — the
+  // unit word alone no longer qualifies.
+  var QTY_UNIT_RE = new RegExp('\\b\\d+(?:\\.\\d+)?\\s+(?:' + UNIT_RE_SRC + ')\\b', 'i');
+  // Conversational statements that must never become line items.
+  var LINE_ITEM_BLACKLIST_RE = /\b(not going to|not sure|maybe|think|probably|okay|ok\b|whatever|doesn'?t|isn'?t|don'?t|won'?t|can'?t|no good)\b/i;
 
   function isLineItemPhrase(text) {
-    return LINE_TRIGGER_RE.test(text) || UNIT_TRIGGER_RE.test(text);
+    return LINE_TRIGGER_RE.test(text) || QTY_UNIT_RE.test(text);
   }
 
   function parseLineItem(text) {
@@ -317,6 +323,16 @@
     // Smart line item extraction
     if (isLineItemPhrase(normalized)) {
       var item = parseLineItem(normalized);
+      // Reject conversational statements ("item with okay", "not going to
+      // work", "I think we need…") and empty default names so nothing
+      // spurious auto-inserts; the whole segment then falls through to the
+      // notes/focused fallback.
+      var itemDesc = String(item.description || '').trim();
+      if (!itemDesc || itemDesc.length < 2 || itemDesc === 'Custom Item' ||
+          LINE_ITEM_BLACKLIST_RE.test(normalized) ||
+          LINE_ITEM_BLACKLIST_RE.test(itemDesc)) {
+        return null;
+      }
       if (handlers.addLineItem) handlers.addLineItem(item);
       notify(item.qty + ' ' + item.unit + ' ' + item.description + ' @ ' +
         (item.unit_cost ? '$' + item.unit_cost.toFixed(2) + '/' + item.unit : 'no cost') +

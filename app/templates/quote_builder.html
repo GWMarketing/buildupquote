@@ -1606,10 +1606,10 @@ function quoteBuilder(quoteId) {
           isTermination: (t) => !!(BQSmartVoice && BQSmartVoice.isMicOffPhrase(t)),
           // Tuned for job-site background noise: 1.8s of silence before a
           // phrase dispatches, low-confidence garbage dropped, and identical
-          // commands suppressed for 2.5s so a noisy echo can't re-fire.
+          // commands suppressed for 3s so a noisy echo can't re-fire.
           debounceMs: 1800,
           minConfidence: 0.3,
-          sameCommandCooldownMs: 2500,
+          sameCommandCooldownMs: 3000,
         });
       this.voiceCommander.start();
       rec.onresult = (e) => { if (this.voiceCommander) this.voiceCommander.onResult(e.results); };

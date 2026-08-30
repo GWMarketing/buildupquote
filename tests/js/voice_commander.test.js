@@ -179,7 +179,7 @@ test('defaults are tuned for noise: 1800ms debounce, 0.3 confidence', () => {
   assert.strictEqual(mod.DEFAULTS.debounceMs, 1800);
   assert.strictEqual(mod.DEFAULTS.restartMs, 150);
   assert.strictEqual(mod.DEFAULTS.minConfidence, 0.3);
-  assert.strictEqual(mod.DEFAULTS.sameCommandCooldownMs, 2500);
+  assert.strictEqual(mod.DEFAULTS.sameCommandCooldownMs, 3000);
   assert.strictEqual(mod.isMeaningful('mic off'), true);
   assert.strictEqual(mod.isMeaningful('address is 1400 mockinbird lane'), true);
   assert.strictEqual(mod.isMeaningful('um like you know'), false);

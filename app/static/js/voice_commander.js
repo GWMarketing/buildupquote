@@ -36,7 +36,7 @@
     debounceMs: 1800,
     restartMs: 150,
     minConfidence: 0.3,
-    sameCommandCooldownMs: 2500,
+    sameCommandCooldownMs: 3000,
   };
 
   // Filler / background-noise vocabulary (nothing a real command needs).
