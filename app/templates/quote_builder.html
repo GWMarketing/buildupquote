@@ -78,68 +78,81 @@
             <p class="text-slate-300">Address: <strong class="text-white" x-text="walkthroughParsed.site_address"></strong></p>
           </template>
           <!-- Problem diagnostics: what the contractor should double-check -->
-          <template x-if="walkthroughParsed && walkthroughParsed.problems.length" x-cloak>
+          <template x-if="walkthroughParsed &&
+                          (walkthroughParsed.problems.length ||
+                           walkthroughParsed.skipped_items.length ||
+                           walkthroughParsed.general_notes.length)" x-cloak>
             <div class="space-y-1 border-t border-amber-500/20 pt-2">
               <p class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">
                 <i data-lucide="alert-triangle" class="h-3 w-3"></i> Diagnostics
               </p>
               <template x-for="(pr, pi) in walkthroughParsed.problems" :key="pi">
-                <p class="text-xs" :class="pr.level === 'warn' ? 'text-amber-300/90' : 'text-slate-400'" x-text="pr.text"></p>
+                <p class="text-xs text-amber-300/90" x-text="pr.text"></p>
+              </template>
+              <template x-for="(sk, si) in walkthroughParsed.skipped_items" :key="'sk' + si">
+                <p class="text-xs text-slate-400" x-text="'Skipped: ' + sk.originalText + ' — ' + sk.reason"></p>
+              </template>
+              <template x-for="(n, ni) in walkthroughParsed.general_notes" :key="'n' + ni">
+                <p class="text-xs text-slate-400" x-text="'Note: ' + n"></p>
               </template>
             </div>
           </template>
-          <template x-if="walkthroughParsed && walkthroughParsed.line_items.length">
+          <template x-if="walkthroughParsed && roomGroups().some(g => g.line_items.length)">
             <div class="border-t border-slate-700 pt-1">
               <p class="mb-1 font-semibold text-slate-300">Line items <span class="font-normal text-slate-500">(edit before adding)</span></p>
-              <template x-for="(grp, gi) in groupByRoom(walkthroughParsed.line_items)" :key="'li-' + gi">
-                <div class="mt-2">
-                  <p class="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400/90">
-                    <i data-lucide="door-open" class="h-3 w-3"></i>
-                    <span x-text="grp.room"></span>
-                    <span class="font-normal text-slate-500" x-text="'(' + grp.items.length + ')'"></span>
-                  </p>
-                  <template x-for="(it, idx) in grp.items" :key="'it-' + gi + '-' + idx">
-                    <div class="flex items-center gap-1.5 py-1">
-                      <input type="checkbox" x-model="it.checked" class="h-3.5 w-3.5 shrink-0 accent-amber-500">
-                      <input x-model.number="it.qty" type="number" min="0" step="0.001"
-                             class="w-14 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
-                      <span class="w-8 shrink-0 text-slate-500" x-text="it.unit"></span>
-                      <input x-model="it.description"
-                             class="min-w-0 flex-1 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-xs text-white focus:border-amber-500">
-                      <input x-model.number="it.unit_cost" type="number" min="0" step="0.01"
-                             class="w-16 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
-                    </div>
-                  </template>
-                </div>
+              <template x-for="(grp, gi) in roomGroups()" :key="'li-' + gi">
+                <template x-if="grp.line_items.length">
+                  <div class="mt-2">
+                    <p class="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400/90">
+                      <i data-lucide="door-open" class="h-3 w-3"></i>
+                      <span x-text="grp.room"></span>
+                      <span class="font-normal text-slate-500" x-text="'(' + grp.line_items.length + ')'"></span>
+                    </p>
+                    <template x-for="(it, idx) in grp.line_items" :key="'it-' + gi + '-' + idx">
+                      <div class="flex items-center gap-1.5 py-1">
+                        <input type="checkbox" x-model="it.checked" class="h-3.5 w-3.5 shrink-0 accent-amber-500">
+                        <input x-model.number="it.qty" type="number" min="0" step="0.001"
+                               class="w-14 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
+                        <span class="w-8 shrink-0 text-slate-500" x-text="it.unit"></span>
+                        <input x-model="it.description"
+                               class="min-w-0 flex-1 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-xs text-white focus:border-amber-500">
+                        <input x-model.number="it.unit_cost" type="number" min="0" step="0.01"
+                               class="w-16 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
+                      </div>
+                    </template>
+                  </div>
+                </template>
               </template>
             </div>
           </template>
-          <template x-if="walkthroughParsed && walkthroughParsed.assemblies.length">
+          <template x-if="walkthroughParsed && roomGroups().some(g => g.assemblies.length)">
             <div class="border-t border-slate-700 pt-1">
               <p class="mb-1 font-semibold text-slate-300">Assemblies <span class="font-normal text-slate-500">(edit before adding)</span></p>
-              <template x-for="(grp, gi) in groupByRoom(walkthroughParsed.assemblies)" :key="'as-' + gi">
-                <div class="mt-2">
-                  <p class="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400/90">
-                    <i data-lucide="door-open" class="h-3 w-3"></i>
-                    <span x-text="grp.room"></span>
-                    <span class="font-normal text-slate-500" x-text="'(' + grp.items.length + ')'"></span>
-                  </p>
-                  <template x-for="(a, idx) in grp.items" :key="'as-' + gi + '-' + idx">
-                    <div class="flex items-center gap-1.5 py-1">
-                      <input type="checkbox" x-model="a.checked" class="h-3.5 w-3.5 shrink-0 accent-amber-500">
-                      <input x-model="a.trade" class="w-20 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-xs text-white focus:border-amber-500">
-                      <input x-model.number="a.length" type="number" min="0" step="0.1"
-                             class="w-12 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
-                      <span class="text-slate-500">x</span>
-                      <input x-model.number="a.width" type="number" min="0" step="0.1"
-                             class="w-12 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
-                      <span class="text-slate-500">@</span>
-                      <input x-model.number="a.height" type="number" min="0" step="0.1"
-                             class="w-12 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
-                      <span class="text-slate-500">ft</span>
-                    </div>
-                  </template>
-                </div>
+              <template x-for="(grp, gi) in roomGroups()" :key="'as-' + gi">
+                <template x-if="grp.assemblies.length">
+                  <div class="mt-2">
+                    <p class="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400/90">
+                      <i data-lucide="door-open" class="h-3 w-3"></i>
+                      <span x-text="grp.room"></span>
+                      <span class="font-normal text-slate-500" x-text="'(' + grp.assemblies.length + ')'"></span>
+                    </p>
+                    <template x-for="(a, idx) in grp.assemblies" :key="'as-' + gi + '-' + idx">
+                      <div class="flex items-center gap-1.5 py-1">
+                        <input type="checkbox" x-model="a.checked" class="h-3.5 w-3.5 shrink-0 accent-amber-500">
+                        <input x-model="a.trade" class="w-20 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-xs text-white focus:border-amber-500">
+                        <input x-model.number="a.length" type="number" min="0" step="0.1"
+                               class="w-12 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
+                        <span class="text-slate-500">x</span>
+                        <input x-model.number="a.width" type="number" min="0" step="0.1"
+                               class="w-12 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
+                        <span class="text-slate-500">@</span>
+                        <input x-model.number="a.height" type="number" min="0" step="0.1"
+                               class="w-12 rounded border border-slate-700 bg-slate-800 px-1.5 py-1 text-right text-xs text-white focus:border-amber-500">
+                        <span class="text-slate-500">ft</span>
+                      </div>
+                    </template>
+                  </div>
+                </template>
               </template>
             </div>
           </template>
@@ -1819,16 +1832,15 @@ function quoteBuilder(quoteId) {
       const s = String(this.walkthroughDuration % 60).padStart(2, '0');
       return m + ':' + s;
     },
-    groupByRoom(items) {
-      const groups = [];
-      (items || []).forEach(it => {
-        const room = it.room || 'General';
-        let g = groups.find(x => x.room === room);
-        if (!g) { g = { room, items: [] }; groups.push(g); }
-        g.items.push(it);
-      });
-      // Items without a room ("General") sink to the bottom.
-      return groups.sort((a, b) => (a.room === 'General') - (b.room === 'General'));
+    roomGroups() {
+      const rooms = (this.walkthroughParsed && this.walkthroughParsed.rooms) || {};
+      const groups = Object.keys(rooms).map(k => ({
+        room: k,
+        line_items: rooms[k].line_items || [],
+        assemblies: rooms[k].assemblies || [],
+      }));
+      // Items with no explicit room ("Main Area") sink to the bottom.
+      return groups.sort((a, b) => (a.room === 'Main Area') - (b.room === 'Main Area'));
     },
     startWalkthrough() {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1940,9 +1952,15 @@ function quoteBuilder(quoteId) {
           BQ.toast('No client named "' + p.client_name + '" — add them under Clients');
         }
       }
-      (p.line_items || []).filter(it => it.checked !== false).forEach((it) => this.addWalkthroughLineItem(it));
-      if (p.assemblies && p.assemblies.length) {
-        const checkedAsm = p.assemblies.filter(a => a.checked !== false);
+      const lines = [];
+      const asms = [];
+      Object.keys(p.rooms || {}).forEach(k => {
+        lines.push(...(p.rooms[k].line_items || []));
+        asms.push(...(p.rooms[k].assemblies || []));
+      });
+      lines.filter(it => it.checked !== false).forEach((it) => this.addWalkthroughLineItem(it));
+      if (asms.length) {
+        const checkedAsm = asms.filter(a => a.checked !== false);
         if (checkedAsm.length) {
           this.applyWalkthroughAssembly(checkedAsm[0]);
           if (checkedAsm.length > 1) {

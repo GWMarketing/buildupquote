@@ -3,16 +3,20 @@
  * On stop, parseWalkthroughTranscript() runs once over the full transcript and
  * returns structured data for the review drawer's "Apply to Quote" step:
  *
- *   { title, client_name, site_address, line_items: [...] (aggregated),
- *     assemblies: [...], notes: [...], problems: [...], matched, raw }
+ *   { title, client_name, site_address,
+ *     rooms: { "<Room Label>": { line_items: [...], assemblies: [...] } },
+ *     general_notes: [...], skipped_items: [{ originalText, reason }],
+ *     problems: [...], matched, raw }
  *
  * Line items carry { qty, unit, description, unit_cost, type, trade } where
  * trade is guessed from the description via the trade catalog; assemblies
  * carry { trade (spoken term), trade_key (canonical slug), length, width,
- * height }. Items also carry `room` (label from the room-context detection:
- * "in the kitchen", "for the master bedroom", "bedroom 2") so the drawer can
- * group scope by room. `problems` lists diagnostics (no-price lines, missing
- * assembly dimensions, unmatched phrases) for the review step.
+ * height }. Items are bucketed under the room they were spoken for ("in the
+ * kitchen", "for the master bedroom", "bedroom 2", or a sentence that starts
+ * with the room). `skipped_items` records corrections/discards and unresolved
+ * construction phrases (with a reason); `problems` carries warn-level
+ * diagnostics (no-price lines, missing assembly dimensions) for the review
+ * step.
  *
  * Pure functions, no DOM deps: window.BQWalkthroughParser + CommonJS for Node
  * tests (tests/js/batch_walkthrough_parser.test.js). Depends on the shared
@@ -162,13 +166,13 @@
     'guest bathroom', 'powder room', 'half bathroom', 'laundry room',
     'utility room', 'walk-in closet', 'walk in closet', 'living room',
     'family room', 'great room', 'dining room', 'sitting room', 'crawl space',
-    'master bath', 'guest bath', 'half bath', 'mud room', 'mudroom',
-    'bathroom', 'bath room', 'bedroom', 'kitchen', 'garage', 'basement',
-    'lower level', 'cellar', 'attic', 'hallway', 'stairwell', 'staircase',
-    'landing', 'entryway', 'foyer', 'corridor', 'closet', 'laundry', 'stairs',
-    'hall', 'office', 'study', 'den', 'porch', 'deck', 'patio', 'balcony',
-    'veranda', 'exterior', 'outside', 'facade', 'front yard', 'back yard',
-    'backyard', 'driveway', 'sidewalk', 'roof',
+    'master bath', 'guest bath', 'half bath', 'hallway bath', 'hall bath',
+    'mud room', 'mudroom', 'bathroom', 'bath room', 'bedroom', 'kitchen',
+    'garage', 'basement', 'lower level', 'cellar', 'attic', 'hallway',
+    'stairwell', 'staircase', 'landing', 'entryway', 'foyer', 'corridor',
+    'closet', 'laundry', 'stairs', 'hall', 'office', 'study', 'den', 'porch',
+    'deck', 'patio', 'balcony', 'veranda', 'exterior', 'outside', 'facade',
+    'front yard', 'back yard', 'backyard', 'driveway', 'sidewalk', 'roof',
   ];
 
   var ROOM_ALT_SRC = ROOM_WORDS.slice()
@@ -176,9 +180,13 @@
     .map(escapeRegExp)
     .join('|');
 
+  var ROOM_CUE_SRC = 'moving\\s+over\\s+to|moving\\s+to|heading\\s+(?:to|into)|over\\s+to|toward|in|for|at|on|into|near|inside|outside|upstairs|downstairs';
   var ROOM_NUM_RE = new RegExp('\\b(bedroom|bathroom|bath|garage|office|den)\\s+(\\d{1,2})(?!\\s*(?:' + UNIT_RE_SRC + ')\\b)', 'i');
-  var ROOM_NUM_CUE_RE = new RegExp('\\b(?:in|for|at|on|into|near|inside|outside|upstairs|downstairs)\\s+(?:(?:the|a|an|this|that)\\s+)?(' + ROOM_ALT_SRC + ')(?:\\s+(\\d{1,2})(?!\\s*(?:' + UNIT_RE_SRC + ')\\b))?\\b', 'i');
+  var ROOM_NUM_CUE_RE = new RegExp('\\b(?:' + ROOM_CUE_SRC + ')\\s+(?:(?:the|a|an|this|that)\\s+)?(' + ROOM_ALT_SRC + ')(?:\\s+(\\d{1,2})(?!\\s*(?:' + UNIT_RE_SRC + ')\\b))?\\b', 'i');
   var ROOM_THE_RE = new RegExp('\\bthe\\s+(' + ROOM_ALT_SRC + ')\\b', 'i');
+  // A sentence that literally starts with a room word ("kitchen needs new
+  // paint", "master bedroom has 15 sheets of drywall") re-scopes too.
+  var ROOM_START_RE = new RegExp('^(?:the\\s+)?(' + ROOM_ALT_SRC + ')\\b', 'i');
   // Trailing location phrase stripped from line-item descriptions so
   // "drywall in the kitchen" and "drywall in the garage" stay distinct rows
   // (each tagged with its own room) instead of leaking the phrase into the
@@ -202,6 +210,8 @@
     if (m) return roomLabel(m[1], null);
     m = t.match(ROOM_NUM_RE);
     if (m) return roomLabel(m[1], m[2]);
+    m = t.match(ROOM_START_RE);
+    if (m) return roomLabel(m[1], null);
     return null;
   }
 
@@ -306,9 +316,14 @@
   }
 
   // ---- Staged batch parse ----------------------------------------------------
-  // Correction / retraction phrases: "scratch that" cancels the last item.
-  var CORRECTION_RE = /\b(scratch that|never mind|nevermind|cancel that|forget it|ignore that|take that off|don'?t add)\b/i;
+  // Correction / discard phrases: the sentence is skipped and logged to
+  // skipped_items; a retraction also removes the last item so "15 gallons of
+  // paint. scratch that." doesn't leave a phantom row.
+  var CORRECTION_RE = /\b(scratch that|never mind|nevermind|cancel that|forget it|ignore that|take that off|don'?t add|don'?t worry|not going to work|actually no)\b/i;
   var RETRACTION_RE = /\b(scratch that|cancel that|never mind|nevermind|forget it|ignore that|take that off)\b/i;
+  // Construction-y words that signal an intended line item that never fully
+  // resolved ("we need a gallon", "40 bucks for that") -> skipped_items.
+  var CONSTRUCTION_HINT_RE = /\b(need|needs|needed|gallons?|sheets?|boxes?|bags?|rolls?|pieces?|units?|studs?|bucks|dollars|sq\s*ft|linear\s*ft|hours?|hrs?)\b/i;
 
   /** Split a master transcript into sentences on [.!?] boundaries (the
    *  recorder joins finals with ". "). */
@@ -322,11 +337,27 @@
 
   var _itemSeq = 0;
   var _lastAdd = null;   // 'line' | 'asm' for retraction ordering
+  var _lastRoom = null;  // room label the last item was pushed under
+
+  function roomBucket(data, room) {
+    if (!data.rooms[room]) data.rooms[room] = { line_items: [], assemblies: [] };
+    return data.rooms[room];
+  }
 
   function retractLast(data) {
-    if (_lastAdd === 'asm' && data.assemblies.length) data.assemblies.pop();
-    else if (data.line_items.length) data.line_items.pop();
-    else if (data.assemblies.length) data.assemblies.pop();
+    var bucket = _lastRoom ? data.rooms[_lastRoom] : null;
+    if (_lastAdd === 'asm' && bucket && bucket.assemblies.length) bucket.assemblies.pop();
+    else if (bucket && bucket.line_items.length) bucket.line_items.pop();
+    else {
+      // Fallback: walk rooms backwards for anything to retract.
+      var keys = Object.keys(data.rooms);
+      for (var i = keys.length - 1; i >= 0; i--) {
+        var b = data.rooms[keys[i]];
+        if (_lastAdd === 'asm' && b.assemblies.length) { b.assemblies.pop(); break; }
+        if (b.line_items.length) { b.line_items.pop(); break; }
+        if (b.assemblies.length) { b.assemblies.pop(); break; }
+      }
+    }
     _lastAdd = null;
   }
 
@@ -334,22 +365,29 @@
     var raw = String(transcript || '').trim();
     var data = {
       title: null, client_name: null, site_address: null,
-      line_items: [], assemblies: [], notes: [], problems: [], matched: 0, raw: raw,
+      rooms: {}, general_notes: [], skipped_items: [], problems: [],
+      matched: 0, raw: raw,
     };
     if (!raw) return data;
 
     _itemSeq = 0;
     _lastAdd = null;
+    _lastRoom = null;
     var sentences = splitSentences(raw);
-    var currentRoom = null;
+    var currentRoom = 'Main Area';
+    roomBucket(data, currentRoom);
 
     for (var s = 0; s < sentences.length; s++) {
       var sentence = sentences[s];
 
-      // Corrections: skip the sentence; a retraction also removes the last
-      // line item / assembly so "15 gallons of paint. scratch that." doesn't
-      // leave a phantom row.
+      // Corrections / discards: skip the sentence and log it; a retraction
+      // also removes the last line item / assembly so "15 gallons of paint.
+      // scratch that." doesn't leave a phantom row.
       if (CORRECTION_RE.test(sentence)) {
+        data.skipped_items.push({
+          originalText: sentence,
+          reason: 'Discarded by user correction phrase (e.g. "scratch that", "don\'t add")',
+        });
         if (RETRACTION_RE.test(sentence)) retractLast(data);
         continue;
       }
@@ -389,22 +427,22 @@
         }
         if (isLineItemPhrase(segNorm)) {
           var item = parseLineItem(segNorm);
-          item.room = currentRoom;
           // Drop a trailing location phrase ("drywall in the kitchen" ->
           // "drywall") so aggregation keys on the material, not the room.
-          if (currentRoom) item.description = stripRoomPhrase(item.description) || item.description;
+          item.description = stripRoomPhrase(item.description) || item.description;
           var itemDesc = String(item.description || '').trim();
           if (!itemDesc || itemDesc.length < 2 || itemDesc === 'Custom Item' ||
               LINE_ITEM_BLACKLIST_RE.test(segNorm) || LINE_ITEM_BLACKLIST_RE.test(itemDesc)) {
             continue;
           }
-          // Aggregate identical rows across the whole walkthrough (same
-          // material, price AND room — drywall in two rooms stays separate).
+          // Aggregate identical rows within the room (same material + price —
+          // drywall in two rooms stays in its own bucket).
+          var bucket = roomBucket(data, currentRoom);
           var existing = null;
-          for (var j = 0; j < data.line_items.length; j++) {
-            var x = data.line_items[j];
+          for (var j = 0; j < bucket.line_items.length; j++) {
+            var x = bucket.line_items[j];
             if (x.unit === item.unit && x.description === item.description &&
-                x.unit_cost === item.unit_cost && x.room === item.room) {
+                x.unit_cost === item.unit_cost) {
               existing = x; break;
             }
           }
@@ -414,15 +452,26 @@
             item.id = 'line-' + (++_itemSeq);
             item.checked = true;
             _lastAdd = 'line';
-            data.line_items.push(item);
+            _lastRoom = currentRoom;
+            bucket.line_items.push(item);
           }
           continue;
         }
-        // Unmatched meaningful speech -> notes (never silently dropped). A
+        // Unmatched meaningful speech: unresolved construction phrases get a
+        // reason; everything else lands in general_notes (never dropped). A
         // room-marker phrase ("next room is the kitchen") sets context and is
-        // NOT an unmatched note.
+        // neither.
         if (seg.length >= 3 && !segNorm.match(ASSEMBLY_RE) &&
-            !detectRoom(seg) && !detectRoom(segNorm)) data.notes.push(seg);
+            !detectRoom(seg) && !detectRoom(segNorm)) {
+          if (CONSTRUCTION_HINT_RE.test(segNorm)) {
+            data.skipped_items.push({
+              originalText: seg,
+              reason: 'Could not resolve complete quantity, unit, or pricing parameters',
+            });
+          } else {
+            data.general_notes.push(seg);
+          }
+        }
       }
 
       // Per-sentence assembly sweep: catches every "drywall 12 by 14 9 ft"
@@ -431,7 +480,7 @@
       var asmRe = new RegExp(ASSEMBLY_RE.source, 'gi');
       var am;
       while ((am = asmRe.exec(normalized)) !== null) {
-        data.assemblies.push({
+        roomBucket(data, currentRoom).assemblies.push({
           id: 'asm-' + (++_itemSeq),
           checked: true,
           trade: am[1].toLowerCase(),
@@ -439,35 +488,40 @@
           length: parseFloat(am[2]),
           width: parseFloat(am[3]),
           height: am[4] ? parseFloat(am[4]) : 8,
-          room: currentRoom,
         });
         _lastAdd = 'asm';
+        _lastRoom = currentRoom;
         if (am.index === asmRe.lastIndex) asmRe.lastIndex++;
       }
     }
 
+    var lineCount = 0;
+    var asmCount = 0;
+    Object.keys(data.rooms).forEach(function (k) {
+      lineCount += data.rooms[k].line_items.length;
+      asmCount += data.rooms[k].assemblies.length;
+    });
     data.matched = (data.title ? 1 : 0) + (data.client_name ? 1 : 0) +
-      (data.site_address ? 1 : 0) + data.line_items.length + data.assemblies.length;
+      (data.site_address ? 1 : 0) + lineCount + asmCount;
 
     // ---- Problem diagnostics for the review drawer --------------------------
-    data.line_items.forEach(function (it) {
-      if (!it.unit_cost) {
-        data.problems.push({
-          level: 'warn',
-          text: '"' + it.description + '" has no price spoken — will apply at $0',
-        });
-      }
-    });
-    data.assemblies.forEach(function (a) {
-      if (!a.length || !a.width) {
-        data.problems.push({
-          level: 'warn',
-          text: capitalize(a.trade) + ' assembly is missing dimensions',
-        });
-      }
-    });
-    data.notes.forEach(function (n) {
-      data.problems.push({ level: 'info', text: 'Unmatched phrase: "' + n + '"' });
+    Object.keys(data.rooms).forEach(function (k) {
+      data.rooms[k].line_items.forEach(function (it) {
+        if (!it.unit_cost) {
+          data.problems.push({
+            level: 'warn',
+            text: '"' + it.description + '" has no price spoken — will apply at $0',
+          });
+        }
+      });
+      data.rooms[k].assemblies.forEach(function (a) {
+        if (!a.length || !a.width) {
+          data.problems.push({
+            level: 'warn',
+            text: capitalize(a.trade) + ' assembly is missing dimensions',
+          });
+        }
+      });
     });
     return data;
   }
