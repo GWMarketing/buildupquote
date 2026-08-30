@@ -2,32 +2,9 @@
 {% block content %}
 <div x-data="quoteBuilder({{ quote_id or 'null' }})" x-init="init()" class="mx-auto max-w-7xl space-y-6 px-4 py-8">
 
-  <!-- Top action bar -->
+  <!-- Quick actions (voice + save/export) - always visible -->
   <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-    <!-- Title gets its own full-width line so the action buttons can never
-         overlap or block it (they wrap onto rows below instead). -->
     <div class="space-y-4">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-      <div class="min-w-0 flex-1 space-y-1">
-        <input type="text" x-model="quote.title" @change="patch({ title: quote.title })"
-               data-voice-field="title"
-               @focus="activeField = 'title'" @blur="activeField = null"
-               class="w-full border-b border-transparent bg-transparent text-2xl font-bold text-slate-900 outline-none transition-colors hover:border-slate-300 focus:border-amber-500 dark:text-white"
-               placeholder="Project Name / Quote Reference">
-        <p class="text-sm text-slate-500 dark:text-slate-400"
-           x-text="'Status: ' + (quote.status || 'draft').charAt(0).toUpperCase() + (quote.status || 'draft').slice(1)"></p>
-        <!-- Change-order summary header (this quote IS a change order) -->
-        <div x-show="isCO" x-cloak class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-          <span class="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-black text-slate-950" x-text="quote.change_order_code"></span>
-          <span class="text-xs text-slate-500 dark:text-slate-400">Base Contract</span>
-          <span class="text-sm font-bold text-white" x-text="fmt(quote.base_amount || 0)"></span>
-          <span class="text-xs text-slate-500 dark:text-slate-400">+ Change Order</span>
-          <span class="text-sm font-bold text-amber-400" x-text="fmt(quote.co_total || 0)"></span>
-          <span class="text-xs text-slate-500 dark:text-slate-400">= Revised</span>
-          <span class="text-sm font-bold text-emerald-400" x-text="fmt(quote.revised_total || 0)"></span>
-        </div>
-      </div>
-
       <!-- Voice-to-Scope: always at the top, speaks the scope from anywhere -->
       <div class="flex shrink-0 items-center gap-2">
         <button @click="toggleVoice()"
@@ -44,7 +21,6 @@
           <span x-text="voiceOn ? 'Listening… (Say &quot;Mic Off&quot; to stop)' : 'Voice to Scope'"></span>
         </button>
       </div>
-    </div>
 
     <!-- Live voice transcript / last-heard scope -->
     <div x-show="voiceTranscript" x-cloak
@@ -110,6 +86,7 @@
         </button>
       </div>
     </div>
+
       <div class="flex flex-wrap items-center gap-3">
         <button class="bq-btn-secondary" @click="openAssemblyDrawer = true">
           <i data-lucide="layers" class="h-4 w-4 text-amber-500"></i> Insert Assembly
@@ -147,8 +124,44 @@
         </button>
       </div>
     </div>
+  </div>
 
-    <div class="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-3 dark:border-slate-700">
+  <!-- Quote Details (collapsible) -->
+  <section x-data="collapseCard(true)" class="overflow-hidden rounded-lg border border-slate-700 bg-[#111827] shadow-sm">
+    <button type="button" @click="toggle()" class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+      <span class="flex min-w-0 items-center gap-2">
+        <i data-lucide="file-pen-line" class="h-4 w-4 shrink-0 text-amber-500"></i>
+        <span class="text-sm font-semibold text-white">Quote Details</span>
+        <span x-show="!open" x-cloak class="shrink-0 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-300"><span x-text="(shareClient ? shareClient.name : 'No client') + ' · ' + (quote.site_address || 'No address')"></span></span>
+      </span>
+      <span class="flex shrink-0 items-center gap-1">
+        <i data-lucide="chevron-up" x-show="open" class="h-4 w-4 text-slate-400 transition-transform duration-200"></i>
+        <i data-lucide="chevron-down" x-show="!open" x-cloak class="h-4 w-4 text-slate-400 transition-transform duration-200"></i>
+      </span>
+    </button>
+    <div x-show="open" x-collapse x-cloak>
+      <div class="space-y-4 border-t border-slate-700 p-4">
+      <div class="min-w-0 flex-1 space-y-1">
+        <input type="text" x-model="quote.title" @change="patch({ title: quote.title })"
+               data-voice-field="title"
+               @focus="activeField = 'title'" @blur="activeField = null"
+               class="w-full border-b border-transparent bg-transparent text-2xl font-bold text-slate-900 outline-none transition-colors hover:border-slate-300 focus:border-amber-500 dark:text-white"
+               placeholder="Project Name / Quote Reference">
+        <p class="text-sm text-slate-500 dark:text-slate-400"
+           x-text="'Status: ' + (quote.status || 'draft').charAt(0).toUpperCase() + (quote.status || 'draft').slice(1)"></p>
+        <!-- Change-order summary header (this quote IS a change order) -->
+        <div x-show="isCO" x-cloak class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+          <span class="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-black text-slate-950" x-text="quote.change_order_code"></span>
+          <span class="text-xs text-slate-500 dark:text-slate-400">Base Contract</span>
+          <span class="text-sm font-bold text-white" x-text="fmt(quote.base_amount || 0)"></span>
+          <span class="text-xs text-slate-500 dark:text-slate-400">+ Change Order</span>
+          <span class="text-sm font-bold text-amber-400" x-text="fmt(quote.co_total || 0)"></span>
+          <span class="text-xs text-slate-500 dark:text-slate-400">= Revised</span>
+          <span class="text-sm font-bold text-emerald-400" x-text="fmt(quote.revised_total || 0)"></span>
+        </div>
+      </div>
+
+    <div class="grid gap-3 sm:grid-cols-3 dark:border-slate-700">
       <div>
         <label class="mb-1 block text-xs font-medium text-slate-500">Client</label>
         <div class="flex gap-2">
@@ -192,9 +205,26 @@
         </select>
       </div>
     </div>
+      </div>
+    </div>
+  </section>
 
-    <!-- Master contract attachment -->
-    <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+  <!-- Attach Master Contract &amp; Terms (collapsible, closed by default) -->
+  <section x-data="collapseCard(false)" class="overflow-hidden rounded-lg border border-slate-700 bg-[#111827] shadow-sm">
+    <button type="button" @click="toggle()" class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+      <span class="flex min-w-0 items-center gap-2">
+        <i data-lucide="file-check-2" class="h-4 w-4 shrink-0 text-amber-500"></i>
+        <span class="text-sm font-semibold text-white">Attach Master Contract &amp; Terms</span>
+        <span x-show="!open" x-cloak class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold" :class="quote.include_contract ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-800 text-slate-400'"><span x-text="quote.include_contract ? 'Attached' : 'Disabled'"></span></span>
+      </span>
+      <span class="flex shrink-0 items-center gap-1">
+        <i data-lucide="chevron-up" x-show="open" class="h-4 w-4 text-slate-400 transition-transform duration-200"></i>
+        <i data-lucide="chevron-down" x-show="!open" x-cloak class="h-4 w-4 text-slate-400 transition-transform duration-200"></i>
+      </span>
+    </button>
+    <div x-show="open" x-collapse x-cloak>
+      <div class="space-y-4 border-t border-slate-700 p-4">
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
       <div class="flex items-center justify-between gap-4">
         <div>
           <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">Attach Master Contract</label>
@@ -271,101 +301,118 @@
         </div>
       </div>
     </div>
-  </div>
+      </div>
+    </div>
+  </section>
 
   <!-- Line items table -->
-  <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
-    <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-slate-700">
-      <div class="card-title">
-        <span class="icon-chip sm bg-amber-500/10 text-amber-600 dark:text-amber-400"><i data-lucide="list" class="h-4 w-4"></i></span>
-        <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Line items</h2>
-      </div>
-      <div class="flex items-center gap-2">
+
+  <!-- Line items &amp; assemblies (collapsible) -->
+  <section x-data="collapseCard(true)" class="overflow-hidden rounded-lg border border-slate-700 bg-[#111827] shadow-sm">
+    <button type="button" @click="toggle()" class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+      <span class="flex min-w-0 items-center gap-2">
+        <i data-lucide="list" class="h-4 w-4 shrink-0 text-amber-500"></i>
+        <span class="text-sm font-semibold text-white">Line Items &amp; Assemblies</span>
+        <span x-show="!open" x-cloak class="shrink-0 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-300"><span x-text="lines.length + ' lines · ' + fmt(subtotal())"></span></span>
+      </span>
+      <span class="flex shrink-0 items-center gap-1">
+        <i data-lucide="chevron-up" x-show="open" class="h-4 w-4 text-slate-400 transition-transform duration-200"></i>
+        <i data-lucide="chevron-down" x-show="!open" x-cloak class="h-4 w-4 text-slate-400 transition-transform duration-200"></i>
+      </span>
+    </button>
+    <div x-show="open" x-collapse x-cloak>
+      <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-slate-700">
+        <div class="card-title">
+          <span class="icon-chip sm bg-amber-500/10 text-amber-600 dark:text-amber-400"><i data-lucide="list" class="h-4 w-4"></i></span>
+          <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Line items</h2>
+        </div>
+        <div class="flex items-center gap-2">
           <button class="bq-btn-secondary" @click="openSubBid()" :disabled="!lines.length"
-                  title="Send a sanitized scope link to a subcontractor for a labor/trade bid">
-            <i data-lucide="handshake" class="h-4 w-4 text-amber-500"></i> Request Sub Bid
+          title="Send a sanitized scope link to a subcontractor for a labor/trade bid">
+          <i data-lucide="handshake" class="h-4 w-4 text-amber-500"></i> Request Sub Bid
           </button>
           <button class="bq-btn-secondary" @click="addRow()">＋ Row</button>
         </div>
-    </div>
-    <div class="overflow-x-auto">
+      </div>
+      <div class="overflow-x-auto">
       <table class="w-full min-w-150 grid-table">
-        <thead>
-          <tr>
-            <th>Trade</th><th>Description &amp; Quick Search</th><th>Type</th>
-            <th class="text-right">Qty</th><th>Unit</th>
-            <th class="text-right">Cost</th><th class="text-right">Margin %</th>
-            <th class="text-right">Total</th><th class="text-center">Opt</th><th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <template x-for="(row, i) in lines" :key="i">
-            <tr data-voice-row>
-              <td>
-                <span class="inline-flex rounded bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300"
-                      x-text="row.trade || 'General'"></span>
-              </td>
-              <td class="relative">
-                <input class="bq-input" x-model="row.description" placeholder="Type material or task…"
-                       @focus="activeField = 'line:' + i + ':description'; row._showSuggest = !!row._suggestions.length"
-                       @blur="activeField = null; setTimeout(() => row._showSuggest = false, 200)"
-                       @input.debounce.250ms="autoComplete(row)"
-                       @keydown.escape="row._showSuggest = false">
-                <ul x-show="row._showSuggest && row._suggestions.length" x-cloak
-                    class="absolute left-0 right-0 z-20 mt-1 max-h-48 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                  <template x-for="s in row._suggestions" :key="s.id">
-                    <li @mousedown.prevent="pickSuggestion(row, s)"
-                        class="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 hover:bg-amber-50 dark:hover:bg-slate-800">
-                      <div class="min-w-0">
-                        <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100" x-text="s.canonical_name"></p>
-                        <p class="text-xs text-slate-400" x-text="'(' + s.trade + ')'"></p>
-                      </div>
-                      <span class="shrink-0 text-xs font-semibold text-slate-600 dark:text-slate-300"
-                            x-text="fmt(s.default_unit_cost) + ' / ' + s.unit"></span>
-                    </li>
-                  </template>
-                </ul>
-              </td>
-              <td class="text-xs text-slate-500" x-text="row.item_type"></td>
-              <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" step="0.001" x-model.number="row.quantity"
-                      @focus="activeField = 'line:' + i + ':quantity'" @blur="activeField = null"></td>
-              <td class="text-slate-500" x-text="row.unit"></td>
-              <td class="text-right"><input class="bq-input w-24 text-right" type="number" min="0" step="0.01" x-model.number="row.unit_cost"
-                      @focus="activeField = 'line:' + i + ':unit_cost'" @blur="activeField = null"></td>
-              <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" max="100" step="0.5" x-model.number="row.markup_percent"></td>
-              <td class="text-right font-semibold text-slate-900 dark:text-slate-100" x-text="fmt(BQ.lineTotal(row))"></td>
-              <td class="text-center">
-                <button @click="toggleOptional(row)"
-                        class="rounded-full px-2 py-1 text-[10px] font-bold leading-none transition"
-                        :class="row.is_optional
-                          ? 'bg-amber-500 text-slate-950'
-                          : 'border border-slate-300 text-slate-400 hover:border-amber-500 hover:text-amber-600 dark:border-slate-600 dark:text-slate-500'"
-                        :title="row.is_optional ? 'Optional client add-on — excluded from the base total, offered on the proposal' : 'Mark as an optional client add-on (Recommended Upgrade)'">
-                  <span x-text="row.is_optional ? '✓ Optional' : 'Optional'"></span>
-                </button>
-              </td>
-              <td class="text-center">
-                <button class="text-slate-400 hover:text-red-600" @click="deleteLine(row, i)" title="Delete line">
-                  <i data-lucide="trash-2" class="h-4 w-4"></i>
-                </button>
-              </td>
-            </tr>
-            <tr x-show="row.is_optional" x-cloak>
-              <td colspan="10" class="border-b border-amber-200 bg-amber-50/70 px-5 py-1.5 text-[11px] text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/5 dark:text-amber-400">
-                Recommended Upgrade — excluded from the base total; the client can add it on the proposal.
-              </td>
-            </tr>
-          </template>
-        </tbody>
+      <thead>
+      <tr>
+      <th>Trade</th><th>Description &amp; Quick Search</th><th>Type</th>
+      <th class="text-right">Qty</th><th>Unit</th>
+      <th class="text-right">Cost</th><th class="text-right">Margin %</th>
+      <th class="text-right">Total</th><th class="text-center">Opt</th><th></th>
+      </tr>
+      </thead>
+      <tbody>
+      <template x-for="(row, i) in lines" :key="i">
+      <tr data-voice-row>
+      <td>
+      <span class="inline-flex rounded bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300"
+      x-text="row.trade || 'General'"></span>
+      </td>
+      <td class="relative">
+      <input class="bq-input" x-model="row.description" placeholder="Type material or task…"
+      @focus="activeField = 'line:' + i + ':description'; row._showSuggest = !!row._suggestions.length"
+      @blur="activeField = null; setTimeout(() => row._showSuggest = false, 200)"
+      @input.debounce.250ms="autoComplete(row)"
+      @keydown.escape="row._showSuggest = false">
+      <ul x-show="row._showSuggest && row._suggestions.length" x-cloak
+      class="absolute left-0 right-0 z-20 mt-1 max-h-48 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+      <template x-for="s in row._suggestions" :key="s.id">
+      <li @mousedown.prevent="pickSuggestion(row, s)"
+      class="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 hover:bg-amber-50 dark:hover:bg-slate-800">
+      <div class="min-w-0">
+      <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100" x-text="s.canonical_name"></p>
+      <p class="text-xs text-slate-400" x-text="'(' + s.trade + ')'"></p>
+      </div>
+      <span class="shrink-0 text-xs font-semibold text-slate-600 dark:text-slate-300"
+      x-text="fmt(s.default_unit_cost) + ' / ' + s.unit"></span>
+      </li>
+      </template>
+      </ul>
+      </td>
+      <td class="text-xs text-slate-500" x-text="row.item_type"></td>
+      <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" step="0.001" x-model.number="row.quantity"
+      @focus="activeField = 'line:' + i + ':quantity'" @blur="activeField = null"></td>
+      <td class="text-slate-500" x-text="row.unit"></td>
+      <td class="text-right"><input class="bq-input w-24 text-right" type="number" min="0" step="0.01" x-model.number="row.unit_cost"
+      @focus="activeField = 'line:' + i + ':unit_cost'" @blur="activeField = null"></td>
+      <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" max="100" step="0.5" x-model.number="row.markup_percent"></td>
+      <td class="text-right font-semibold text-slate-900 dark:text-slate-100" x-text="fmt(BQ.lineTotal(row))"></td>
+      <td class="text-center">
+      <button @click="toggleOptional(row)"
+      class="rounded-full px-2 py-1 text-[10px] font-bold leading-none transition"
+      :class="row.is_optional
+      ? 'bg-amber-500 text-slate-950'
+      : 'border border-slate-300 text-slate-400 hover:border-amber-500 hover:text-amber-600 dark:border-slate-600 dark:text-slate-500'"
+      :title="row.is_optional ? 'Optional client add-on — excluded from the base total, offered on the proposal' : 'Mark as an optional client add-on (Recommended Upgrade)'">
+      <span x-text="row.is_optional ? '✓ Optional' : 'Optional'"></span>
+      </button>
+      </td>
+      <td class="text-center">
+      <button class="text-slate-400 hover:text-red-600" @click="deleteLine(row, i)" title="Delete line">
+      <i data-lucide="trash-2" class="h-4 w-4"></i>
+      </button>
+      </td>
+      </tr>
+      <tr x-show="row.is_optional" x-cloak>
+      <td colspan="10" class="border-b border-amber-200 bg-amber-50/70 px-5 py-1.5 text-[11px] text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/5 dark:text-amber-400">
+      Recommended Upgrade — excluded from the base total; the client can add it on the proposal.
+      </td>
+      </tr>
+      </template>
+      </tbody>
       </table>
-    </div>
-    <p class="p-5 text-sm text-slate-500" x-show="lines.length === 0" x-cloak>
+      </div>
+      <p class="p-5 text-sm text-slate-500" x-show="lines.length === 0" x-cloak>
       No lines yet — pick "Insert Assembly" above or add a manual line.
-    </p>
-    <div class="border-t border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
+      </p>
+      <div class="border-t border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
       <button class="text-xs font-bold text-amber-600 hover:text-amber-700" @click="addRow()">＋ Add Manual Line</button>
+      </div>
     </div>
-  </div>
+  </section>
 
 
   <!-- Rooms / Scopes (batch replicator) -->
@@ -397,6 +444,22 @@
 
 
   <!-- Financial cockpit -->
+
+  <!-- Financial summary &amp; margins (collapsible) -->
+  <section x-data="collapseCard(true)" class="overflow-hidden rounded-lg border border-slate-700 bg-[#111827] shadow-sm">
+    <button type="button" @click="toggle()" class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+      <span class="flex min-w-0 items-center gap-2">
+        <i data-lucide="calculator" class="h-4 w-4 shrink-0 text-amber-500"></i>
+        <span class="text-sm font-semibold text-white">Financial Summary &amp; Margins</span>
+        <span x-show="!open" x-cloak class="shrink-0 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-300"><span x-text="'Grand Total: ' + fmt(finalTotal())"></span></span>
+      </span>
+      <span class="flex shrink-0 items-center gap-1">
+        <i data-lucide="chevron-up" x-show="open" class="h-4 w-4 text-slate-400 transition-transform duration-200"></i>
+        <i data-lucide="chevron-down" x-show="!open" x-cloak class="h-4 w-4 text-slate-400 transition-transform duration-200"></i>
+      </span>
+    </button>
+    <div x-show="open" x-collapse x-cloak>
+      <div class="border-t border-slate-700">
   <div class="grid grid-cols-1 gap-6 rounded-xl bg-slate-900 p-6 text-white shadow-md md:grid-cols-2">
     <div>
       <div class="mb-2 flex items-center justify-between">
@@ -488,6 +551,9 @@
       </div>
     </div>
   </div>
+      </div>
+    </div>
+  </section>
 
   <!-- Payment Schedule (deposit & milestones) -->
   <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -1026,6 +1092,15 @@
 
 
 <script>
+// Reusable collapsible section card for the quote builder: title bar with
+// chevron, smooth x-collapse body, and a collapsed summary chip when closed.
+function collapseCard(defaultOpen) {
+  return {
+    open: defaultOpen !== false,
+    toggle() { this.open = !this.open; },
+  };
+}
+
 function quoteBuilder(quoteId) {
   return {
     quoteId: quoteId,

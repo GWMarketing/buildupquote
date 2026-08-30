@@ -574,6 +574,9 @@ class CrmApiTestCase(unittest.TestCase):
         self.assertIn("generateAudioFilename", audio)
         self.assertIn("_audioquote_", audio)
         self.assertIn("downloadBlob", audio)
+        # Alpine collapse plugin loads before Alpine core for smooth sections.
+        self.assertLess(html.index("@alpinejs/collapse"),
+                        html.index("alpinejs@3"))
         # The parser ships the spec-alias + parametric assembly extraction +
         # multi-intent segmentation.
         parser = self.client.get("/static/js/smart_voice_parser.js").text

@@ -202,6 +202,21 @@ class QuoteExtrasTestCase(unittest.TestCase):
                        "Deposit Payment", "payment_instructions", "savePaymentInstructions"):
             self.assertIn(needle, r.text, needle)
 
+    def test_builder_collapsible_sections(self):
+        """Quote Details / Contract / Line Items / Financial sections are
+        collapsible cards with chevrons and collapsed summary chips."""
+        self.register("extras-collapse@acme.com")
+        r = self.client.get("/quotes/new")
+        html = r.text
+        for needle in ("function collapseCard", "collapseCard(true)", "collapseCard(false)",
+                       "x-collapse", "chevron-up", "chevron-down",
+                       "Quote Details", "Attach Master Contract &amp; Terms",
+                       "Line Items &amp; Assemblies", "Financial Summary &amp; Margins",
+                       "shareClient ? shareClient.name", "lines.length + ' lines · '",
+                       "quote.include_contract ? 'Attached' : 'Disabled'",
+                       "Grand Total: ' + fmt(finalTotal())"):
+            self.assertIn(needle, html, needle)
+
     def test_builder_voice_engine_renders_resilient_restart(self):
         """The speech loop runs through the debounced commander: live interim
         results, 1200ms silence dispatch, 150ms onend restart, flash targets."""
