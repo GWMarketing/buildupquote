@@ -107,3 +107,83 @@ test('flush dispatches and clears the buffer immediately', () => {
   assert.strictEqual(commands.length, 1);
   assert.strictEqual(c.getBuffer(), '');
 });
+
+// ---- Background-noise resilience -------------------------------------------
+
+test('low-confidence noise finals never reach the dispatcher', async () => {
+  const commands = [];
+  const c = createVoiceCommander({ onCommand: t => commands.push(t), debounceMs: 30 });
+  c.start();
+  c.onResult([{ isFinal: true, 0: { transcript: 'um like background noise', confidence: 0.05 } }]);
+  c.onResult([{ isFinal: true, 0: { transcript: 'add fifteen gallons of paint', confidence: 0.85 } }]);
+  await sleep(60);
+  assert.strictEqual(commands.length, 1);
+  assert.strictEqual(commands[0], 'add fifteen gallons of paint');
+});
+
+test('junk-word finals are dropped even at high confidence', async () => {
+  const commands = [];
+  const c = createVoiceCommander({ onCommand: t => commands.push(t), debounceMs: 30 });
+  c.start();
+  c.onResult([{ isFinal: true, 0: { transcript: 'the and uh', confidence: 0.95 } }]);
+  c.onResult([{ isFinal: true, 0: { transcript: 'you know like', confidence: 0.9 } }]);
+  await sleep(60);
+  assert.strictEqual(commands.length, 0);
+  assert.strictEqual(c.getBuffer(), '');
+});
+
+test('consecutive identical finals are deduped into one', async () => {
+  const commands = [];
+  const c = createVoiceCommander({ onCommand: t => commands.push(t), debounceMs: 30 });
+  c.start();
+  c.onResult([{ isFinal: true, 0: { transcript: 'background noise', confidence: 0.6 } }]);
+  c.onResult([{ isFinal: true, 0: { transcript: 'background noise', confidence: 0.6 } }]);
+  assert.strictEqual(c.getBuffer(), 'background noise');
+  await sleep(60);
+  assert.strictEqual(commands.length, 1);
+});
+
+test('the same command within cooldown is not re-dispatched', async () => {
+  const commands = [];
+  const c = createVoiceCommander({
+    onCommand: t => commands.push(t), debounceMs: 20, sameCommandCooldownMs: 5000,
+  });
+  c.start();
+  c.onResult([{ isFinal: true, 0: { transcript: 'address is 1400 mockinbird lane', confidence: 0.9 } }]);
+  await sleep(40);
+  assert.strictEqual(commands.length, 1);
+  // A noisy echo of the exact same phrase must not re-fire within the cooldown.
+  c.onResult([{ isFinal: true, 0: { transcript: 'address is 1400 mockinbird lane', confidence: 0.9 } }]);
+  await sleep(40);
+  assert.strictEqual(commands.length, 1);
+  // A different command dispatches normally (after the debounce — this
+  // commander has no isTermination handler, so "mic off" is just a phrase).
+  c.onResult([{ isFinal: true, 0: { transcript: 'mic off', confidence: 0.9 } }]);
+  await sleep(40);
+  assert.strictEqual(commands.length, 2);
+  assert.strictEqual(commands[1], 'mic off');
+});
+
+test('junk interims do not surface in the live pill', () => {
+  const statuses = [];
+  const c = createVoiceCommander({ onStatus: s => statuses.push(s) });
+  c.start();
+  c.onResult([interimResult('um like')]);              // junk -> suppressed
+  assert.strictEqual(statuses[statuses.length - 1].interim, '');
+  c.onResult([interimResult('drywall 12 by')]);        // real -> shown
+  assert.strictEqual(statuses[statuses.length - 1].interim, 'drywall 12 by');
+});
+
+test('defaults are tuned for noise: 1800ms debounce, 0.3 confidence', () => {
+  const mod = require('../../app/static/js/voice_commander.js');
+  assert.strictEqual(mod.DEFAULTS.debounceMs, 1800);
+  assert.strictEqual(mod.DEFAULTS.restartMs, 150);
+  assert.strictEqual(mod.DEFAULTS.minConfidence, 0.3);
+  assert.strictEqual(mod.DEFAULTS.sameCommandCooldownMs, 2500);
+  assert.strictEqual(mod.isMeaningful('mic off'), true);
+  assert.strictEqual(mod.isMeaningful('address is 1400 mockinbird lane'), true);
+  assert.strictEqual(mod.isMeaningful('um like you know'), false);
+  assert.strictEqual(mod.isMeaningful('the and uh'), false);
+  assert.strictEqual(mod.isMeaningful(''), false);
+});
+

@@ -210,17 +210,20 @@ class QuoteExtrasTestCase(unittest.TestCase):
         html = r.text
         for needle in ("rec.continuous = true", "rec.interimResults = true",
                        "rec.lang = 'en-US'", "voiceCommander", "liveInterimTranscript",
-                       "onResult(e.results)", "isMicOffPhrase",
+                       "onResult(e.results)", "isMicOffPhrase", "debounceMs: 1800",
+                       "minConfidence: 0.3", "sameCommandCooldownMs: 2500",
                        "data-voice-field=\"title\"", "data-voice-field=\"site_address\"",
                        "data-voice-field=\"client_name\"", "data-voice-row",
                        "flashVoiceTarget", "bq-flash", "Heard"):
             self.assertIn(needle, html, needle)
-        # The commander module owns the accumulator + keepalive lifecycle.
+        # The commander module owns the accumulator + keepalive lifecycle +
+        # the background-noise gates (confidence / junk / echo-dedup / cooldown).
         js_resp = self.client.get("/static/js/voice_commander.js")
         self.assertEqual(js_resp.status_code, 200, js_resp.text)
         js = js_resp.text
-        for needle in ("speechBuffer", "DEBOUNCE_MS", "1200", "restartTimer",
-                       "150", "createVoiceCommander", "onEnd"):
+        for needle in ("speechBuffer", "DEBOUNCE_MS", "1800", "restartTimer",
+                       "150", "createVoiceCommander", "onEnd", "minConfidence",
+                       "sameCommandCooldownMs", "isMeaningful", "JUNK_RE"):
             self.assertIn(needle, js, needle)
 
 
