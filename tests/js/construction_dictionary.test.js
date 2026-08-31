@@ -37,7 +37,7 @@ test('TRADE_MATERIAL_ALIASES rewrites spoken materials to canonical names', () =
   const cases = {
     'sheetrock': 'Drywall',
     'gypsum board': 'Drywall',
-    'green board': 'Greenboard Drywall',
+    'green board': 'Water-Resistant Gypsum Board',
     'purple board': 'Purple Board Drywall',
     'cement board': 'Cement Backer Board',
     'durock': 'Cement Backer Board',
@@ -84,8 +84,8 @@ test('deduplicateWords collapses adjacent duplicates', () => {
 test('aliases match whole phrases and dedup post-replacement', () => {
   // "greenboard drywall" is matched as a whole, not "greenboard" alone, so no
   // duplicate "drywall" survives.
-  assert.strictEqual(aliasMaterial('greenboard drywall'), 'Greenboard Drywall');
-  assert.strictEqual(aliasMaterial('greenboard'), 'Greenboard Drywall');
+  assert.strictEqual(aliasMaterial('greenboard drywall'), 'Water-Resistant Gypsum Board');
+  assert.strictEqual(aliasMaterial('greenboard'), 'Water-Resistant Gypsum Board');
   // "2 by 4 studs" -> '2x4 SPF Studs studs' -> dedup -> one.
   assert.strictEqual(aliasMaterial('2 by 4 studs'), '2x4 SPF Studs');
   // "three quarter inch subfloor" dimension + alias collapse to one.

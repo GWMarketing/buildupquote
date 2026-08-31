@@ -185,6 +185,21 @@ def ensure_legacy_columns(bind):
         pa_cols = {c["name"] for c in inspector.get_columns("parametric_assemblies")}
         if "calculator" not in pa_cols:
             statements.append("ALTER TABLE parametric_assemblies ADD COLUMN calculator VARCHAR")
+    # trade_lexicon gained the rich voice/autocomplete fields (phonetics,
+    # misspellings, definition, search corpus) -- same in-place upgrade for
+    # databases created before the lexicon engine landed.
+    if "trade_lexicon" in existing_tables:
+        lex_cols = {c["name"] for c in inspector.get_columns("trade_lexicon")}
+        for col, ddl in (
+            ("uuid", "ALTER TABLE trade_lexicon ADD COLUMN uuid VARCHAR(36)"),
+            ("phonetic_respelling", "ALTER TABLE trade_lexicon ADD COLUMN phonetic_respelling TEXT"),
+            ("ipa_pronunciation", "ALTER TABLE trade_lexicon ADD COLUMN ipa_pronunciation TEXT"),
+            ("common_misspellings_typos", "ALTER TABLE trade_lexicon ADD COLUMN common_misspellings_typos JSON"),
+            ("definition_and_use", "ALTER TABLE trade_lexicon ADD COLUMN definition_and_use TEXT"),
+            ("search_vector", "ALTER TABLE trade_lexicon ADD COLUMN search_vector TEXT"),
+        ):
+            if col not in lex_cols:
+                statements.append(ddl)
     if statements:
         with bind.begin() as conn:
             for statement in statements:

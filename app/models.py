@@ -122,7 +122,11 @@ class CrewAvailability(Base):
 
 class TradeLexicon(Base):
     """Standard trade terms + the slang/spoken aliases a contractor might
-    actually use on an estimate ("sheetrock", "gyprock" ...)."""
+    actually use on an estimate ("sheetrock", "gyprock" ...).
+
+    The rich fields (phonetic respelling, IPA, misspellings, definition)
+    power the voice STT normalizer and the builder's autocomplete; they are
+    populated by app/seeds/lexicon (300+ entries per trade, idempotent)."""
 
     __tablename__ = "trade_lexicon"
 
@@ -131,6 +135,16 @@ class TradeLexicon(Base):
     term = Column(String, nullable=False, index=True)
     aliases = Column(JSON, nullable=True)
     default_unit = Column(String, nullable=True)
+    # ---- Rich lexicon fields (voice STT + manual autocomplete) ----
+    uuid = Column(String(36), unique=True, index=True)
+    phonetic_respelling = Column(Text, nullable=True)
+    ipa_pronunciation = Column(Text, nullable=True)
+    common_misspellings_typos = Column(JSON, nullable=True)
+    definition_and_use = Column(Text, nullable=True)
+    # Lowercased corpus of canonical term + aliases + misspellings for
+    # full-text search. The Postgres migration/DDL makes this a tsvector
+    # GIN index; SQLite (tests) uses it as a plain contains target.
+    search_vector = Column(Text, nullable=True)
 
 
 class ParametricAssembly(Base):

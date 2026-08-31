@@ -48,7 +48,7 @@
   var TRADE_MATERIAL_ALIASES = [
     // Drywall & Masonry
     { pattern: /\b(sheet\s*rock|gypsum\s*board|wall\s*board)\b/gi, replacement: 'Drywall' },
-    { pattern: /\b(green\s*board(?:\s*drywall)?|moisture\s*resistant\s*drywall)\b/gi, replacement: 'Greenboard Drywall' },
+    { pattern: /\b(green\s*board(?:\s*drywall)?|moisture\s*resistant\s*drywall|green\s*board\s*gypsum\s*board)\b/gi, replacement: 'Water-Resistant Gypsum Board' },
     { pattern: /\b(purple\s*board)\b/gi, replacement: 'Purple Board Drywall' },
     { pattern: /\b(cement\s*board|durock|hardie\s*backer|wonder\s*board)\b/gi, replacement: 'Cement Backer Board' },
     { pattern: /\b(joint\s*compound|drywall\s*mud|all\s*purpose\s*mud|sheetrock\s*mud)\b/gi, replacement: 'Joint Compound' },

@@ -2159,21 +2159,72 @@ function quoteBuilder(quoteId) {
       this.refreshIcons();
     },
 
-    // ---- Catalog typeahead (autocorrect) ----
+    // ---- Catalog + lexicon typeahead (autocorrect) ----
+    // Client-side lexicon cache: the generated trade_lexicon.js holds every
+    // canonical term/alias/misspelling for instant suggestions without a
+    // round-trip; the rate catalog API adds pricing on top.
+    _lexiconSearch(q, trade) {
+      const L = window.BQTradeLexicon;
+      if (!L || !L.entries) return null;
+      const ql = q.toLowerCase();
+      const scored = [];
+      const seenTerms = new Set();
+      const push = (term, tradeOf, unit, score) => {
+        if (seenTerms.has(term)) return;
+        seenTerms.add(term);
+        // Current line's trade ranks its own trade's suggestions first.
+        if (trade && tradeOf !== trade) score += 4;
+        scored.push({
+          canonical_name: term, trade: tradeOf, unit: unit,
+          default_unit_cost: null, default_trade_type: 'material', _score: score,
+        });
+      };
+      for (const e of L.entries) {
+        const t = e.term.toLowerCase();
+        if (t.startsWith(ql)) push(e.term, e.trade, e.unit, 0);
+        else if (t.includes(ql)) push(e.term, e.trade, e.unit, 1);
+      }
+      // Alias / misspelling hits from the spoken-key index (deduped by term).
+      if (L.canonicalBySpoken) {
+        for (const key of Object.keys(L.canonicalBySpoken)) {
+          if (key.startsWith(ql)) {
+            const v = L.canonicalBySpoken[key];
+            push(v.term, v.trade, v.unit, 2);
+          }
+        }
+      }
+      scored.sort((a, b) => a._score - b._score || a.canonical_name.localeCompare(b.canonical_name));
+      return scored.slice(0, 5);
+    },
+
     async autoComplete(row) {
       const q = (row.description || '').trim();
       if (q.length < 2) { row._suggestions = []; row._showSuggest = false; return; }
+      const local = this._lexiconSearch(q, row.trade);
+      let merged = local || [];
       try {
         const res = await BQ.api('/api/catalog/autocorrect?q=' + encodeURIComponent(q));
-        row._suggestions = res.results || [];
-        row._showSuggest = row._suggestions.length > 0;
-      } catch (e) { row._suggestions = []; row._showSuggest = false; }
+        const catalog = res.results || [];
+        if (local) {
+          // Catalog items (priced) win the name; lexicon fills the gaps.
+          const byName = new Map();
+          for (const c of catalog) byName.set(c.canonical_name, c);
+          for (const l of local) {
+            if (!byName.has(l.canonical_name)) byName.set(l.canonical_name, l);
+          }
+          merged = Array.from(byName.values()).slice(0, 8);
+        } else {
+          merged = catalog;
+        }
+      } catch (e) { /* keep client-side results */ }
+      row._suggestions = merged;
+      row._showSuggest = merged.length > 0;
     },
     pickSuggestion(row, s) {
-      row.description = s.canonical_name;
+      row.description = s.canonical_name || s.term;
       row.trade = s.trade || row.trade;
-      row.unit = s.unit || row.unit;
-      row.unit_cost = s.default_unit_cost != null ? s.default_unit_cost : row.unit_cost;
+      row.unit = s.unit || s.default_unit || row.unit;
+      if (s.default_unit_cost != null) row.unit_cost = s.default_unit_cost;
       if (s.default_trade_type) row.item_type = s.default_trade_type;
       row._suggestions = []; row._showSuggest = false;
     },

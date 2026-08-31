@@ -24,6 +24,17 @@
     try { ConstructionDictionary = require('./construction_dictionary.js'); } catch (e) { /* keep null */ }
   }
 
+  // The generated multi-trade lexicon (scripts/build_voice_lexicon.py ->
+  // app/static/js/trade_lexicon.js). Its voiceCanonical map rewrites STT
+  // mishearings and trade slang ("silcock" -> "Hose Bibb", "greenboard" ->
+  // "Water-Resistant Gypsum Board", "sheet rock" -> "Gypsum Wallboard").
+  var TradeLexicon = null;
+  if (typeof window !== 'undefined' && window.BQTradeLexicon) {
+    TradeLexicon = window.BQTradeLexicon;
+  } else if (typeof require === 'function') {
+    try { TradeLexicon = require('./trade_lexicon.js'); } catch (e) { /* keep null */ }
+  }
+
   // Exact spec table plus everything needed to rebuild numbers from speech.
   // The canonical table lives in the construction dictionary (so the "two by
   // four" -> "2 by 4" conversion happens before material aliases run); this
@@ -86,6 +97,37 @@
       .trim();
   }
 
+  function escapeRegExp(str) {
+    return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  // Lazily compiled from BQTradeLexicon.voiceCanonical (longest keys first).
+  var _voiceRegex = null;
+  var _voiceMap = null;
+
+  /** Rewrite curated spoken forms to lexicon canonical terms ("silcock" ->
+   *  "Hose Bibb", "greenboard" -> "Water-Resistant Gypsum Board"). The
+   *  generated map is hand-curated so plain descriptive phrases the static
+   *  dictionary owns ("water heater", "sheetrock") are never rewritten.
+   *  Case-insensitive match; surrounding text case is preserved. Single
+   *  pass; inserted text is not re-scanned. */
+  function lexiconCanonicalize(text) {
+    if (!TradeLexicon || !TradeLexicon.voiceCanonical) return String(text || '');
+    var map = TradeLexicon.voiceCanonical;
+    if (_voiceMap !== map) {
+      _voiceMap = map;
+      var keys = Object.keys(map);
+      _voiceRegex = keys.length
+        ? new RegExp('(^|[^a-zA-Z0-9])(' + keys.map(escapeRegExp).join('|') + ')(?=[^a-zA-Z0-9]|$)', 'gi')
+        : null;
+    }
+    if (!_voiceRegex) return String(text || '');
+    var t = String(text || '');
+    return t.replace(_voiceRegex, function (m, lead, key) {
+      return lead + map[key.toLowerCase()];
+    });
+  }
+
   /** Full lexical pipeline for line-item speech. */
   function normalizeSpokenTranscript(raw) {
     var text = String(raw == null ? '' : raw).toLowerCase().trim();
@@ -106,9 +148,20 @@
     // so every downstream consumer sees one canonical material name. The
     // dictionary's aliasMaterial is idempotent, so already-canonical text is
     // never double-applied.
+    // Material aliases run at the lexical layer ("sheetrock" -> "Drywall",
+    // "pot lights" -> "Recessed LED Fixtures", "greenboard" -> "Water-Resistant
+    // Gypsum Board") so every downstream consumer sees one canonical material
+    // name. The dictionary's aliasMaterial is idempotent, so already-canonical
+    // text is never double-applied.
     if (ConstructionDictionary && ConstructionDictionary.aliasMaterial) {
       text = ConstructionDictionary.aliasMaterial(text);
     }
+    // Lexicon canonicalization then fills the gaps the static dictionary
+    // doesn't know: STT mishearings and trade slang from the generated
+    // multi-trade lexicon ("silcock" -> "Hose Bibb", "copper pipe" ->
+    // "Copper Pipe Type M"). The map deliberately skips the generic words the
+    // dictionary owns ("drywall", "sheetrock"), so nothing is rewritten twice.
+    text = lexiconCanonicalize(text);
     text = text
       // "18 bucks" / "16 dollars" -> "$18" / "$16"
       .replace(/\b(\d+(?:\.\d+)?)\s*(bucks|dollars)\b/g, '$$$1')
@@ -158,6 +211,7 @@
     normalizeNumbers: normalizeNumbers,
     toTitleCase: toTitleCase,
     cleanLeadingStopWords: cleanLeadingStopWords,
+    lexiconCanonicalize: lexiconCanonicalize,
     deduplicateWords: (ConstructionDictionary && ConstructionDictionary.deduplicateWords) ||
       function (s) { return String(s || '').replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1').trim(); },
   };

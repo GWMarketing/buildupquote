@@ -51,6 +51,55 @@ from app.routers import sub_bids as sub_bids_router
 from app.routers import users as users_router
 from app.seeds.assemblies_seed import seed_assemblies_and_lexicon
 from app.seeds.trade_catalog_seed import seed_trade_catalog
+from app.seeds.lexicon._shared import seed_trade_lexicon
+
+# Stored search function for the multi-trade lexicon (PostgreSQL only; the
+# app's SQLite fallback lives in app/services/trade_lexicon_service.py).
+_LEXICON_SEARCH_FUNCTION_SQL = """
+CREATE OR REPLACE FUNCTION search_trade_lexicon(
+    q TEXT,
+    max_rows INT DEFAULT 25,
+    trade_filter TEXT DEFAULT NULL
+)
+RETURNS TABLE(
+    id INTEGER, uuid TEXT, trade_category TEXT, canonical_term TEXT,
+    spoken_aliases JSON, phonetic_respelling TEXT, ipa_pronunciation TEXT,
+    common_misspellings_typos JSON, unit_of_measure TEXT, definition_and_use TEXT,
+    match_score DOUBLE PRECISION
+) LANGUAGE plpgsql AS $$
+BEGIN
+    RETURN QUERY
+    SELECT l.id::INTEGER,
+           l.uuid,
+           l.trade,
+           l.term,
+           COALESCE(l.aliases, '[]'::json),
+           COALESCE(l.phonetic_respelling, ''),
+           COALESCE(l.ipa_pronunciation, ''),
+           COALESCE(l.common_misspellings_typos, '[]'::json),
+           COALESCE(l.default_unit, 'EA'),
+           COALESCE(l.definition_and_use, ''),
+           GREATEST(
+               similarity(l.term, q),
+               similarity(coalesce(l.search_vector, ''), q),
+               ts_rank(to_tsvector('english', coalesce(l.search_vector, '')),
+                       websearch_to_tsquery('english', q))::double precision
+           ) AS match_score
+    FROM trade_lexicon l
+    WHERE (trade_filter IS NULL OR l.trade = trade_filter)
+      AND (
+           l.term ILIKE '%' || q || '%'
+        OR COALESCE(l.aliases, '[]'::json)::text ILIKE '%' || q || '%'
+        OR COALESCE(l.common_misspellings_typos, '[]'::json)::text ILIKE '%' || q || '%'
+        OR similarity(l.term, q) > 0.2
+        OR similarity(coalesce(l.search_vector, ''), q) > 0.2
+        OR to_tsvector('english', coalesce(l.search_vector, ''))
+           @@ websearch_to_tsquery('english', q)
+      )
+    ORDER BY match_score DESC, l.term
+    LIMIT max_rows;
+END $$;
+"""
 from proposal import ContractorInfo, build_proposal, render_proposal_pdf
 from scope_parser import parse_pdf
 from trades import TRADE_OPTIONS
@@ -73,10 +122,22 @@ async def lifespan(_: FastAPI):
                 conn.execute(text("CREATE EXTENSION IF NOT EXISTS fuzzystrmatch"))
         Base.metadata.create_all(bind=engine)
         ensure_legacy_columns(engine)
+        # The multi-trade lexicon's Postgres search (functional GIN index +
+        # stored function). SQLite (dev/tests) uses the Python fallback in
+        # trade_lexicon_service.py, so this block stays PostgreSQL-only and
+        # guarded -- same pattern as the pg_trgm catalog autocorrect.
+        if engine.dialect.name == "postgresql":
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_trade_lexicon_search_vector "
+                    "ON trade_lexicon USING gin (to_tsvector('english', coalesce(search_vector, '')))"
+                ))
+                conn.execute(text(_LEXICON_SEARCH_FUNCTION_SQL))
         seed_db = SessionLocal()
         try:
             seed_assemblies_and_lexicon(seed_db)
             seed_trade_catalog(seed_db)
+            seed_trade_lexicon(seed_db)
             # Platform-admin bootstrap: every email in ADMIN_EMAILS
             # (comma-separated) is granted is_admin. Idempotent, so a deploy
             # re-runs it safely. Set in the VPS .env, e.g.
