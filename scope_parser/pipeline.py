@@ -117,6 +117,34 @@ def parse_text(text: str, pdf_info=None) -> ParsedEstimate:
                 f"line items we parsed sum to {parsed_sum:,.2f} -- something in the parse may be off"
             )
 
+    # Per-row plausibility guard: a single line item can never legitimately
+    # cost MORE than the document's own line item total (the total is the
+    # sum of all line items). When one does, the page layout scrambled a
+    # rotated/continued header into one absurd row -- seen on State Farm
+    # continuation pages ("Detach & Reset Custom  qty 400 x $6,724" =
+    # $3.2M on a $67k estimate). Flag it loudly instead of letting it
+    # dominate the quote totals. Falls back to an absolute cap when the
+    # document printed no line item total we could read.
+    line_total = summary.line_item_total if summary is not None and not summary.coverage_label else None
+    bound = line_total if line_total else 500_000.0
+    for li in items:
+        try:
+            row_value = float(li.quantity or 0) * float(li.unit_price or 0)
+        except (TypeError, ValueError):
+            row_value = 0.0
+        if row_value > bound:
+            li.needs_review = True
+            reason = (
+                f"single-line value ${row_value:,.2f} exceeds the document's line item total"
+                + (f" (${line_total:,.2f})" if line_total else " ($500,000)")
+                + " -- the page layout likely scrambled this row; correct or remove it"
+            )
+            li.review_reason = "; ".join(
+                p for p in (li.review_reason, reason) if p
+            )
+            warnings.append(f"line item #{li.number} ({li.description[:60]}...) carries an "
+                            f"implausible value (${row_value:,.2f}) and needs manual review")
+
     # The same deductible can be printed in two places: the Coverage table
     # (claim_flags.dwelling_deductible) and the summary ladder's "Less
     # Deductible" (summary.deductible). When BOTH printed numbers exist and

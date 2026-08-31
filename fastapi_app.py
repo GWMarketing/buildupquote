@@ -381,6 +381,14 @@ async def parse_pdf_upload(file: UploadFile = File(...)):
         "document_type": getattr(estimate.document_type, "label", ""),
         "deductible": workspace._effective_deductible(estimate),
         "carrier_summary": _carrier_summary_dict(estimate),
+        # How much to trust this parse -- drives the banner on the parser
+        # page (low confidence on a garbled scan is worth saying loudly).
+        "confidence": {
+            "state": getattr(estimate.confidence, "state", "low"),
+            "headline": getattr(estimate.confidence, "headline", ""),
+            "detail": getattr(estimate.confidence, "detail", ""),
+            "needs_attention": getattr(estimate.confidence, "needs_attention", True),
+        },
     }
 
 

@@ -39,6 +39,13 @@
               x-text="needsReviewCount ? needsReviewCount + ' need review' : 'no review flags'"></span>
         <span class="text-xs text-slate-400" x-text="documentType"></span>
       </div>
+      <!-- Parse confidence banner: how much to trust these numbers. Shown
+           when the parser itself says this scan/estimate needs eyes. -->
+      <div x-show="parsed && confidence && confidence.needs_attention" x-cloak
+           class="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3">
+        <p class="text-sm font-bold text-amber-700 dark:text-amber-300" x-text="confidence.headline"></p>
+        <p class="mt-1 text-xs text-amber-700/80 dark:text-amber-200/80" x-text="confidence.detail"></p>
+      </div>
       <div class="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3 lg:grid-cols-4">
         <template x-for="(v, k) in claim" :key="k">
           <div x-show="v && String(v).trim() && String(v).trim() !== '--'">
@@ -161,6 +168,7 @@ function parserPage() {
     businessFromOrg: false,
     taxRule: 'none', taxRate: 8.25, taxOptions: {}, tradeOptions: [],
     parsed: null, claim: {}, warnings: [], documentType: '', needsReviewCount: 0, deductible: null,
+    confidence: { state: '', headline: '', detail: '', needs_attention: false },
     rows: [], uploading: false, exporting: false, building: false, error: '',
     clients: [], quoteClientId: null,
     totals: { subtotal: 0, tax: 0, total: 0, count: 0, trades: [] },
@@ -211,6 +219,7 @@ function parserPage() {
         this.documentType = data.document_type || '';
         this.needsReviewCount = data.needs_review_count || 0;
         this.deductible = data.deductible;
+        this.confidence = data.confidence || { state: '', headline: '', detail: '', needs_attention: false };
         this.rows = data.rows || [];
         await this.totals();
       } catch (e) { this.error = e.message; }

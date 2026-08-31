@@ -127,10 +127,24 @@ def assess(line_items, section_totals, fingerprint, document_type) -> ParseConfi
     # document's own subtotals; a layout we don't means we may simply be
     # reading the columns wrong.
     if fingerprint.is_recognised:
-        conf.detail += (
-            " The layout is one we know, so this is the document's own arithmetic not "
-            "matching: a printed subtotal disagrees with the items above it."
-        )
+        # A recognized layout whose own subtotals disagree with us. When
+        # MORE than half disagree, the usual cause is a degraded source:
+        # a low-quality scan or a "compressed"/re-scanned copy whose text
+        # extraction is garbled -- worth saying explicitly so the
+        # contractor knows the numbers aren't just slightly off, they may
+        # be unreadable.
+        if checked and reconciled < max(1, int(round(0.5 * checked))):
+            conf.detail += (
+                " More than half the printed subtotals disagree with what we read. That "
+                "usually means the file is a low-quality scan (or a compressed copy of "
+                "one) and the text we can extract is garbled -- treat the line items "
+                "below as a rough guide and check each one."
+            )
+        else:
+            conf.detail += (
+                " The layout is one we know, so this is the document's own arithmetic not "
+                "matching: a printed subtotal disagrees with the items above it."
+            )
     else:
         conf.detail += " Send us the file and we'll add proper support for this format."
     return conf
