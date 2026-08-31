@@ -107,8 +107,8 @@ XACTIMATE = Profile(
     key="xactimate",
     label="Xactimate",
     unit_tokens=XACTIMATE_UNIT_TOKENS,                        # units.py
-    item_number_re=re.compile(r"^(\d{1,3})([a-z])?\.\s+(\S.*)$"),   # line_items.py
-    totals_re=re.compile(r"^(Totals?):\s*(.*)$"),                   # line_items.py
+    item_number_re=re.compile(r"^\*?\s*(\d{1,3})([a-z])?\.\s+(\S.*)$"),   # line_items.py
+    totals_re=re.compile(r"^(?:[A-Za-z][A-Za-z0-9'&()/., -]*?\s+)?(Totals?):\s*(.*)$"),  # line_items.py
     continued_re=re.compile(r"^CONTINUED\s*-\s*(.+)$", re.IGNORECASE),
     page_furniture_re=re.compile(r"Page:\s*\d+|^\d{1,3}$"),         # line_items.py
     note_triggers=_XACT_NOTE_TRIGGERS,                              # line_items.py
@@ -118,6 +118,10 @@ XACTIMATE = Profile(
         "PRICE": "unit_price",
         "TAX": "tax",
         "O&P": "overhead_profit",
+        # State Farm prints the overhead & profit column as "GCO&P"
+        # (General Contractor O&P) under the same QUANTITY/UNIT PRICE
+        # layout as Xactimate's other columns.
+        "GCO&P": "overhead_profit",
         "RCV": "rcv",
         "AGE/LIFE": "age_life",
         "COND.": "condition",
@@ -125,6 +129,9 @@ XACTIMATE = Profile(
         "DEP%": "depreciation_pct",
         "DEPREC.": "depreciation",
         "DEPREC": "depreciation",
+        # USAA's Xactimate export spells the depreciation column out in
+        # full ("... RCV DEPRECIATION ACV") instead of the usual DEPREC.
+        "DEPRECIATION": "depreciation",
         "ACV": "acv",
         # Xactimate's contractor-facing export prints three ACTION cost
         # columns instead of one price column, and a tax-inclusive total.

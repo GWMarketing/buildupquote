@@ -162,10 +162,14 @@ def parse_number(token):
     Returns None (rather than raising) on anything unexpected so callers
     can flag the row for manual review instead of crashing or silently
     mis-parsing a financial figure.
+
+    A trailing/leading asterisk is a common Xactimate-family flag (\"*\"
+    = \"factored in\" / see note) attached to a price, e.g. \"12.55*\". It
+    is a flag, not part of the number, so it is stripped first.
     """
     if token is None:
         return None
-    t = token.strip().replace("$", "").replace(",", "")
+    t = token.strip().replace("$", "").replace(",", "").strip("*")
     try:
         return float(t)
     except ValueError:

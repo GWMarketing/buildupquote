@@ -950,6 +950,20 @@
       ],
       "section": "Labor Minimums Applied",
       "skipped": false
+    },
+    {
+      "closest_diff": null,
+      "matched": true,
+      "parsed_rcv_sum": 0.0,
+      "printed_numbers": [
+        720.79,
+        8086.92,
+        35043.38,
+        541.05,
+        34502.33
+      ],
+      "section": "WILLIAMS1",
+      "skipped": true
     }
   ],
   "warnings": [

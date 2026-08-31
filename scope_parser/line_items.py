@@ -344,8 +344,16 @@ def parse_items_and_sections(lines, profile=XACTIMATE):
             finalize()
             remainder = m_total.group(2)
             label = _split_leading_label(remainder) or current_section
-            numbers = [parse_number(n) for n in MONEY_RE.findall(remainder)]
-            section_totals.append((label, [n for n in numbers if n is not None], round(since_last_total, 2)))
+            numbers = [n for n in (parse_number(t) for t in MONEY_RE.findall(remainder)) if n is not None]
+            if not numbers:
+                # A matched "Totals:"/"Total:" line with nothing numeric on it
+                # is a section AREA label ("Area Totals: Main Level"), not a
+                # money checkpoint -- skipping it (rather than recording an
+                # empty, always-mismatched checkpoint) keeps the running sum
+                # honest. See the USAA/State Farm layouts that print room-name
+                # legends right before a real "Totals: <room> <numbers>".
+                continue
+            section_totals.append((label, numbers, round(since_last_total, 2)))
             since_last_total = 0.0
             continue
 

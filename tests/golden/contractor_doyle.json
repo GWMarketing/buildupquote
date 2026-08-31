@@ -3832,6 +3832,16 @@
       ],
       "section": "Labor Minimums Applied",
       "skipped": false
+    },
+    {
+      "closest_diff": null,
+      "matched": true,
+      "parsed_rcv_sum": 0.0,
+      "printed_numbers": [
+        57976.93
+      ],
+      "section": "24545-VALE-LN",
+      "skipped": true
     }
   ],
   "warnings": []
