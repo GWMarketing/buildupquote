@@ -67,7 +67,7 @@
 </header>
 
 <!-- Hero -->
-<section class="relative overflow-hidden pt-28 pb-16 sm:pt-32 sm:pb-20">
+<section class="relative overflow-hidden pt-28 pb-28 sm:pt-32 sm:pb-32">
   <div class="bg-grid pointer-events-none absolute inset-0"></div>
   <div class="pointer-events-none absolute -top-40 left-1/2 h-96 w-[48rem] -translate-x-1/2 rounded-full bg-amber-500/10 blur-3xl"></div>
   <div class="relative mx-auto grid max-w-7xl items-center gap-12 px-4 lg:grid-cols-2">
@@ -147,7 +147,7 @@
         <!-- Line items -->
         <div class="mt-4 overflow-hidden rounded-xl border border-slate-800">
           <table class="w-full text-left text-xs">
-            <thead class="bg-slate-800/70 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <thead class="bg-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-300">
               <tr>
                 <th class="px-3 py-2">Trade</th>
                 <th class="px-3 py-2">Description</th>
@@ -156,27 +156,27 @@
                 <th class="px-3 py-2 text-right">Your Price</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800 text-slate-300">
+            <tbody class="divide-y divide-slate-200 bg-white text-slate-700">
               <tr>
                 <td class="px-3 py-2">Framing</td>
                 <td class="px-3 py-2">Interior wall framing</td>
                 <td class="px-3 py-2 text-right">14</td>
                 <td class="px-3 py-2 text-right">$14.00</td>
-                <td class="px-3 py-2 text-right font-bold text-white">$235.20</td>
+                <td class="px-3 py-2 text-right font-bold text-slate-900">$235.20</td>
               </tr>
               <tr>
                 <td class="px-3 py-2">Drywall</td>
                 <td class="px-3 py-2">Hang &amp; finish drywall</td>
                 <td class="px-3 py-2 text-right">6</td>
                 <td class="px-3 py-2 text-right">$29.80</td>
-                <td class="px-3 py-2 text-right font-bold text-white">$214.56</td>
+                <td class="px-3 py-2 text-right font-bold text-slate-900">$214.56</td>
               </tr>
               <tr>
                 <td class="px-3 py-2">Labor</td>
                 <td class="px-3 py-2">Skilled labor crew</td>
                 <td class="px-3 py-2 text-right">12.5</td>
                 <td class="px-3 py-2 text-right">$37.50</td>
-                <td class="px-3 py-2 text-right font-bold text-white">$562.50</td>
+                <td class="px-3 py-2 text-right font-bold text-slate-900">$562.50</td>
               </tr>
             </tbody>
           </table>
@@ -199,8 +199,8 @@
         </div>
       </div>
 
-      <!-- Floating acceptance badge -->
-      <div class="absolute -bottom-5 -left-4 flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 shadow-2xl">
+      <!-- Floating acceptance badge (centered, ~1cm below the preview card) -->
+      <div class="absolute left-1/2 top-full mt-[1cm] flex -translate-x-1/2 items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 shadow-2xl">
         <span class="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
           <i data-lucide="check-check" class="h-5 w-5"></i>
         </span>
