@@ -7,10 +7,11 @@ const Lex = require('../../app/static/js/trade_lexicon.js');
 const V = require('../../app/static/js/voice_normalizer.js');
 
 const EXPECTED_TRADES = ['Framing', 'Plumbing', 'Electrical', 'HVAC',
-  'Drywall & Paint', 'Roofing & Siding', 'Concrete & Masonry'];
+  'Drywall & Paint', 'Roofing & Siding', 'Concrete & Masonry',
+  'carpentry', 'drywall', 'electrical', 'general', 'plumbing', 'tiling'];
 
 test('generated lexicon covers all 7 trades at 300+ each', () => {
-  assert.ok(Lex.total >= 2100, `total ${Lex.total}`);
+  assert.ok(Lex.total >= 3800, `total ${Lex.total}`);
   const counts = {};
   for (const e of Lex.entries) {
     counts[e.trade] = (counts[e.trade] || 0) + 1;

@@ -31,11 +31,11 @@ class LexiconSeedTestCase(unittest.TestCase):
     def test_every_trade_has_300_plus_rows(self):
         counts = {}
         for families, trade in _load_providers():
-            counts[trade] = len(build_rows(families, trade))
+            counts[trade] = counts.get(trade, 0) + len(build_rows(families, trade))
         for trade, n in counts.items():
             self.assertGreaterEqual(
                 n, 300, f"{trade} has only {n} rows (spec floor is 300)")
-        self.assertGreaterEqual(sum(counts.values()), 2100)
+        self.assertGreaterEqual(sum(counts.values()), 3600)
 
     def test_derived_fields_are_populated(self):
         for families, trade in _load_providers():
@@ -180,7 +180,7 @@ class LexiconCsvTestCase(unittest.TestCase):
             parsed = list(reader)
         self.assertEqual(len(parsed), len(rows))
         self.assertIsInstance(json.loads(parsed[0]["spoken_aliases"]), list)
-        self.assertGreaterEqual(len(parsed), 2100)
+        self.assertGreaterEqual(len(parsed), 3800)
 
 
 if __name__ == "__main__":

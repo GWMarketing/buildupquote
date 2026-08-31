@@ -279,11 +279,12 @@ def build_rows(families: list, default_trade: str) -> list:
 
 def _load_providers():
     from app.seeds.lexicon import (  # noqa: PLC0415
-        concrete_masonry, drywall_paint, electrical, framing,
-        hvac, plumbing, roofing_siding,
+        carpentry_finish, concrete_masonry, drywall_paint, electrical, framing,
+        general, hvac, plumbing, roofing_siding, tiling,
     )
 
     return [
+        # New canonical trades (each ~300 rows).
         (framing.FAMILIES, framing.TRADE),
         (plumbing.FAMILIES, plumbing.TRADE),
         (electrical.FAMILIES, electrical.TRADE),
@@ -291,6 +292,16 @@ def _load_providers():
         (drywall_paint.FAMILIES, drywall_paint.TRADE),
         (roofing_siding.FAMILIES, roofing_siding.TRADE),
         (concrete_masonry.FAMILIES, concrete_masonry.TRADE),
+        # The app's legacy trade names, filled to the same ~300+ floor so the
+        # app's existing trade categories and voice recognition recognize
+        # every trade equally. Overlapping trades reuse the matching content
+        # (accepted redundancy -- consolidated in a later taxonomy pass).
+        (framing.FAMILIES + carpentry_finish.FAMILIES, "carpentry"),
+        (drywall_paint.FAMILIES, "drywall"),
+        (electrical.FAMILIES, "electrical"),
+        (plumbing.FAMILIES, "plumbing"),
+        (general.FAMILIES, general.TRADE),
+        (tiling.FAMILIES, tiling.TRADE),
     ]
 
 
