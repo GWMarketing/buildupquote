@@ -132,6 +132,9 @@ def ensure_legacy_columns(bind):
         line_cols = {c["name"] for c in inspector.get_columns("quote_line_items")}
         if "is_optional" not in line_cols:
             statements.append("ALTER TABLE quote_line_items ADD COLUMN is_optional BOOLEAN DEFAULT FALSE")
+        # Per-line adjuster remarks.
+        if "notes" not in line_cols:
+            statements.append("ALTER TABLE quote_line_items ADD COLUMN notes TEXT")
         # Change orders + contingency landed with the advanced estimating pack.
         if "parent_quote_id" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN parent_quote_id INTEGER")
@@ -146,6 +149,11 @@ def ensure_legacy_columns(bind):
             statements.append("ALTER TABLE quotes ADD COLUMN expiration_days INTEGER DEFAULT 14")
         if "scope_dimensions" not in quote_cols:
             statements.append("ALTER TABLE quotes ADD COLUMN scope_dimensions JSON")
+        # Adjuster notes from the carrier estimate, with the export toggle.
+        if "adjuster_notes" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN adjuster_notes TEXT")
+        if "include_adjuster_notes" not in quote_cols:
+            statements.append("ALTER TABLE quotes ADD COLUMN include_adjuster_notes BOOLEAN DEFAULT TRUE")
     # Organization profile fields landed after the first organizations
     # table was created -- same idempotent in-place upgrade. `bio` superseded
     # the old `description` column, so existing databases get an in-place

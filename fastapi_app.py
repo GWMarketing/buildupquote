@@ -272,6 +272,9 @@ class ProposalRequest(BaseModel):
     tax_rule: str = tax.NONE
     tax_rate_pct: float = 0.0
     deductible: Optional[float] = None
+    # Document-level adjuster remarks plus the include-in-export toggle.
+    notes: list = []
+    include_notes: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -376,6 +379,9 @@ async def parse_pdf_upload(file: UploadFile = File(...)):
     return {
         "rows": _json_safe(rows),
         "claim_fields": dict(estimate.metadata.fields),
+        # The adjuster own written remarks outside the line items -- shown
+        # on the parser page and optionally exported with the proposal.
+        "notes": list(estimate.document_notes),
         "warnings": estimate.warnings,
         "needs_review_count": len(estimate.needs_review_items),
         "document_type": getattr(estimate.document_type, "label", ""),
@@ -415,7 +421,10 @@ async def csv_export(req: ProposalRequest):
     """The currently-included lines, as a downloadable CSV."""
     rows = _frame(req.rows)
     included = rows[rows["Include"].fillna(False)]
-    csv_bytes = included.drop(columns=["Needs Review", "Review Note"], errors="ignore").to_csv(index=False)
+    drop = ["Needs Review", "Review Note"]
+    if not req.include_notes:
+        drop.append("Notes")
+    csv_bytes = included.drop(columns=drop, errors="ignore").to_csv(index=False)
     filename = workspace._export_basename(req.business.name, req.claim_fields) + ".csv"
     return Response(
         csv_bytes,
@@ -429,6 +438,13 @@ async def proposal_export(req: ProposalRequest):
     """The branded proposal PDF, built from the rows exactly like the
     dashboard's "Branded proposal PDF" button."""
     rows = _frame(req.rows)
+    # The include-in-export toggle: when it is off, neither the per-line
+    # Notes nor the document-level remarks reach the PDF.
+    if req.include_notes:
+        remarks = "\n".join(str(n) for n in req.notes if str(n).strip())
+    else:
+        rows["Notes"] = ""
+        remarks = ""
     logo_path = _save_logo(req.business.logo_data_url)
     try:
         contractor = ContractorInfo(
@@ -448,6 +464,7 @@ async def proposal_export(req: ProposalRequest):
             tax_rule=req.tax_rule,
             tax_rate_pct=req.tax_rate_pct,
             deductible_amount=deductible,
+            remarks=remarks,
         )
         out_path = os.path.join(tempfile.gettempdir(), "buildupquote_proposal.pdf")
         render_proposal_pdf(data, out_path)

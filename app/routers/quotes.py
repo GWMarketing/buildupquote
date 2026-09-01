@@ -72,6 +72,9 @@ def _quote_out(quote: models.Quote) -> dict:
         "payment_instructions": quote.payment_instructions,
         "warranty_terms": quote.warranty_terms,
         "selected_optional_line_ids": quote.selected_optional_line_ids,
+        "adjuster_notes": quote.adjuster_notes,
+        "include_adjuster_notes": bool(quote.include_adjuster_notes)
+        if quote.include_adjuster_notes is not None else True,
         "rooms": quote.rooms,
         "parent_quote_id": quote.parent_quote_id,
         "change_order_code": quote.change_order_code,
@@ -230,6 +233,11 @@ def create_quote_from_parse(
         organization_id=current_user.organization_id,
         client_id=payload.client_id,
         title=_parse_to_title(payload.claim_fields),
+        # Document-level adjuster remarks trail the line items in the
+        # carrier estimate -- carried into the quote so the builder can
+        # show them and the PDF can export them.
+        adjuster_notes=
+            "\n".join(str(n) for n in payload.notes if str(n).strip()) or None,
     )
     db.add(quote)
     db.flush()
@@ -264,6 +272,7 @@ def create_quote_from_parse(
             markup_percent=markup,
             line_total=line_total,
             position=position,
+            notes=str(row.get("Notes") or "").strip() or None,
         ))
         position += 1
 
@@ -296,7 +305,8 @@ def update_quote(
     for field in ("title", "site_address", "status", "client_id", "tax_rate_percent",
                   "include_contract", "custom_contract_override",
                   "contingency_percent", "contingency_visible", "permit_fee",
-                  "expiration_days", "exclusions", "payment_instructions", "warranty_terms"):
+                  "expiration_days", "exclusions", "payment_instructions", "warranty_terms",
+                  "adjuster_notes", "include_adjuster_notes"):
         value = getattr(payload, field, None)
         if value is not None:
             setattr(quote, field, value)
@@ -346,6 +356,7 @@ def save_lines(
             line_total=line_total,
             position=position,
             is_optional=bool(line.is_optional),
+            notes=line.notes,
         ))
     db.flush()
     _recalculate_quote_totals(db, quote)

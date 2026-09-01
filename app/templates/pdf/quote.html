@@ -70,6 +70,18 @@
             border-top: 1.5px solid #cbd5e1;
         }
 
+        .line-note {
+            margin-top: 3px; font-size: 7.5pt; color: #64748b; line-height: 1.35;
+            white-space: pre-wrap;
+        }
+        .remarks-block { margin-top: 14px; page-break-inside: avoid; }
+        .remarks-block .box-title { margin-bottom: 6px; }
+        .remarks-text {
+            background: #f8fafc; border-left: 3px solid #f59e0b;
+            padding: 8px 10px; font-size: 8.5pt; color: #334155;
+            white-space: pre-wrap; line-height: 1.45; margin: 0;
+        }
+
         .summary-wrapper { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .terms-box { width: 55%; vertical-align: top; padding-right: 20px; font-size: 8pt; color: #475569; }
         .totals-table { width: 100%; border-collapse: collapse; }
@@ -187,7 +199,7 @@
             {% for line in lines %}
             <tr>
                 <td><span style="font-weight: 600; color: #334155;">{{ line.trade }}</span></td>
-                <td>{{ line.description }}{% if line.is_optional %} <span style="font-size: 7.5pt; font-weight: 700; color: #b45309;">— OPTIONAL UPGRADE (not included in total)</span>{% endif %}</td>
+                <td>{{ line.description }}{% if line.is_optional %} <span style="font-size: 7.5pt; font-weight: 700; color: #b45309;">— OPTIONAL UPGRADE (not included in total)</span>{% endif %}{% if line.notes and quote.include_adjuster_notes %}<div class="line-note">{{ line.notes }}</div>{% endif %}</td>
                 <td style="text-align: right;">{{ "%.3f"|format(line.quantity) }}</td>
                 <td>{{ line.unit }}</td>
                 <td style="text-align: right;">{{ (line.unit_cost)|money(currency) }}</td>
@@ -197,7 +209,7 @@
         </tbody>
     </table>
 
-    <!-- Totals & Payment Terms -->
+    {% if quote.adjuster_notes and quote.include_adjuster_notes %}<table class="summary-wrapper"><tr><td class="terms-box"><div class="box-title">Adjuster Notes &amp; Remarks</div><p class="remarks-text">{{ quote.adjuster_notes }}</p></td><td style="width: 45%; vertical-align: top;"></td></tr></table>{% endif %}    
     <table class="summary-wrapper">
         <tr>
             <td class="terms-box">

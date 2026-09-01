@@ -316,6 +316,11 @@ class Quote(Base):
     # Optional add-ons the client actually selected on the public proposal and
     # included at signature (line-item ids). Folded into the totals on accept.
     selected_optional_line_ids = Column(JSON, nullable=True)
+    # Adjuster remarks that trail the line items in the carrier estimate,
+    # plus the include-in-export toggle (default on -- the contractor turns
+    # it off if they want a clean client-facing document).
+    adjuster_notes = Column(Text, nullable=True)
+    include_adjuster_notes = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("Client", back_populates="quotes")
@@ -344,6 +349,10 @@ class QuoteLineItem(Base):
     markup_percent = Column(Numeric(5, 2), default=20.00)
     line_total = Column(Numeric(12, 2), nullable=False, default=0)
     position = Column(Integer, default=0)
+    # The adjuster written remarks attached to this line (from the carrier
+    # estimate PDF), kept so the contractor can see and optionally export
+    # exactly what the adjuster wrote.
+    notes = Column(Text, nullable=True)
     # Interactive client upgrade: optional add-ons are excluded from the
     # default grand total and offered on the public proposal as checkboxes;
     # the client's selections are folded into the quote on signature.

@@ -45,6 +45,42 @@ _NOTE_TRIGGERS = re.compile(
     re.IGNORECASE,
 )
 
+# Headings that open a block of the adjuster own writing after the line
+# items ("Remarks:", "Comments:", "Scope of Work Notes:" ...). Kept with
+# the prose sentences that follow them as document-level notes -- see
+# ParsedEstimate.document_notes.
+_DOC_NOTE_HEADING_RE = re.compile(
+    r"^(?:Remarks?|Comments?|Additional Comments?|Notes?|Scope of Work(?: Notes?)?|"
+    r"Special (?:Notes?|Conditions|Instructions)|Conditions|Exclusions?|"
+    r"Recommendations?|Explanation of (?:the )?(?:Estimates?|Scope)|"
+    r"Adjuster[\u2019]?s? (?:Notes?|Comments?|Remarks?)):?$",
+    re.IGNORECASE,
+)
+
+
+def _is_document_note_line(line):
+    """A free-text line (no active line item) that reads like the
+    adjuster written remarks rather than page furniture or a stray label.
+    Two accepted shapes:
+
+      1. an explicit note-section heading ("Remarks:", "Comments:", ...);
+      2. a real sentence -- at least three words AND ending in sentence
+         punctuation. Section titles almost never end in a period, so this
+         keeps room names and letterhead runs out while catching the prose
+         blocks that trail the line items.
+    """
+    s = line.strip()
+    if not s:
+        return False
+    if _DOC_NOTE_HEADING_RE.match(s):
+        return True
+    if _PAGE_FURNITURE_RE.search(s):
+        return False
+    words = s.split()
+    if len(words) < 3:
+        return False
+    return s.rstrip().endswith((".", "!", "?", ";", "\u201d"))
+
 
 def parse_item_number(line, profile=XACTIMATE):
     if profile.item_number_re is None:
@@ -315,6 +351,7 @@ def parse_items_and_sections(lines, profile=XACTIMATE):
     current_schema = list(profile.default_schema or schema.DEFAULT_SCHEMA)
     item = None
     since_last_total = 0.0
+    doc_notes = []
 
     def finalize():
         nonlocal item, since_last_total
@@ -411,6 +448,15 @@ def parse_items_and_sections(lines, profile=XACTIMATE):
         candidate = _title_candidate(stripped)
         if candidate:
             pending_title = candidate
+            continue
+
+        # Not a title and no active line item: this is free text the
+        # parser otherwise drops. When it reads like the adjuster own
+        # writing (an explicit note heading, or a real sentence), keep it
+        # as a document-level note instead of losing it -- see
+        # ParsedEstimate.document_notes.
+        if _is_document_note_line(stripped):
+            doc_notes.append(stripped)
 
     finalize()
-    return items, section_totals, warnings
+    return items, section_totals, warnings, doc_notes

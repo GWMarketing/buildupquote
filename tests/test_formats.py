@@ -200,7 +200,7 @@ class GenericReaderTests(unittest.TestCase):
     def _compare(self, name):
         reference = parse_text(fixture(name))
         kept, _ = noise_filter.strip_noise(fixture(name).splitlines())
-        items, _, _ = parse_generic(kept)
+        items, _, _, _ = parse_generic(kept)
         by_number = {}
         for item in items:
             by_number.setdefault(item.number, item)
@@ -257,7 +257,7 @@ class GenericReaderTests(unittest.TestCase):
             "Install underlayment 20.00 SQ 45.00 900.00",
             "Total: 1,778.76",
         ]
-        items, totals, _ = parse_generic(lines)
+        items, totals, _, _ = parse_generic(lines)
         self.assertEqual(len(items), 3)
         self.assertEqual([i.number for i in items], ["1", "2", "3"])
         self.assertEqual(items[0].unit_price, 2.86)

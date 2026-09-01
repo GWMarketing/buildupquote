@@ -252,6 +252,10 @@ class ParsedEstimate:
     section_totals: list  # list[SectionTotals]
     discarded_lines: list  # noise/unrecognized lines, kept for debugging
     warnings: list
+    # Free-text prose the parser found outside any line item -- trailing
+    # adjuster remarks, scope-of-work paragraphs, note blocks. Kept so the
+    # contractor can see (and optionally export) what the adjuster wrote.
+    document_notes: list = field(default_factory=list)
     claim_flags: ClaimFlags = field(default_factory=ClaimFlags)
 
     # --- what this document IS, as opposed to what it says -----------

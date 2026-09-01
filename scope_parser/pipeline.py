@@ -41,9 +41,9 @@ def parse_text(text: str, pdf_info=None) -> ParsedEstimate:
     # price and total columns arithmetically. The two are separate
     # scanners on purpose, so work on one can never disturb the other.
     if profile.column_strategy == "arithmetic":
-        items, section_totals_raw, li_warnings = generic_reader.parse_generic(kept_lines, profile)
+        items, section_totals_raw, li_warnings, doc_notes = generic_reader.parse_generic(kept_lines, profile)
     else:
-        items, section_totals_raw, li_warnings = line_items.parse_items_and_sections(
+        items, section_totals_raw, li_warnings, doc_notes = line_items.parse_items_and_sections(
             kept_lines, profile
         )
     # Square-footage/measurement reference parsing is DISABLED (2026-08-27,
@@ -173,6 +173,7 @@ def parse_text(text: str, pdf_info=None) -> ParsedEstimate:
         measurements=[],
         section_totals=section_totals,
         discarded_lines=discarded_lines,
+        document_notes=doc_notes,
         warnings=warnings,
         claim_flags=flags,
         fingerprint=fp,

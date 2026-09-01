@@ -138,6 +138,18 @@
     margin: 14px 0; page-break-inside: avoid;
   }
 
+  /* ---- adjuster remarks (export toggle) ---- */
+  .remarks { margin: 16px 0 20px 0; page-break-inside: avoid; }
+  .remarks h3 {
+    margin: 0 0 6px 0; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .6px;
+    color: #0F2A43; border-bottom: 1.5px solid #C9D6E3; padding-bottom: 4px;
+  }
+  .remarks-text {
+    margin: 8px 0 0 0; font-size: 9pt; color: #5B6B7C; line-height: 1.5;
+    white-space: pre-wrap; background: #F4F7FA; border-left: 3px solid #0F6CBD;
+    padding: 8px 10px; border-radius: 0 4px 4px 0;
+  }
+
   /* ---- terms ---- */
   .terms {
     font-size: 9.5pt; color: #43505C; line-height: 1.5;
@@ -279,6 +291,13 @@
       {% endif %}
     </table>
   </div>
+
+  {% if data.remarks %}
+  <div class="remarks">
+    <h3>Adjuster Notes &amp; Remarks</h3>
+    <p class="remarks-text">{{ data.remarks }}</p>
+  </div>
+  {% endif %}
 
   {% if data.total_price >= 1000 %}
   <div class="tx-deductible-notice">{{ data.deductible_notice }}</div>

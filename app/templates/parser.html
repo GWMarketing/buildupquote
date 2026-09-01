@@ -79,7 +79,7 @@
       <tbody>
         <template x-for="(row, i) in rows" :key="i">
           <tr>
-            <td><input type="checkbox" x-model="row['Include']" @change="totals()"></td>
+            <td><input type="checkbox" x-model="row['Include']"></td>
             <td class="text-xs text-slate-400" x-text="row['#']"></td>
             <td>
               <select class="bq-input" x-model="row['Trade']">
@@ -88,18 +88,46 @@
               </select>
             </td>
             <td><input class="bq-input" x-model="row['Description']" placeholder="Description"></td>
-            <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" step="0.001" x-model.number="row['Qty']" @change="totals()"></td>
+            <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" step="0.001" x-model.number="row['Qty']"></td>
             <td><input class="bq-input w-16" x-model="row['Unit']"></td>
-            <td class="text-right"><input class="bq-input w-24 text-right" type="number" min="0" step="0.01" x-model.number="row['Unit Cost']" @change="totals()"></td>
-            <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" max="100" step="0.5" x-model.number="row['Margin %']" @change="totals()"></td>
-            <td><input type="checkbox" x-model="row['Material']" @change="totals()"></td>
+            <td class="text-right"><input class="bq-input w-24 text-right" type="number" min="0" step="0.01" x-model.number="row['Unit Cost']"></td>
+            <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" max="100" step="0.5" x-model.number="row['Margin %']"></td>
+            <td><input type="checkbox" x-model="row['Material']"></td>
             <td class="text-right font-semibold text-slate-900 dark:text-slate-100" x-text="fmt(lineTotal(row))"></td>
             <td><input type="checkbox" x-model="row['Needs Review']"></td>
-            <td><button class="text-slate-400 hover:text-red-600" @click="removeRow(i)">✕</button></td>
+            <td class="whitespace-nowrap">
+              <button class="text-slate-400 hover:text-amber-600" @click="row._notesOpen = !row._notesOpen"
+                      :title="(row['Notes'] || '').trim() ? 'Adjuster note attached' : 'Add an adjuster note'">
+                <i data-lucide="sticky-note" class="h-4 w-4" :class="row['Notes'] ? 'text-amber-500' : ''"></i>
+              </button>
+              <button class="text-slate-400 hover:text-red-600" @click="removeRow(i)">✕</button>
+            </td>
+          </tr>
+          <tr x-show="row._notesOpen" x-cloak class="bg-slate-50 dark:bg-slate-800/50">
+            <td colspan="12" class="px-4 py-2">
+              <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Adjuster note for this line</label>
+              <textarea x-model="row['Notes']" rows="2" class="bq-input w-full text-xs"
+                        placeholder="What the adjuster wrote about this line — editable, and included on the export when the toggle is on."></textarea>
+            </td>
           </tr>
         </template>
       </tbody>
     </table>
+  </div>
+
+  <!-- Adjuster notes &amp; remarks (everything the adjuster wrote after the line items) -->
+  <div class="bq-card p-5" x-show="parsed" x-cloak>
+    <div class="card-title">
+      <span class="icon-chip sm bg-amber-500/10 text-amber-600 dark:text-amber-400"><i data-lucide="sticky-note" class="h-4 w-4"></i></span>
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-white">Adjuster notes &amp; remarks</h2>
+    </div>
+    <p class="mt-1 text-xs text-slate-400">Everything the adjuster wrote after the line items — scope-of-work prose, comments, and inspection notes. Editable here, and included in the exported proposal &amp; CSV when the toggle is on.</p>
+    <textarea x-model="claimNotes" rows="5" class="bq-input mt-3 w-full font-mono text-xs"
+              placeholder="Adjuster remarks will appear here after parsing…"></textarea>
+    <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs text-slate-400">
+      <input type="checkbox" x-model="includeNotes" class="accent-amber-500">
+      <span>Include adjuster notes &amp; remarks in the exported proposal &amp; CSV</span>
+    </label>
   </div>
 
   <!-- Totals + tax -->
@@ -107,13 +135,13 @@
     <div class="bq-card p-5 lg:col-span-1">
       <h2 class="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Contract & tax</h2>
       <label class="mb-1 block text-xs font-medium text-slate-500">Contract type</label>
-      <select class="bq-input" x-model="taxRule" @change="totals()">
+      <select class="bq-input" x-model="taxRule">
         <template x-for="(label, key) in taxOptions" :key="key">
           <option :value="key" x-text="label"></option>
         </template>
       </select>
       <label class="mb-1 mt-3 block text-xs font-medium text-slate-500">Tax rate (%)</label>
-      <input class="bq-input" type="number" min="0" step="0.05" x-model.number="taxRate" @change="totals()">
+      <input class="bq-input" type="number" min="0" step="0.05" x-model.number="taxRate">
       <label class="mb-1 mt-3 block text-xs font-medium text-slate-500">Deductible ($)</label>
       <input class="bq-input" type="number" min="0" step="100" x-model.number="deductible">
     </div>
@@ -121,15 +149,15 @@
     <div class="bq-card p-5 lg:col-span-2">
       <h2 class="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Your price</h2>
       <dl class="space-y-1.5 text-sm">
-        <div class="flex justify-between"><dt class="text-slate-500">Subtotal</dt><dd class="font-medium" x-text="BQ.money(totals.subtotal)"></dd></div>
-        <div class="flex justify-between"><dt class="text-slate-500">Sales tax</dt><dd class="font-medium" x-text="BQ.money(totals.tax)"></dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Subtotal</dt><dd class="font-medium" x-text="BQ.money(liveTotals().subtotal)"></dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Sales tax</dt><dd class="font-medium" x-text="BQ.money(liveTotals().tax)"></dd></div>
         <div class="flex justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900 dark:border-slate-700 dark:text-white">
-          <dt>Contract price</dt><dd x-text="BQ.money(totals.total)"></dd>
+          <dt>Contract price</dt><dd x-text="BQ.money(liveTotals().total)"></dd>
         </div>
       </dl>
-      <div class="mt-4 border-t border-slate-100 pt-3 dark:border-slate-700" x-show="totals.trades && totals.trades.length">
+      <div class="mt-4 border-t border-slate-100 pt-3 dark:border-slate-700" x-show="tradeTotals().length">
         <p class="mb-1 text-xs font-medium text-slate-500">By trade</p>
-        <template x-for="t in totals.trades" :key="t.Trade">
+        <template x-for="t in tradeTotals()" :key="t.Trade">
           <div class="flex justify-between text-sm"><span class="text-slate-600" x-text="t.Trade"></span><span x-text="BQ.money(t.Subtotal)"></span></div>
         </template>
       </div>
@@ -171,7 +199,7 @@ function parserPage() {
     confidence: { state: '', headline: '', detail: '', needs_attention: false },
     rows: [], uploading: false, exporting: false, building: false, error: '',
     clients: [], quoteClientId: null,
-    totals: { subtotal: 0, tax: 0, total: 0, count: 0, trades: [] },
+    claimNotes: '', includeNotes: true,
 
     async init() {
       try {
@@ -220,8 +248,8 @@ function parserPage() {
         this.needsReviewCount = data.needs_review_count || 0;
         this.deductible = data.deductible;
         this.confidence = data.confidence || { state: '', headline: '', detail: '', needs_attention: false };
-        this.rows = data.rows || [];
-        await this.totals();
+        this.rows = (data.rows || []).map(r => ({ ...r, _notesOpen: false }));
+        this.claimNotes = (data.notes || []).join('\n');
       } catch (e) { this.error = e.message; }
       this.uploading = false;
     },
@@ -231,7 +259,12 @@ function parserPage() {
       try {
         const q = await BQ.api('/api/quotes/from-parse', {
           method: 'POST',
-          body: { rows: this.rows, claim_fields: this.claim, client_id: this.quoteClientId },
+          body: {
+            rows: this.rows, claim_fields: this.claim, client_id: this.quoteClientId,
+            // Document-level adjuster remarks, persisted on the quote so
+            // the builder can show them and the PDF can export them.
+            notes: this.claimNotes.split('\n').map(s => s.trim()).filter(Boolean),
+          },
         });
         BQ.toast('Quote created — opening in the builder', 'success');
         location.href = '/quotes/' + q.id;
@@ -239,14 +272,13 @@ function parserPage() {
       this.building = false;
     },
 
-    async totals() {
-      try {
-        this.totals = await BQ.api('/api/totals', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rows: this.rows, tax_rule: this.taxRule, tax_rate_pct: this.taxRate }),
-        });
-      } catch (e) { console.error(e); }
-    },
+    /* Live totals -- recomputed reactively on every edit and checkbox
+       click, with the same math the server uses (BQ.computeTotals mirrors
+       workspace._quote_totals + tax.compute_sales_tax; locked by
+       tests/js/quote_totals.test.js). No server round-trip, so the totals
+       can never go stale or stop updating. */
+    liveTotals() { return BQ.computeTotals(this.rows, this.taxRule, this.taxRate); },
+    tradeTotals() { return BQ.tradeTotals(this.rows); },
 
     addRow() {
       this.rows.push({
@@ -254,10 +286,10 @@ function parserPage() {
         Description: '', Qty: 0, Unit: '', 'Unit Cost': 0, 'Margin %': 20, Material: true,
         'Insurance RCV': null, 'Insurance O&P': null, 'Code Cite': false,
         'Needs Review': false, 'Review Note': '', 'Recoverable Depreciation': 0,
+        Notes: '', _notesOpen: false,
       });
-      this.totals();
     },
-    removeRow(i) { this.rows.splice(i, 1); this.totals(); },
+    removeRow(i) { this.rows.splice(i, 1); },
     lineTotal(r) { return Number(r['Qty'] || 0) * Number(r['Unit Cost'] || 0) * (1 + Number(r['Margin %'] || 0) / 100); },
     fmt(n) { return BQ.money(n); },
 
@@ -265,8 +297,11 @@ function parserPage() {
       const res = await BQ.apiRaw(path, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          rows: this.rows, business: this.biz, claim_fields: this.claim,
+          rows: this.includeNotes ? this.rows : this.rows.map(r => ({ ...r, Notes: '' })),
+          business: this.biz, claim_fields: this.claim,
           tax_rule: this.taxRule, tax_rate_pct: this.taxRate, deductible: this.deductible,
+          notes: this.includeNotes ? this.claimNotes.split('\n').filter(s => s.trim()) : [],
+          include_notes: this.includeNotes,
         }),
       });
       return BQ.download(res, fallbackName);

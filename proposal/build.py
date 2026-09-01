@@ -99,7 +99,7 @@ def group_line_items(items):
 def build_proposal(rows, contractor: ContractorInfo, claim_fields: dict,
                     proposal_date: str, proposal_number: str = "",
                     tax_rule: str = NO_TAX, tax_rate_pct: float = 0.0,
-                    deductible_amount: float = 0.0) -> ProposalData:
+                    deductible_amount: float = 0.0, remarks: str = "") -> ProposalData:
     """rows: an iterable of dicts (or a pandas DataFrame's
     .to_dict("records")) shaped like app.py's editor table -- Trade,
     Description, Qty, Unit, Unit Cost, Margin %, Include, and (for tax
@@ -141,8 +141,8 @@ def build_proposal(rows, contractor: ContractorInfo, claim_fields: dict,
         # explanation (their Review Note) so the proposal can print it as a
         # note under the line -- the justification for why the item is on
         # the job at all. Ordinary carrier and hand-added rows keep no note.
-        note = ""
-        if (r.get("Section") or "") == CODE_SECTION_LABEL:
+        note = (r.get("Notes") or "").strip()
+        if not note and (r.get("Section") or "") == CODE_SECTION_LABEL:
             note = (r.get("Review Note") or "").strip()
         items.append(ProposalLineItem(
             trade=r.get("Trade") or "Other",
@@ -189,4 +189,5 @@ def build_proposal(rows, contractor: ContractorInfo, claim_fields: dict,
         first_check_amount=first_check_amount,
         recoverable_depreciation_amount=recoverable_depreciation_total,
         supplements_amount=supplements_total,
+        remarks=remarks,
     )

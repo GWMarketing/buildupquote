@@ -78,6 +78,7 @@ LOCKED_KEYS = (
     "measurements",
     "section_totals",
     "discarded_lines",
+    "document_notes",
     "warnings",
     "claim_flags",
 )

@@ -116,6 +116,9 @@ class ProposalData:
     # because the statute requires it in its own distinct 12pt bold type,
     # not just present somewhere in the terms paragraph.
     deductible_notice: str = field(default=TX_DEDUCTIBLE_NOTICE)
+    # Document-level adjuster notes and remarks, shown on the proposal
+    # when the contractor chose to include them (the export toggle).
+    remarks: str = ""
     # Pre-tax total and the sales tax added on top of it, if any --
     # total_price is always subtotal + tax_amount. tax_label is only ever
     # set (and only ever shown on the proposal) for a tax rule that

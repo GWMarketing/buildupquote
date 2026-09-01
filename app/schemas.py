@@ -419,6 +419,10 @@ class QuoteUpdate(BaseModel):
     payment_instructions: Optional[dict] = None
     # Warranty & guarantee clauses (display strings).
     warranty_terms: Optional[list[str]] = None
+    # Adjuster remarks + include-in-export toggle (parsed from the carrier
+    # estimate PDF; the toggle keeps a clean client-facing PDF one click away).
+    adjuster_notes: Optional[str] = None
+    include_adjuster_notes: Optional[bool] = None
 
 
 class SendQuoteEmailRequest(BaseModel):
@@ -436,6 +440,9 @@ class QuoteLineWrite(BaseModel):
     unit: str = "item"
     unit_cost: float = 0
     markup_percent: float = 20.0
+    # The adjuster written remarks attached to this line (from the carrier
+    # estimate PDF), shown in the builder and optionally on exports.
+    notes: Optional[str] = None
     # Optional client add-on: excluded from the default grand total and shown
     # as a "Recommended Upgrade" checkbox on the public proposal.
     is_optional: bool = False
@@ -453,6 +460,7 @@ class QuoteLineOut(BaseModel):
     line_total: float
     position: int
     is_optional: bool = False
+    notes: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -487,6 +495,8 @@ class QuoteOut(BaseModel):
     warranty_terms: Optional[list[str]] = None
     selected_optional_line_ids: Optional[list[int]] = None
     rooms: Optional[list] = None
+    adjuster_notes: Optional[str] = None
+    include_adjuster_notes: bool = True
     created_at: datetime
     line_count: int = 0
 
@@ -505,6 +515,8 @@ class ParseToQuoteRequest(BaseModel):
 
     rows: list[dict] = []
     claim_fields: dict = {}
+    # Document-level adjuster remarks from the parser page.
+    notes: list = []
     client_id: Optional[int] = None
 
 

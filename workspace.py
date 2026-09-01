@@ -61,6 +61,7 @@ _TABLE_COLUMNS = [
     "Include", "Trade", "Section", "Description", "Qty", "Unit",
     "Unit Cost", "Margin %", "Material", "Insurance RCV", "Insurance O&P",
     "Code Cite", "Needs Review", "Review Note",
+    "Notes",
     # Hidden from the visible Scope table (see _VISIBLE_COLUMNS below) --
     # feeds the "Payment breakdown" section instead of being another
     # column to scroll past. See _payment_breakdown()'s docstring.
@@ -204,6 +205,10 @@ def _rows_from_estimate(estimate, default_margin):
             "Code Cite": li.code_related,
             "Needs Review": li.needs_review,
             "Review Note": li.review_reason or "",
+            # The adjuster own written remarks attached to this line --
+            # what the contractor needs to see (and may export) verbatim.
+            "Notes": "\n".join(li.notes),
+
             # Insurance's own recoverable-depreciation figure for this
             # line -- 0 for non-recoverable depreciation (settled, never
             # paid to anyone) or when the carrier didn't print one. Feeds
@@ -262,7 +267,7 @@ def _manual_row(description, trade, qty, unit, unit_cost, margin, is_material, p
         "Description": description.strip(), "Qty": qty, "Unit": unit,
         "Unit Cost": unit_cost, "Margin %": margin, "Material": is_material,
         "Insurance RCV": None, "Insurance O&P": None, "Code Cite": False,
-        "Needs Review": False, "Review Note": "",
+        "Needs Review": False, "Review Note": "", "Notes": "",
         "Recoverable Depreciation": 0.0,
     }
 

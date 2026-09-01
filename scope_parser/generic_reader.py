@@ -24,7 +24,7 @@ import re
 
 from . import generic_columns
 from .codes import mentions_code_citation
-from .line_items import _split_leading_label, _title_candidate
+from .line_items import _is_document_note_line, _split_leading_label, _title_candidate
 from .measurements import has_labelled_measurement, is_measurement_line
 from .models import LineItem
 from .profiles import GENERIC
@@ -185,6 +185,7 @@ def parse_generic(lines, profile=GENERIC):
     shape line_items.parse_items_and_sections returns, so the rest of the
     pipeline treats a generically-read document identically."""
     warnings = []
+    doc_notes = []
 
     current_section = "Unknown"
     pending_title = None
@@ -287,6 +288,12 @@ def parse_generic(lines, profile=GENERIC):
         title = _title_candidate(stripped)
         if title:
             pending_title = title
+            continue
+
+        # Free text with no active record that reads like the adjuster own
+        # writing -- see line_items._is_document_note_line.
+        if _is_document_note_line(stripped):
+            doc_notes.append(stripped)
 
     close_record()
     if segment:
@@ -313,4 +320,4 @@ def parse_generic(lines, profile=GENERIC):
         for position, item in enumerate(items, start=1):
             item.number = str(position)
 
-    return items, section_totals, warnings
+    return items, section_totals, warnings, doc_notes

@@ -68,20 +68,19 @@ def _month_days(month: str) -> list[date]:
 
 def _availability_map(db: Session, user_id: int, month: str) -> dict[str, str]:
     year, mon = _parse_month(month)
+    import calendar
+
+    last = calendar.monthrange(year, mon)[1]
     rows = (
         db.query(models.CrewAvailability)
         .filter(
             models.CrewAvailability.user_id == user_id,
             models.CrewAvailability.date >= date(year, mon, 1),
-            models.CrewAvailability.date <= date(year, mon, 31),
+            models.CrewAvailability.date <= date(year, mon, last),
         )
         .all()
     )
-    return {
-        row.date.strftime("%Y-%m-%d"): row.status
-        for row in rows
-        if row.date.month == mon  # guard the cross-month tail of the <= filter
-    }
+    return {row.date.strftime("%Y-%m-%d"): row.status for row in rows}
 
 
 def _save_availability(db: Session, user_id: int, payload: schemas.AvailabilityIn) -> None:

@@ -86,7 +86,54 @@ const BQ = {
     const markup = Number(row.markup_percent || 0);
     return qty * cost * (1 + markup / 100);
   },
+
+  round2(n) { return Math.round((Number(n) || 0) * 100) / 100; },
+
+  /* Client-side mirror of workspace._quote_totals + tax.compute_sales_tax,
+     operating on the parser page row shape (Qty / Unit Cost / Margin % /
+     Include / Material). Kept in lock-step by tests/js/quote_totals.test.js
+     so the parser page live totals can never drift from the server. */
+  computeTotals(rows, taxRule, taxRate) {
+    const priced = (r) => this.round2(Number(r['Qty'] || 0) * Number(r['Unit Cost'] || 0)
+      * (1 + Number(r['Margin %'] || 0) / 100));
+    const included = (rows || []).filter(r => r['Include'] !== false);
+    let subtotal = 0, materialSubtotal = 0;
+    for (const r of included) {
+      const t = priced(r);
+      subtotal += t;
+      if (r['Material'] !== false) materialSubtotal += t;
+    }
+    let tax = 0;
+    const rate = Number(taxRate || 0) / 100;
+    if (taxRule === 'commercial') tax = this.round2(subtotal * rate);
+    else if (taxRule === 'separated_residential') tax = this.round2(materialSubtotal * rate);
+    return {
+      subtotal: this.round2(subtotal),
+      tax: tax,
+      total: this.round2(subtotal + tax),
+      count: included.length,
+    };
+  },
+
+  /* Per-trade subtotals of the included rows, highest first -- mirrors
+     workspace._trade_totals. */
+  tradeTotals(rows) {
+    const by = {};
+    for (const r of (rows || [])) {
+      if (r['Include'] === false) continue;
+      const key = r['Trade'] || 'General';
+      by[key] = (by[key] || 0) + this.round2(Number(r['Qty'] || 0) * Number(r['Unit Cost'] || 0)
+        * (1 + Number(r['Margin %'] || 0) / 100));
+    }
+    return Object.keys(by)
+      .map(Trade => ({ Trade, Subtotal: this.round2(by[Trade]) }))
+      .sort((a, b) => b.Subtotal - a.Subtotal);
+  },
 };
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { BQ };
+}
 
 function logout() { BQ.clear(); location.href = '/login'; }
 
