@@ -6,11 +6,14 @@ standalone with:  python -m app.seeds.assemblies_seed
 from sqlalchemy.orm import Session
 
 from app import models
+from app.seeds._upsert import ensure_seed_uniques, upsert_row
 
 
 def seed_assemblies_and_lexicon(db: Session) -> None:
     """Insert any missing lexicon terms and global assemblies. Safe to run
-    on every startup -- existing rows are left untouched."""
+    on every startup -- existing rows converge in place (atomic upserts, so
+    concurrent gunicorn workers can't double-seed)."""
+    ensure_seed_uniques(db)
     _seed_lexicon(db)
     _seed_assemblies(db)
     db.commit()
@@ -46,14 +49,14 @@ _LEXICON_ROWS = [
 
 def _seed_lexicon(db: Session) -> None:
     for trade, term, aliases, unit in _LEXICON_ROWS:
-        row = db.query(models.TradeLexicon).filter_by(trade=trade, term=term).first()
-        if row is None:
-            db.add(models.TradeLexicon(trade=trade, term=term, aliases=aliases, default_unit=unit))
-        elif row.default_unit != unit or row.aliases != aliases:
-            # Existing rows converge to the imperial spec (units were m2/kg/l/m).
-            row.default_unit = unit
-            row.aliases = aliases
-            db.add(row)
+        _, _ = upsert_row(
+            db,
+            models.TradeLexicon,
+            {"trade": trade, "term": term, "aliases": aliases,
+             "default_unit": unit},
+            conflict_cols=["trade", "term"],
+            update_cols=["default_unit", "aliases"],
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -120,35 +123,34 @@ _ASSEMBLIES = [
 
 def _seed_assemblies(db: Session) -> None:
     for spec in _ASSEMBLIES:
-        assembly = db.query(models.ParametricAssembly).filter_by(code=spec["code"]).first()
-        if assembly is None:
-            assembly = models.ParametricAssembly(
-                organization_id=None,
-                code=spec["code"],
-                name=spec["name"],
-                category=spec["category"],
-                description=spec["description"],
-                required_inputs=spec["required_inputs"],
-                calculator=spec.get("calculator"),
-            )
-            db.add(assembly)
-        else:
-            # Existing rows converge to the current (imperial) spec: name,
-            # description, inputs, calculator, and a rebuilt component list.
-            assembly.name = spec["name"]
-            assembly.category = spec["category"]
-            assembly.description = spec["description"]
-            assembly.required_inputs = spec["required_inputs"]
-            if spec.get("calculator") and assembly.calculator != spec["calculator"]:
-                assembly.calculator = spec["calculator"]
-            db.add(assembly)
-        db.flush()  # assembly.id
+        row = {
+            "organization_id": None,
+            "code": spec["code"],
+            "name": spec["name"],
+            "category": spec["category"],
+            "description": spec["description"],
+            "required_inputs": spec["required_inputs"],
+        }
+        update_cols = ["name", "category", "description", "required_inputs"]
+        # A calculator, once added to a spec, also converges -- but a spec
+        # that has none must not wipe a previously-converged one.
+        if spec.get("calculator"):
+            row["calculator"] = spec["calculator"]
+            update_cols.append("calculator")
+        assembly_id, _ = upsert_row(
+            db,
+            models.ParametricAssembly,
+            row,
+            conflict_cols=["code"],
+            update_cols=update_cols,
+            index_where=models.ParametricAssembly.organization_id.is_(None),
+        )
         # Replace components so unit/formula/description changes (metric -> US)
         # apply to existing installs instead of only new ones.
-        db.query(models.AssemblyComponent).filter_by(assembly_id=assembly.id).delete()
+        db.query(models.AssemblyComponent).filter_by(assembly_id=assembly_id).delete()
         for description, item_type, unit, formula, cost, markup in spec["components"]:
             db.add(models.AssemblyComponent(
-                assembly_id=assembly.id,
+                assembly_id=assembly_id,
                 description=description,
                 item_type=item_type,
                 unit=unit,

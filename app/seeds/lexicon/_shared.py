@@ -23,6 +23,7 @@ import uuid as _uuid
 from sqlalchemy.orm import Session
 
 from app import models
+from app.seeds._upsert import ensure_lexicon_unique, upsert_row
 
 # ---------------------------------------------------------------------------
 # Deterministic misspelling / acoustic-typo generator
@@ -306,30 +307,28 @@ def _load_providers():
 
 
 def seed_trade_lexicon(db: Session, providers: list | None = None) -> int:
-    """Idempotent upsert of every trade module's families (created + updated
-    row count). Safe to run on every startup."""
+    """Idempotent, concurrency-safe upsert of every trade module's families
+    (created + updated row count). Safe to run on every startup -- and with
+    gunicorn -w 4 every worker runs it at boot, so the insert must be atomic
+    (INSERT ... ON CONFLICT on Postgres) rather than the check-then-insert
+    that raced and seeded every new-trade lexicon twice in production."""
     providers = providers or _load_providers()
+    ensure_lexicon_unique(db)
     changed = 0
     for families, default_trade in providers:
         for row in build_rows(families, default_trade):
-            exists = (
-                db.query(models.TradeLexicon)
-                .filter_by(trade=row["trade"], term=row["term"])
-                .first()
+            _, dirty = upsert_row(
+                db,
+                models.TradeLexicon,
+                row,
+                conflict_cols=["trade", "term"],
+                update_cols=[
+                    "aliases", "default_unit", "phonetic_respelling",
+                    "ipa_pronunciation", "common_misspellings_typos",
+                    "definition_and_use", "search_vector",
+                ],
             )
-            if exists is None:
-                db.add(models.TradeLexicon(**row))
-                changed += 1
-                continue
-            dirty = False
-            for field in ("aliases", "default_unit", "phonetic_respelling",
-                          "ipa_pronunciation", "common_misspellings_typos",
-                          "definition_and_use", "search_vector"):
-                if row.get(field) != getattr(exists, field):
-                    setattr(exists, field, row.get(field))
-                    dirty = True
-            if dirty:
-                changed += 1
+            changed += dirty
     db.commit()
     return changed
 

@@ -5,9 +5,11 @@ a contractor might actually type on an estimate ('sheetrock', '2x4',
 Idempotent per canonical_name, so it's safe to run on every startup or via
 scripts/seed_trade_data.py.
 """
+from sqlalchemy import exists, select, update
 from sqlalchemy.orm import Session
 
 from app import models
+from app.seeds._upsert import upsert_row
 
 _CATALOG = [
     # Drywall
@@ -154,37 +156,40 @@ _CATALOG = [
 def seed_trade_catalog(db: Session) -> None:
     """Insert/sync the imperial catalog. Items created under an earlier metric
     name are renamed (matched via `renamed_from`) and every seeded row's unit
-    and synonyms converge to the current spec on every startup."""
+    and synonyms converge to the current spec on every startup. The item upsert
+    is atomic (INSERT ... ON CONFLICT on Postgres): the old check-then-insert
+    raced under gunicorn -w 4 and threw IntegrityErrors at boot."""
     for spec in _CATALOG:
-        item = (
-            db.query(models.TradeCatalogItem)
-            .filter(models.TradeCatalogItem.canonical_name == spec["canonical_name"])
-            .first()
+        # Metric-era rename, applied atomically and only when the new name is
+        # not already taken, so a concurrent boot never clobbers an item.
+        renamed = spec.get("renamed_from")
+        if renamed:
+            db.execute(
+                update(models.TradeCatalogItem)
+                .where(
+                    models.TradeCatalogItem.canonical_name == renamed,
+                    ~exists(select(models.TradeCatalogItem.id).where(
+                        models.TradeCatalogItem.canonical_name == spec["canonical_name"]
+                    )),
+                )
+                .values(canonical_name=spec["canonical_name"])
+            )
+        row = {
+            "canonical_name": spec["canonical_name"],
+            "trade": spec["trade"],
+            "unit": spec["unit"],
+            "default_unit_cost": spec["default_unit_cost"],
+            "default_trade_type": spec["default_trade_type"],
+        }
+        item_id, _ = upsert_row(
+            db,
+            models.TradeCatalogItem,
+            row,
+            conflict_cols=["canonical_name"],
+            update_cols=["trade", "unit"],
         )
-        if item is None and spec.get("renamed_from"):
-            item = (
-                db.query(models.TradeCatalogItem)
-                .filter(models.TradeCatalogItem.canonical_name == spec["renamed_from"])
-                .first()
-            )
-        if item is None:
-            item = models.TradeCatalogItem(
-                canonical_name=spec["canonical_name"],
-                trade=spec["trade"],
-                unit=spec["unit"],
-                default_unit_cost=spec["default_unit_cost"],
-                default_trade_type=spec["default_trade_type"],
-            )
-            db.add(item)
-            db.flush()
-        else:
-            item.canonical_name = spec["canonical_name"]
-            item.trade = spec["trade"]
-            item.unit = spec["unit"]
-            db.add(item)
-            db.flush()
         # Rebuild synonyms so metric aliases ("12.5mm board") are replaced.
-        db.query(models.TradeSynonym).filter_by(catalog_id=item.id).delete()
+        db.query(models.TradeSynonym).filter_by(catalog_id=item_id).delete()
         for term in spec["synonyms"]:
-            db.add(models.TradeSynonym(catalog_id=item.id, raw_term=term))
+            db.add(models.TradeSynonym(catalog_id=item_id, raw_term=term))
     db.commit()

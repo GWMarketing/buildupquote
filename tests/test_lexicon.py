@@ -183,6 +183,146 @@ class LexiconCsvTestCase(unittest.TestCase):
         self.assertGreaterEqual(len(parsed), 3800)
 
 
+class LexiconDedupeTestCase(unittest.TestCase):
+    """Regression test for the production 2x-lexicon bug.
+
+    `gunicorn -w 4` runs the lifespan seed in every worker and the old
+    check-then-insert raced, so every new-trade lexicon was seeded twice
+    (311 rows became 622). ensure_lexicon_unique() collapses the leftover
+    duplicates (keeping the lowest id) and the UNIQUE index makes a
+    re-occurrence impossible.
+    """
+
+    # Hand-built legacy schema WITHOUT the (trade, term) unique constraint,
+    # exactly as the pre-fix production table was -- so the duplicate rows
+    # that the racing seed actually produced can be inserted.
+    _LEGACY_DDL = """
+    CREATE TABLE trade_lexicon (
+        id INTEGER NOT NULL,
+        trade VARCHAR,
+        term VARCHAR,
+        aliases JSON,
+        default_unit VARCHAR,
+        uuid VARCHAR(36),
+        phonetic_respelling TEXT,
+        ipa_pronunciation TEXT,
+        common_misspellings_typos JSON,
+        definition_and_use TEXT,
+        search_vector TEXT,
+        PRIMARY KEY (id)
+    )
+    """
+
+    def _fresh_db(self):
+        import tempfile
+
+        from sqlalchemy import create_engine, text  # noqa: F401
+        from sqlalchemy.orm import sessionmaker
+
+        from app.database import Base
+        from app import models  # noqa: F401
+        from app.seeds._upsert import ensure_lexicon_unique, upsert_row
+
+        db_path = os.path.join(tempfile.gettempdir(), "test_lexicon_dedupe.db")
+        for suffix in ("", "-journal", "-wal", "-shm"):
+            if os.path.exists(db_path + suffix):
+                os.remove(db_path + suffix)
+        engine = create_engine(f"sqlite:///{db_path}")
+        with engine.begin() as conn:
+            conn.execute(text(self._LEGACY_DDL))
+        Base.metadata.create_all(bind=engine)  # adds the other tables
+        Session = sessionmaker(bind=engine)
+        return engine, Session()
+
+    def test_dedupe_collapses_duplicate_rows_and_locks_the_key(self):
+        from app import models
+        from app.seeds._upsert import ensure_lexicon_unique
+
+        engine, db = self._fresh_db()
+        try:
+            # The racing seed produced two identical rows per (trade, term).
+            db.add_all([
+                models.TradeLexicon(trade="general", term="labor", default_unit="hr"),
+                models.TradeLexicon(trade="general", term="labor", default_unit="hr"),
+                models.TradeLexicon(trade="tiling", term="grout", default_unit="lb"),
+                models.TradeLexicon(trade="tiling", term="grout", default_unit="lb"),
+            ])
+            db.commit()
+            self.assertEqual(db.query(models.TradeLexicon).count(), 4)
+
+            ensure_lexicon_unique(db)
+
+            rows = (db.query(models.TradeLexicon)
+                    .order_by(models.TradeLexicon.id).all())
+            self.assertEqual(len(rows), 2)  # one row per (trade, term)
+            self.assertEqual(rows[0].id, 1)  # lowest id kept
+            self.assertEqual(rows[0].term, "labor")
+            self.assertEqual(rows[1].id, 3)
+            self.assertEqual(rows[1].term, "grout")
+
+            # The UNIQUE index now blocks a fresh duplicate outright.
+            db.add(models.TradeLexicon(trade="general", term="labor"))
+            with self.assertRaises(Exception):
+                db.commit()
+            db.rollback()
+
+            # A second ensure pass is a no-op and never raises.
+            ensure_lexicon_unique(db)
+        finally:
+            db.close()
+            engine.dispose()
+            for suffix in ("", "-journal", "-wal", "-shm"):
+                p = os.path.join(tempfile.gettempdir(), "test_lexicon_dedupe.db") + suffix
+                if os.path.exists(p):
+                    os.remove(p)
+
+    def test_atomic_upsert_converges_instead_of_duplicating(self):
+        from app import models
+        from app.seeds._upsert import ensure_lexicon_unique, upsert_row
+
+        engine, db = self._fresh_db()
+        try:
+            db.add_all([
+                models.TradeLexicon(trade="general", term="labor", default_unit="hr"),
+                models.TradeLexicon(trade="general", term="labor", default_unit="hr"),
+            ])
+            db.commit()
+            ensure_lexicon_unique(db)
+
+            # Upserting the same key converges (changed=0) rather than
+            # inserting a third row or throwing.
+            _, changed = upsert_row(
+                db, models.TradeLexicon,
+                {"trade": "general", "term": "labor", "default_unit": "hr"},
+                conflict_cols=["trade", "term"],
+                update_cols=["default_unit"],
+            )
+            db.commit()
+            self.assertEqual(changed, 0)
+            self.assertEqual(db.query(models.TradeLexicon).count(), 1)
+
+            # A genuinely changed value converges and counts as changed.
+            _, changed = upsert_row(
+                db, models.TradeLexicon,
+                {"trade": "general", "term": "labor", "default_unit": "each"},
+                conflict_cols=["trade", "term"],
+                update_cols=["default_unit"],
+            )
+            db.commit()
+            self.assertEqual(changed, 1)
+            self.assertEqual(
+                db.query(models.TradeLexicon).filter_by(trade="general").first().default_unit,
+                "each",
+            )
+        finally:
+            db.close()
+            engine.dispose()
+            for suffix in ("", "-journal", "-wal", "-shm"):
+                p = os.path.join(tempfile.gettempdir(), "test_lexicon_dedupe.db") + suffix
+                if os.path.exists(p):
+                    os.remove(p)
+
+
 if __name__ == "__main__":
     unittest.main()
 

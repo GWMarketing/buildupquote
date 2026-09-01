@@ -40,6 +40,11 @@ def main() -> None:
 
     session = SessionLocal()
     try:
+        # Collapse the deploy-#92 2x duplicates (keep lowest id per
+        # (trade, term)) and lock the pair UNIQUE, then upsert atomically.
+        from app.seeds._upsert import ensure_lexicon_unique
+        ensure_lexicon_unique(session)
+        print("Duplicate (trade, term) rows collapsed; UNIQUE index ensured")
         changed = seed_trade_lexicon(session)
         print(f"Lexicon seed complete: {changed} rows created/updated")
     finally:

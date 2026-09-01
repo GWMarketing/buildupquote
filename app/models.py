@@ -130,6 +130,13 @@ class TradeLexicon(Base):
 
     __tablename__ = "trade_lexicon"
 
+    # (trade, term) is the seed's natural key. The UNIQUE index was added
+    # for production (deploy #92's 2x-lexicon bug); new databases get it
+    # from create_all, existing ones from app.seeds._upsert.ensure_*().
+    __table_args__ = (
+        UniqueConstraint("trade", "term", name="uq_trade_lexicon_trade_term"),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
     trade = Column(String, nullable=False, index=True)
     term = Column(String, nullable=False, index=True)
