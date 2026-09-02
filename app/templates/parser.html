@@ -87,7 +87,11 @@
                 <template x-for="t in tradeOptions" :key="t"><option :value="t" x-text="t"></option></template>
               </select>
             </td>
-            <td><input class="bq-input" x-model="row['Description']" placeholder="Description"></td>
+            <td>
+<input class="bq-input" x-model="row['Description']" placeholder="Description"
+:class="row['Struck Through'] ? 'line-through text-red-500/70' : ''">
+<span x-show="row['Struck Through']" x-cloak class="mt-1 inline-block rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-500/20 dark:text-red-400">Struck through in PDF — excluded. Check On to include.</span>
+</td>
             <td class="text-right"><input class="bq-input w-20 text-right" type="number" min="0" step="0.001" x-model.number="row['Qty']"></td>
             <td><input class="bq-input w-16" x-model="row['Unit']"></td>
             <td class="text-right"><input class="bq-input w-24 text-right" type="number" min="0" step="0.01" x-model.number="row['Unit Cost']"></td>

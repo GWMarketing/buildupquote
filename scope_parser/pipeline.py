@@ -186,12 +186,18 @@ def parse_text(text: str, pdf_info=None) -> ParsedEstimate:
 def parse_pdf(pdf_path) -> ParsedEstimate:
     """pdf_path may be a filesystem path (str) or a file-like object
     (e.g. an uploaded file) -- see extract.py."""
-    from .extract import extract_pdf_info, extract_text
+    from .extract import extract_pdf_info, extract_text_and_strikes
+    from .strikethrough import mark_struck_items
 
     # Read the container metadata FIRST: it is the strongest single signal
     # for which program wrote this file, and the parse routes on it.
     pdf_info = extract_pdf_info(pdf_path)
-    estimate = parse_text(extract_text(pdf_path, pdf_info=pdf_info), pdf_info=pdf_info)
+    text, struck_lines = extract_text_and_strikes(pdf_path, pdf_info=pdf_info)
+    estimate = parse_text(text, pdf_info=pdf_info)
+    # Rows the preparer struck through are flagged and excluded from the
+    # quote totals (see strikethrough.py). parse_text alone can't know --
+    # strikethrough is vector geometry, not text.
+    mark_struck_items(estimate.line_items, struck_lines, warnings=estimate.warnings)
     # Only possible from an actual file -- parse_text() alone has no way
     # to know this, since it's not text printed on any page. See
     # metadata.py's fields_from_pdf_info() docstring for why this is

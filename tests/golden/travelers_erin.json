@@ -53,6 +53,7 @@
       "rcv": 175.31,
       "review_reason": null,
       "section": "Contents",
+      "struck_through": false,
       "tax": 10.31,
       "unit": "EA",
       "unit_price": 165.0
@@ -87,6 +88,7 @@
       "rcv": 638.33,
       "review_reason": null,
       "section": "Guttering",
+      "struck_through": false,
       "tax": 19.73,
       "unit": "LF",
       "unit_price": 13.63
@@ -121,6 +123,7 @@
       "rcv": 169.87,
       "review_reason": null,
       "section": "Guttering",
+      "struck_through": false,
       "tax": 5.25,
       "unit": "LF",
       "unit_price": 13.63
@@ -155,6 +158,7 @@
       "rcv": 109.33,
       "review_reason": null,
       "section": "Guttering",
+      "struck_through": false,
       "tax": 0.71,
       "unit": "LF",
       "unit_price": 1.9
@@ -189,6 +193,7 @@
       "rcv": 72.41,
       "review_reason": null,
       "section": "Guttering",
+      "struck_through": false,
       "tax": 0.83,
       "unit": "LF",
       "unit_price": 14.88
@@ -223,6 +228,7 @@
       "rcv": 407.04,
       "review_reason": null,
       "section": "Fencing",
+      "struck_through": false,
       "tax": 9.81,
       "unit": "LF",
       "unit_price": 62.74
@@ -257,6 +263,7 @@
       "rcv": 676.55,
       "review_reason": null,
       "section": "Fencing",
+      "struck_through": false,
       "tax": 12.93,
       "unit": "LF",
       "unit_price": 34.43
@@ -291,6 +298,7 @@
       "rcv": 177.24,
       "review_reason": null,
       "section": "Fascia and Soffit",
+      "struck_through": false,
       "tax": 2.66,
       "unit": "LF",
       "unit_price": 8.97
@@ -325,6 +333,7 @@
       "rcv": 197.37,
       "review_reason": null,
       "section": "Fascia and Soffit",
+      "struck_through": false,
       "tax": 2.79,
       "unit": "SF",
       "unit_price": 7.06
@@ -359,6 +368,7 @@
       "rcv": 56.49,
       "review_reason": null,
       "section": "Fascia and Soffit",
+      "struck_through": false,
       "tax": 0.18,
       "unit": "LF",
       "unit_price": 2.9
@@ -393,6 +403,7 @@
       "rcv": 73.07,
       "review_reason": null,
       "section": "Fascia and Soffit",
+      "struck_through": false,
       "tax": 0.66,
       "unit": "SF",
       "unit_price": 2.63
@@ -428,6 +439,7 @@
       "rcv": 206.76,
       "review_reason": null,
       "section": "Masonry",
+      "struck_through": false,
       "tax": 7.38,
       "unit": "EA",
       "unit_price": 164.9
@@ -463,6 +475,7 @@
       "rcv": 405.8,
       "review_reason": null,
       "section": "Masonry",
+      "struck_through": false,
       "tax": 2.28,
       "unit": "EA",
       "unit_price": 335.88
@@ -499,6 +512,7 @@
       "rcv": 118.73,
       "review_reason": null,
       "section": "Masonry",
+      "struck_through": false,
       "tax": 0.84,
       "unit": "EA",
       "unit_price": 98.11
@@ -533,6 +547,7 @@
       "rcv": 332.8,
       "review_reason": null,
       "section": "Masonry",
+      "struck_through": false,
       "tax": 4.57,
       "unit": "SF",
       "unit_price": 20.71
@@ -567,6 +582,7 @@
       "rcv": 62.9,
       "review_reason": null,
       "section": "Masonry",
+      "struck_through": false,
       "tax": 0.0,
       "unit": "LF",
       "unit_price": 3.98
@@ -601,6 +617,7 @@
       "rcv": 331.35,
       "review_reason": null,
       "section": "Masonry",
+      "struck_through": false,
       "tax": 6.75,
       "unit": "SF",
       "unit_price": 1.82
@@ -636,6 +653,7 @@
       "rcv": 7000.0,
       "review_reason": null,
       "section": "Tree",
+      "struck_through": false,
       "tax": 0.0,
       "unit": "EA",
       "unit_price": 7000.0
@@ -669,6 +687,7 @@
       "rcv": 500.0,
       "review_reason": null,
       "section": "Tree",
+      "struck_through": false,
       "tax": 0.0,
       "unit": "EA",
       "unit_price": 500.0

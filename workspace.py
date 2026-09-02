@@ -61,6 +61,7 @@ _TABLE_COLUMNS = [
     "Include", "Trade", "Section", "Description", "Qty", "Unit",
     "Unit Cost", "Margin %", "Material", "Insurance RCV", "Insurance O&P",
     "Code Cite", "Needs Review", "Review Note",
+    "Struck Through",
     "Notes",
     # Hidden from the visible Scope table (see _VISIBLE_COLUMNS below) --
     # feeds the "Payment breakdown" section instead of being another
@@ -179,7 +180,9 @@ def _rows_from_estimate(estimate, default_margin):
     for position, li in enumerate(estimate.line_items, start=1):
         rows.append({
             "#": row_label(li.number, position),
-            "Include": True,
+            # A line the preparer struck through starts excluded from the
+            # totals; the contractor re-includes it with one click.
+            "Include": not li.struck_through,
             "Trade": guess_trade(li.description),
             "Section": li.section,
             "Description": li.description,
@@ -205,6 +208,7 @@ def _rows_from_estimate(estimate, default_margin):
             "Code Cite": li.code_related,
             "Needs Review": li.needs_review,
             "Review Note": li.review_reason or "",
+            "Struck Through": li.struck_through,
             # The adjuster own written remarks attached to this line --
             # what the contractor needs to see (and may export) verbatim.
             "Notes": "\n".join(li.notes),
@@ -267,7 +271,7 @@ def _manual_row(description, trade, qty, unit, unit_cost, margin, is_material, p
         "Description": description.strip(), "Qty": qty, "Unit": unit,
         "Unit Cost": unit_cost, "Margin %": margin, "Material": is_material,
         "Insurance RCV": None, "Insurance O&P": None, "Code Cite": False,
-        "Needs Review": False, "Review Note": "", "Notes": "",
+        "Needs Review": False, "Review Note": "", "Struck Through": False, "Notes": "",
         "Recoverable Depreciation": 0.0,
     }
 

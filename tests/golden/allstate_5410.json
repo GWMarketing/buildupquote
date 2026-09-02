@@ -124,6 +124,7 @@
       "rcv": 905.67,
       "review_reason": null,
       "section": "Dwelling Roof",
+      "struck_through": false,
       "tax": null,
       "unit": "SQ",
       "unit_price": 72.05
@@ -156,6 +157,7 @@
       "rcv": 448.5,
       "review_reason": null,
       "section": "Dwelling Roof",
+      "struck_through": false,
       "tax": null,
       "unit": "SQ",
       "unit_price": 35.68
@@ -196,6 +198,7 @@
       "rcv": 3587.36,
       "review_reason": null,
       "section": "Dwelling Roof",
+      "struck_through": false,
       "tax": null,
       "unit": "SQ",
       "unit_price": 256.24
@@ -228,6 +231,7 @@
       "rcv": 214.2,
       "review_reason": null,
       "section": "Dwelling Roof",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 7.65
@@ -266,6 +270,7 @@
       "rcv": 503.44,
       "review_reason": null,
       "section": "Dwelling Roof",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 17.98
@@ -301,6 +306,7 @@
       "rcv": 676.29,
       "review_reason": null,
       "section": "Dwelling Roof",
+      "struck_through": false,
       "tax": null,
       "unit": "LF",
       "unit_price": 9.18
@@ -333,6 +339,7 @@
       "rcv": 860.46,
       "review_reason": null,
       "section": "Dwelling Roof",
+      "struck_through": false,
       "tax": null,
       "unit": "LF",
       "unit_price": 11.68
@@ -365,6 +372,7 @@
       "rcv": 395.04,
       "review_reason": null,
       "section": "Dwelling Roof",
+      "struck_through": false,
       "tax": null,
       "unit": "LF",
       "unit_price": 3.35
@@ -398,6 +406,7 @@
       "rcv": 45.6,
       "review_reason": null,
       "section": "Dwelling Roof",
+      "struck_through": false,
       "tax": null,
       "unit": "SQ",
       "unit_price": 18.46
@@ -429,6 +438,7 @@
       "rcv": 122.22,
       "review_reason": null,
       "section": "Dwelling Roof",
+      "struck_through": false,
       "tax": null,
       "unit": "SQ",
       "unit_price": 49.48
@@ -461,6 +471,7 @@
       "rcv": 48.16,
       "review_reason": null,
       "section": "Dwelling Roof",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 3.01
@@ -494,6 +505,7 @@
       "rcv": 97.24,
       "review_reason": null,
       "section": "Dwelling Roof",
+      "struck_through": false,
       "tax": null,
       "unit": "HR",
       "unit_price": 48.62
@@ -526,6 +538,7 @@
       "rcv": 85.04,
       "review_reason": null,
       "section": "Left Elevation Formula Elevation",
+      "struck_through": false,
       "tax": null,
       "unit": "LF",
       "unit_price": 10.63
@@ -558,6 +571,7 @@
       "rcv": 29.04,
       "review_reason": null,
       "section": "Left Elevation Formula Elevation",
+      "struck_through": false,
       "tax": null,
       "unit": "LF",
       "unit_price": 3.63
@@ -590,6 +604,7 @@
       "rcv": 154.13,
       "review_reason": null,
       "section": "Left Elevation Formula Elevation",
+      "struck_through": false,
       "tax": null,
       "unit": "LF",
       "unit_price": 2.44
@@ -622,6 +637,7 @@
       "rcv": 355.6,
       "review_reason": null,
       "section": "Left Elevation Formula Elevation",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 6.35
@@ -654,6 +670,7 @@
       "rcv": 121.52,
       "review_reason": null,
       "section": "Left Elevation Formula Elevation",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 2.17
@@ -686,6 +703,7 @@
       "rcv": 494.97,
       "review_reason": null,
       "section": "Left Elevation Formula Elevation",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 1.43
@@ -718,6 +736,7 @@
       "rcv": 4.48,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 1.12
@@ -750,6 +769,7 @@
       "rcv": 35.94,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 0.77
@@ -784,6 +804,7 @@
       "rcv": 1500.0,
       "review_reason": null,
       "section": "Fencing",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 1500.0
@@ -817,6 +838,7 @@
       "rcv": 145.86,
       "review_reason": null,
       "section": "Fencing",
+      "struck_through": false,
       "tax": null,
       "unit": "HR",
       "unit_price": 48.62
@@ -854,6 +876,7 @@
       "rcv": 500.0,
       "review_reason": null,
       "section": "Contents",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 500.0
@@ -888,6 +911,7 @@
       "rcv": 4500.0,
       "review_reason": null,
       "section": "Tree",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 4500.0
@@ -922,6 +946,7 @@
       "rcv": 500.0,
       "review_reason": null,
       "section": "Tree",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 500.0
@@ -955,6 +980,7 @@
       "rcv": 178.91,
       "review_reason": null,
       "section": "Debris Removal",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 178.91
@@ -986,6 +1012,7 @@
       "rcv": 46.56,
       "review_reason": null,
       "section": "Labor Minimums Applied",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 46.56

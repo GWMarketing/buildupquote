@@ -48,10 +48,20 @@ def _markers_for(pdf_info):
 def extract_text(pdf_path, pdf_info=None) -> str:
     """pdf_path may be a filesystem path (str) or a file-like object
     (e.g. an uploaded file) -- pdfplumber accepts either."""
+    text, _ = extract_text_and_strikes(pdf_path, pdf_info=pdf_info)
+    return text
+
+
+def extract_text_and_strikes(pdf_path, pdf_info=None):
+    """(extracted text, struck lines) -- the second element is the set of
+    text lines the document preparer struck through (crossed out), used by
+    parse_pdf to flag and exclude them. Kept in the same pass so a PDF is
+    only opened once for text extraction."""
     import pdfplumber
 
     markers = _markers_for(pdf_info)
     lines = []
+    struck = set()
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             text = page.extract_text() or ""
@@ -59,7 +69,10 @@ def extract_text(pdf_path, pdf_info=None) -> str:
                 continue
             lines.extend(text.split("\n"))
             lines.append("")  # keep a page-boundary gap, like the real docs have
-    return "\n".join(lines)
+            from .strikethrough import struck_lines_on_page  # local: strikethrough imports pdfplumber
+
+            struck.update(struck_lines_on_page(page))
+    return "\n".join(lines), struck
 
 
 def extract_pdf_info(pdf_path) -> dict:

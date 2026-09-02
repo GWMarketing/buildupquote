@@ -116,6 +116,7 @@
       "rcv": 221.2,
       "review_reason": null,
       "section": "Exterior Height:",
+      "struck_through": false,
       "tax": 0.89,
       "unit": "EA",
       "unit_price": 220.31
@@ -145,6 +146,7 @@
       "rcv": 890.0,
       "review_reason": null,
       "section": "Exterior Height:",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 890.0
@@ -172,6 +174,7 @@
       "rcv": 840.6,
       "review_reason": null,
       "section": "Crawlspace Height:",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 0.74
@@ -199,6 +202,7 @@
       "rcv": 2452.69,
       "review_reason": null,
       "section": "Crawlspace Height:",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 2.17
@@ -226,6 +230,7 @@
       "rcv": 373.79,
       "review_reason": null,
       "section": "Crawlspace Height:",
+      "struck_through": false,
       "tax": 0.04,
       "unit": "SF",
       "unit_price": 14.95
@@ -253,6 +258,7 @@
       "rcv": 342.53,
       "review_reason": null,
       "section": "Crawlspace Height:",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 342.53
@@ -282,6 +288,7 @@
       "rcv": 257.66,
       "review_reason": null,
       "section": "Interior",
+      "struck_through": false,
       "tax": null,
       "unit": "MO",
       "unit_price": 128.83
@@ -312,6 +319,7 @@
       "rcv": 1392.64,
       "review_reason": null,
       "section": "Interior",
+      "struck_through": false,
       "tax": null,
       "unit": "HR",
       "unit_price": 43.52
@@ -339,6 +347,7 @@
       "rcv": 834.72,
       "review_reason": null,
       "section": "Living Room Height:",
+      "struck_through": false,
       "tax": 18.79,
       "unit": "SF",
       "unit_price": 4.73
@@ -366,6 +375,7 @@
       "rcv": 62.1,
       "review_reason": null,
       "section": "Living Room Height:",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 0.36
@@ -393,6 +403,7 @@
       "rcv": 889.0,
       "review_reason": null,
       "section": "Living Room Height:",
+      "struck_through": false,
       "tax": 50.88,
       "unit": "SF",
       "unit_price": 4.24
@@ -420,6 +431,7 @@
       "rcv": 150.3,
       "review_reason": null,
       "section": "Living Room Height:",
+      "struck_through": false,
       "tax": 7.13,
       "unit": "SF",
       "unit_price": 0.83
@@ -447,6 +459,7 @@
       "rcv": 318.63,
       "review_reason": null,
       "section": "Living Room Height:",
+      "struck_through": false,
       "tax": 13.35,
       "unit": "LF",
       "unit_price": 6.36
@@ -478,6 +491,7 @@
       "rcv": 83.71,
       "review_reason": null,
       "section": "Living Room Height:",
+      "struck_through": false,
       "tax": 0.67,
       "unit": "LF",
       "unit_price": 1.73
@@ -505,6 +519,7 @@
       "rcv": 1320.62,
       "review_reason": null,
       "section": "Living Room",
+      "struck_through": false,
       "tax": 26.76,
       "unit": "SF",
       "unit_price": 3.39
@@ -532,6 +547,7 @@
       "rcv": 38.38,
       "review_reason": null,
       "section": "Living Room",
+      "struck_through": false,
       "tax": 0.22,
       "unit": "LF",
       "unit_price": 0.72
@@ -559,6 +575,7 @@
       "rcv": 443.6,
       "review_reason": null,
       "section": "Living Room",
+      "struck_through": false,
       "tax": 8.5,
       "unit": "SF",
       "unit_price": 1.14
@@ -586,6 +603,7 @@
       "rcv": 97.29,
       "review_reason": null,
       "section": "Living Room",
+      "struck_through": false,
       "tax": 0.83,
       "unit": "LF",
       "unit_price": 1.82
@@ -613,6 +631,7 @@
       "rcv": 330.41,
       "review_reason": null,
       "section": "Living Room",
+      "struck_through": false,
       "tax": 9.23,
       "unit": "LF",
       "unit_price": 6.06
@@ -640,6 +659,7 @@
       "rcv": 50.03,
       "review_reason": null,
       "section": "Living Room",
+      "struck_through": false,
       "tax": 0.01,
       "unit": "SF",
       "unit_price": 0.29
@@ -667,6 +687,7 @@
       "rcv": 921.82,
       "review_reason": null,
       "section": "Kitchen Height:",
+      "struck_through": false,
       "tax": 20.75,
       "unit": "SF",
       "unit_price": 4.73
@@ -694,6 +715,7 @@
       "rcv": 2758.28,
       "review_reason": null,
       "section": "Kitchen Height:",
+      "struck_through": false,
       "tax": 97.0,
       "unit": "SF",
       "unit_price": 12.7
@@ -721,6 +743,7 @@
       "rcv": 1035.03,
       "review_reason": null,
       "section": "Kitchen Height:",
+      "struck_through": false,
       "tax": 17.76,
       "unit": "SF",
       "unit_price": 5.34
@@ -752,6 +775,7 @@
       "rcv": 72.49,
       "review_reason": null,
       "section": "Kitchen Height:",
+      "struck_through": false,
       "tax": 3.04,
       "unit": "LF",
       "unit_price": 6.36
@@ -779,6 +803,7 @@
       "rcv": 20.76,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": 0.23,
       "unit": "LF",
       "unit_price": 1.88
@@ -806,6 +831,7 @@
       "rcv": 73.66,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": 0.98,
       "unit": "LF",
       "unit_price": 1.53
@@ -833,6 +859,7 @@
       "rcv": 150.19,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": 6.74,
       "unit": "LF",
       "unit_price": 3.02
@@ -860,6 +887,7 @@
       "rcv": 7306.37,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": 446.01,
       "unit": "LF",
       "unit_price": 263.86
@@ -887,6 +915,7 @@
       "rcv": 794.0,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": 49.82,
       "unit": "LF",
       "unit_price": 372.09
@@ -914,6 +943,7 @@
       "rcv": 2151.04,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": 98.24,
       "unit": "LF",
       "unit_price": 51.32
@@ -941,6 +971,7 @@
       "rcv": 196.51,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": 0.09,
       "unit": "EA",
       "unit_price": 196.42
@@ -968,6 +999,7 @@
       "rcv": 73.08,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 73.08
@@ -995,6 +1027,7 @@
       "rcv": 6.55,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 6.55
@@ -1022,6 +1055,7 @@
       "rcv": 33.22,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 33.22
@@ -1049,6 +1083,7 @@
       "rcv": 6.55,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 6.55
@@ -1076,6 +1111,7 @@
       "rcv": 16.61,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 16.61
@@ -1103,6 +1139,7 @@
       "rcv": 195.91,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 195.91
@@ -1131,6 +1168,7 @@
       "rcv": 195.91,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 195.91
@@ -1161,6 +1199,7 @@
       "rcv": 46.69,
       "review_reason": null,
       "section": "Kitchen",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 46.69
@@ -1188,6 +1227,7 @@
       "rcv": 538.33,
       "review_reason": null,
       "section": "CClloosseett",
+      "struck_through": false,
       "tax": 12.12,
       "unit": "SF",
       "unit_price": 4.73
@@ -1215,6 +1255,7 @@
       "rcv": 1048.24,
       "review_reason": null,
       "section": "CClloosseett",
+      "struck_through": false,
       "tax": 34.93,
       "unit": "SF",
       "unit_price": 8.28
@@ -1242,6 +1283,7 @@
       "rcv": 297.58,
       "review_reason": null,
       "section": "CClloosseett",
+      "struck_through": false,
       "tax": 12.46,
       "unit": "LF",
       "unit_price": 6.36
@@ -1269,6 +1311,7 @@
       "rcv": 78.19,
       "review_reason": null,
       "section": "CClloosseett",
+      "struck_through": false,
       "tax": 0.63,
       "unit": "LF",
       "unit_price": 1.73
@@ -1296,6 +1339,7 @@
       "rcv": 666.43,
       "review_reason": null,
       "section": "CClloosseett",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 666.43
@@ -1323,6 +1367,7 @@
       "rcv": 35.02,
       "review_reason": null,
       "section": "CClloosseett",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 35.02
@@ -1350,6 +1395,7 @@
       "rcv": 45.43,
       "review_reason": null,
       "section": "CClloosseett",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 45.43
@@ -1377,6 +1423,7 @@
       "rcv": 94.15,
       "review_reason": null,
       "section": "CClloosseett",
+      "struck_through": false,
       "tax": 0.08,
       "unit": "EA",
       "unit_price": 94.07
@@ -1404,6 +1451,7 @@
       "rcv": 32.26,
       "review_reason": null,
       "section": "CClloosseett",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 0.29
@@ -1431,6 +1479,7 @@
       "rcv": 208.07,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": 4.68,
       "unit": "SF",
       "unit_price": 4.73
@@ -1458,6 +1507,7 @@
       "rcv": 622.6,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": 21.89,
       "unit": "SF",
       "unit_price": 12.7
@@ -1485,6 +1535,7 @@
       "rcv": 233.63,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": 4.01,
       "unit": "SF",
       "unit_price": 5.34
@@ -1512,6 +1563,7 @@
       "rcv": 49.36,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": 0.66,
       "unit": "LF",
       "unit_price": 1.53
@@ -1539,6 +1591,7 @@
       "rcv": 100.64,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": 4.51,
       "unit": "LF",
       "unit_price": 3.02
@@ -1566,6 +1619,7 @@
       "rcv": 211.29,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": 8.85,
       "unit": "LF",
       "unit_price": 6.36
@@ -1593,6 +1647,7 @@
       "rcv": 55.52,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": 0.45,
       "unit": "LF",
       "unit_price": 1.73
@@ -1620,6 +1675,7 @@
       "rcv": 1218.17,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": 21.22,
       "unit": "SF",
       "unit_price": 4.7
@@ -1647,6 +1703,7 @@
       "rcv": 473.84,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": 5.25,
       "unit": "SF",
       "unit_price": 1.84
@@ -1674,6 +1731,7 @@
       "rcv": 23.05,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": 0.13,
       "unit": "LF",
       "unit_price": 0.72
@@ -1701,6 +1759,7 @@
       "rcv": 345.97,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": 6.63,
       "unit": "SF",
       "unit_price": 1.14
@@ -1728,6 +1787,7 @@
       "rcv": 315.66,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": 14.42,
       "unit": "LF",
       "unit_price": 4.43
@@ -1755,6 +1815,7 @@
       "rcv": 120.07,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": 1.07,
       "unit": "LF",
       "unit_price": 1.75
@@ -1788,6 +1849,7 @@
       "rcv": 12.47,
       "review_reason": null,
       "section": "Hallway Height:",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 0.29
@@ -1815,6 +1877,7 @@
       "rcv": 508.08,
       "review_reason": null,
       "section": "Bathroom Height:",
+      "struck_through": false,
       "tax": 11.43,
       "unit": "SF",
       "unit_price": 4.73
@@ -1842,6 +1905,7 @@
       "rcv": 322.34,
       "review_reason": null,
       "section": "Bathroom Height:",
+      "struck_through": false,
       "tax": 10.64,
       "unit": "SF",
       "unit_price": 8.22
@@ -1870,6 +1934,7 @@
       "rcv": 300.01,
       "review_reason": null,
       "section": "Bathroom Height:",
+      "struck_through": false,
       "tax": 0.79,
       "unit": "EA",
       "unit_price": 299.22
@@ -1898,6 +1963,7 @@
       "rcv": 164.4,
       "review_reason": null,
       "section": "Bathroom Height:",
+      "struck_through": false,
       "tax": null,
       "unit": "LF",
       "unit_price": 66.83
@@ -1926,6 +1992,7 @@
       "rcv": 155.64,
       "review_reason": null,
       "section": "Bathroom Height:",
+      "struck_through": false,
       "tax": null,
       "unit": "LF",
       "unit_price": 77.82
@@ -1953,6 +2020,7 @@
       "rcv": 183.66,
       "review_reason": null,
       "section": "Bathroom Height:",
+      "struck_through": false,
       "tax": 0.06,
       "unit": "EA",
       "unit_price": 183.6
@@ -1980,6 +2048,7 @@
       "rcv": 6.55,
       "review_reason": null,
       "section": "Bathroom Height:",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 6.55
@@ -2007,6 +2076,7 @@
       "rcv": 33.22,
       "review_reason": null,
       "section": "Bathroom Height:",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 33.22
@@ -2038,6 +2108,7 @@
       "rcv": 6.55,
       "review_reason": null,
       "section": "Bathroom Height:",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 6.55
@@ -2065,6 +2136,7 @@
       "rcv": 16.61,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 16.61
@@ -2092,6 +2164,7 @@
       "rcv": 73.08,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 73.08
@@ -2119,6 +2192,7 @@
       "rcv": 662.72,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": 25.98,
       "unit": "EA",
       "unit_price": 636.74
@@ -2146,6 +2220,7 @@
       "rcv": 1306.66,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": 59.07,
       "unit": "EA",
       "unit_price": 1247.59
@@ -2173,6 +2248,7 @@
       "rcv": 70.37,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": 2.95,
       "unit": "LF",
       "unit_price": 6.36
@@ -2200,6 +2276,7 @@
       "rcv": 18.49,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": 0.15,
       "unit": "LF",
       "unit_price": 1.73
@@ -2227,6 +2304,7 @@
       "rcv": 22.45,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": 0.13,
       "unit": "LF",
       "unit_price": 0.72
@@ -2254,6 +2332,7 @@
       "rcv": 288.24,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": 5.52,
       "unit": "SF",
       "unit_price": 1.14
@@ -2281,6 +2360,7 @@
       "rcv": 78.91,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": 3.6,
       "unit": "LF",
       "unit_price": 4.43
@@ -2308,6 +2388,7 @@
       "rcv": 30.02,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": 0.27,
       "unit": "LF",
       "unit_price": 1.75
@@ -2335,6 +2416,7 @@
       "rcv": 94.15,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": 0.08,
       "unit": "EA",
       "unit_price": 94.07
@@ -2364,6 +2446,7 @@
       "rcv": 15.23,
       "review_reason": null,
       "section": "Bathroom",
+      "struck_through": false,
       "tax": 0.01,
       "unit": "SF",
       "unit_price": 0.29
@@ -2391,6 +2474,7 @@
       "rcv": 810.22,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 18.23,
       "unit": "SF",
       "unit_price": 4.73
@@ -2418,6 +2502,7 @@
       "rcv": 53.03,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 0.36
@@ -2445,6 +2530,7 @@
       "rcv": 804.81,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 46.06,
       "unit": "SF",
       "unit_price": 4.24
@@ -2472,6 +2558,7 @@
       "rcv": 145.88,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 6.9,
       "unit": "SF",
       "unit_price": 0.83
@@ -2499,6 +2586,7 @@
       "rcv": 172.43,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 5.75,
       "unit": "SF",
       "unit_price": 8.28
@@ -2526,6 +2614,7 @@
       "rcv": 473.63,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 19.84,
       "unit": "LF",
       "unit_price": 6.36
@@ -2553,6 +2642,7 @@
       "rcv": 124.44,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 1.0,
       "unit": "LF",
       "unit_price": 1.73
@@ -2580,6 +2670,7 @@
       "rcv": 1528.61,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 30.98,
       "unit": "SF",
       "unit_price": 3.39
@@ -2611,6 +2702,7 @@
       "rcv": 704.4,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 12.28,
       "unit": "SF",
       "unit_price": 4.7
@@ -2638,6 +2730,7 @@
       "rcv": 274.0,
       "review_reason": null,
       "section": "Master Bedroom",
+      "struck_through": false,
       "tax": 3.04,
       "unit": "SF",
       "unit_price": 1.84
@@ -2665,6 +2758,7 @@
       "rcv": 61.56,
       "review_reason": null,
       "section": "Master Bedroom",
+      "struck_through": false,
       "tax": 0.35,
       "unit": "LF",
       "unit_price": 0.72
@@ -2692,6 +2786,7 @@
       "rcv": 879.24,
       "review_reason": null,
       "section": "Master Bedroom",
+      "struck_through": false,
       "tax": 16.85,
       "unit": "SF",
       "unit_price": 1.14
@@ -2719,6 +2814,7 @@
       "rcv": 397.48,
       "review_reason": null,
       "section": "Master Bedroom",
+      "struck_through": false,
       "tax": 11.09,
       "unit": "LF",
       "unit_price": 6.06
@@ -2746,6 +2842,7 @@
       "rcv": 117.04,
       "review_reason": null,
       "section": "Master Bedroom",
+      "struck_through": false,
       "tax": 1.0,
       "unit": "LF",
       "unit_price": 1.82
@@ -2773,6 +2870,7 @@
       "rcv": 431.71,
       "review_reason": null,
       "section": "Master Bedroom",
+      "struck_through": false,
       "tax": 19.72,
       "unit": "LF",
       "unit_price": 4.43
@@ -2800,6 +2898,7 @@
       "rcv": 164.21,
       "review_reason": null,
       "section": "Master Bedroom",
+      "struck_through": false,
       "tax": 1.46,
       "unit": "LF",
       "unit_price": 1.75
@@ -2827,6 +2926,7 @@
       "rcv": 94.15,
       "review_reason": null,
       "section": "Master Bedroom",
+      "struck_through": false,
       "tax": 0.08,
       "unit": "EA",
       "unit_price": 94.07
@@ -2854,6 +2954,7 @@
       "rcv": 48.56,
       "review_reason": null,
       "section": "Master Bedroom",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 0.29
@@ -2883,6 +2984,7 @@
       "rcv": 536.3,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 12.07,
       "unit": "SF",
       "unit_price": 4.73
@@ -2910,6 +3012,7 @@
       "rcv": 39.9,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 0.36
@@ -2937,6 +3040,7 @@
       "rcv": 616.5,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 35.28,
       "unit": "SF",
       "unit_price": 4.24
@@ -2964,6 +3068,7 @@
       "rcv": 96.56,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 4.57,
       "unit": "SF",
       "unit_price": 0.83
@@ -2991,6 +3096,7 @@
       "rcv": 368.41,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 15.43,
       "unit": "LF",
       "unit_price": 6.36
@@ -3018,6 +3124,7 @@
       "rcv": 96.8,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 0.78,
       "unit": "LF",
       "unit_price": 1.73
@@ -3045,6 +3152,7 @@
       "rcv": 2123.8,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 37.0,
       "unit": "SF",
       "unit_price": 4.7
@@ -3072,6 +3180,7 @@
       "rcv": 826.12,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 9.16,
       "unit": "SF",
       "unit_price": 1.84
@@ -3099,6 +3208,7 @@
       "rcv": 40.19,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 0.23,
       "unit": "LF",
       "unit_price": 0.72
@@ -3126,6 +3236,7 @@
       "rcv": 516.05,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 9.89,
       "unit": "SF",
       "unit_price": 1.14
@@ -3153,6 +3264,7 @@
       "rcv": 255.31,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 11.66,
       "unit": "LF",
       "unit_price": 4.43
@@ -3180,6 +3292,7 @@
       "rcv": 97.11,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 0.86,
       "unit": "LF",
       "unit_price": 1.75
@@ -3213,6 +3326,7 @@
       "rcv": 94.15,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 0.08,
       "unit": "EA",
       "unit_price": 94.07
@@ -3240,6 +3354,7 @@
       "rcv": 32.14,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 0.29
@@ -3269,6 +3384,7 @@
       "rcv": 536.3,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 12.07,
       "unit": "SF",
       "unit_price": 4.73
@@ -3296,6 +3412,7 @@
       "rcv": 949.31,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 31.64,
       "unit": "SF",
       "unit_price": 8.28
@@ -3323,6 +3440,7 @@
       "rcv": 368.41,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 15.43,
       "unit": "LF",
       "unit_price": 6.36
@@ -3350,6 +3468,7 @@
       "rcv": 96.8,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 0.78,
       "unit": "LF",
       "unit_price": 1.73
@@ -3377,6 +3496,7 @@
       "rcv": 54.48,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 0.64,
       "unit": "LF",
       "unit_price": 0.97
@@ -3408,6 +3528,7 @@
       "rcv": 175.49,
       "review_reason": null,
       "section": "Subroom: Closet",
+      "struck_through": false,
       "tax": 7.88,
       "unit": "LF",
       "unit_price": 3.02
@@ -3435,6 +3556,7 @@
       "rcv": 2123.8,
       "review_reason": null,
       "section": "Pottery Room",
+      "struck_through": false,
       "tax": 37.0,
       "unit": "SF",
       "unit_price": 4.7
@@ -3462,6 +3584,7 @@
       "rcv": 826.12,
       "review_reason": null,
       "section": "Pottery Room",
+      "struck_through": false,
       "tax": 9.16,
       "unit": "SF",
       "unit_price": 1.84
@@ -3489,6 +3612,7 @@
       "rcv": 40.19,
       "review_reason": null,
       "section": "Pottery Room",
+      "struck_through": false,
       "tax": 0.23,
       "unit": "LF",
       "unit_price": 0.72
@@ -3516,6 +3640,7 @@
       "rcv": 516.05,
       "review_reason": null,
       "section": "Pottery Room",
+      "struck_through": false,
       "tax": 9.89,
       "unit": "SF",
       "unit_price": 1.14
@@ -3543,6 +3668,7 @@
       "rcv": 255.31,
       "review_reason": null,
       "section": "Pottery Room",
+      "struck_through": false,
       "tax": 11.66,
       "unit": "LF",
       "unit_price": 4.43
@@ -3570,6 +3696,7 @@
       "rcv": 97.11,
       "review_reason": null,
       "section": "Pottery Room",
+      "struck_through": false,
       "tax": 0.86,
       "unit": "LF",
       "unit_price": 1.75
@@ -3597,6 +3724,7 @@
       "rcv": 26.48,
       "review_reason": null,
       "section": "Pottery Room",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 26.48
@@ -3624,6 +3752,7 @@
       "rcv": 94.15,
       "review_reason": null,
       "section": "Pottery Room",
+      "struck_through": false,
       "tax": 0.08,
       "unit": "EA",
       "unit_price": 94.07
@@ -3651,6 +3780,7 @@
       "rcv": 32.14,
       "review_reason": null,
       "section": "Pottery Room",
+      "struck_through": false,
       "tax": null,
       "unit": "SF",
       "unit_price": 0.29
@@ -3678,6 +3808,7 @@
       "rcv": 132.13,
       "review_reason": null,
       "section": "Labor Minimums Applied",
+      "struck_through": false,
       "tax": null,
       "unit": "EA",
       "unit_price": 132.13

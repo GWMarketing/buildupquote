@@ -64,6 +64,11 @@ class LineItem:
     # parsing notes call for.
     needs_review: bool = False
     review_reason: Optional[str] = None
+    # True when the source PDF strikes through this line (a thin rule
+    # through the vertical middle of the row) -- the preparer crossed it
+    # out, so parse_pdf excludes it from the quote totals and flags it
+    # for review. See strikethrough.py.
+    struck_through: bool = False
     raw_tail_tokens: list = field(default_factory=list)
 
 
