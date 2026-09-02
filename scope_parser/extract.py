@@ -28,6 +28,9 @@ purposes (word-level text extraction); either would work fine here.
 # sheet instead of a second copy of the value.
 
 
+import re
+
+
 def _markers_for(pdf_info):
     """Which boilerplate page fingerprints to look for.
 
@@ -43,6 +46,12 @@ def _markers_for(pdf_info):
     for sheet in list(REGISTRY.values()) + list(IDENTIFY_ONLY.values()):
         markers.update(sheet.boilerplate_page_markers)
     return tuple(markers)
+
+
+# Money-like text ("3,397.66", "712.46"). Strike detection only runs on
+# pages that have any -- a sketch page of facet labels and bare dimensions
+# cannot hold a struck line item, and its vector geometry is expensive.
+_MONEYISH_RE = re.compile(r"[,\d]+\.\d{2}")
 
 
 def extract_text(pdf_path, pdf_info=None) -> str:
@@ -69,9 +78,13 @@ def extract_text_and_strikes(pdf_path, pdf_info=None):
                 continue
             lines.extend(text.split("\n"))
             lines.append("")  # keep a page-boundary gap, like the real docs have
-            from .strikethrough import struck_lines_on_page  # local: strikethrough imports pdfplumber
+            # The geometry pass (page.lines / page.rects) is expensive on
+            # vector-heavy sketch pages -- skip it unless this page has
+            # money-like text that could be a struck line item.
+            if _MONEYISH_RE.search(text):
+                from .strikethrough import struck_lines_on_page  # local: strikethrough imports pdfplumber
 
-            struck.update(struck_lines_on_page(page))
+                struck.update(struck_lines_on_page(page))
     return "\n".join(lines), struck
 
 

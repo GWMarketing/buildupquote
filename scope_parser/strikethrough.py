@@ -1,15 +1,16 @@
 # Detects text the document preparer struck through (crossed out).
 #
-# A strikethrough is not part of the extracted text -- it is a thin vector
-# line drawn over the words. pdfplumber exposes that geometry (page.lines /
+# A strikethrough is not part of the extracted text -- it is a vector rule
+# drawn over the words. pdfplumber exposes that geometry (page.lines /
 # page.rects), so a strike can be recognized by position:
 #
 #   * it is horizontal (its two y endpoints agree),
-#   * it is thin (a strike is a rule, not a highlight box),
 #   * its vertical centre passes through the middle band of the word bbox
 #     (30%-70% of the row height) -- table borders sit at the cell edges and
 #     underlines below the baseline, so neither trips it,
-#   * its horizontal span overlaps the word.
+#   * its horizontal span overlaps the word,
+#   * it is thin relative to the text: a hairline, or a bar at most half
+#     the text height -- a full-row highlight box is not a strike.
 #
 # Carriers strike through rows to reject or remove a line item (the Cobb
 # estimate Dumpster line is a real example). parse_pdf uses this to flag
@@ -18,7 +19,8 @@
 import re
 
 _MID_BAND = (0.30, 0.70)
-_MAX_RULE_THICKNESS = 2.0
+# A rule taller than this is a highlight/background box, never a strike.
+_MAX_RULE_HEIGHT = 12.0
 _NUMBER_RE = re.compile(r'^(\d{1,3}[a-z]?)\.?\s')
 
 
@@ -28,9 +30,13 @@ def _line_y(item):
     return (top + bottom) / 2
 
 
+def _rule_height(rule):
+    return abs(rule.get('bottom', rule.get('y1')) - rule.get('top', rule.get('y0')))
+
+
 def _horizontal_rules(page):
     lines = [l for l in page.lines if abs(l['y0'] - l['y1']) < 0.5]
-    rects = [r for r in page.rects if abs(r['top'] - r['bottom']) < _MAX_RULE_THICKNESS]
+    rects = [r for r in page.rects if _rule_height(r) < _MAX_RULE_HEIGHT]
     return lines + rects
 
 
@@ -42,13 +48,17 @@ def struck_word_groups(page):
     groups = {}
     for word in page.extract_words(keep_blank_chars=False):
         top, bottom = word['top'], word['bottom']
-        lo = top + (bottom - top) * _MID_BAND[0]
-        hi = top + (bottom - top) * _MID_BAND[1]
+        height = bottom - top
+        lo = top + height * _MID_BAND[0]
+        hi = top + height * _MID_BAND[1]
         for rule in rules:
             sy = _line_y(rule)
-            if lo <= sy <= hi and rule['x0'] < word['x1'] and rule['x1'] > word['x0']:
-                groups.setdefault(round(top, 1), []).append(word)
-                break
+            if not (lo <= sy <= hi and rule['x0'] < word['x1'] and rule['x1'] > word['x0']):
+                continue
+            if _rule_height(rule) > max(3.0, 0.5 * height):
+                continue
+            groups.setdefault(round(top, 1), []).append(word)
+            break
     return groups
 
 
@@ -81,7 +91,10 @@ def mark_struck_items(items, struck_lines, warnings=None):
     # Matching is deliberately strict to avoid false positives:
     #   1. a struck line that starts with an item number marks that item;
     #   2. otherwise, at least two significant words (or the whole
-    #      description) must overlap a struck line.
+    #      description) must overlap a struck line;
+    #   3. otherwise, the item own figures (quantity + unit + unit price)
+    #      must appear in the struck line -- catches partial strikes that
+    #      only cross out the figures column, not the description.
     #
     # Struck items are marked needs_review (so the workspace flags them and
     # the parser page excludes them from the totals); the contractor can
@@ -102,6 +115,20 @@ def mark_struck_items(items, struck_lines, warnings=None):
                 if overlap and (len(overlap) >= 2 or overlap == desc_tokens):
                     item = li
                     break
+        if item is None:
+            tokens = set(text.split())
+            for li in items:
+                if li.quantity is None or li.unit is None:
+                    continue
+                qty_tok = ('%s' % li.quantity).rstrip('0').rstrip('.')
+                if qty_tok not in tokens or li.unit not in tokens:
+                    continue
+                if li.unit_price is not None:
+                    price_tok = ('%.2f' % li.unit_price).rstrip('0').rstrip('.')
+                    if price_tok not in tokens:
+                        continue
+                item = li
+                break
         if item is not None and not item.struck_through:
             item.struck_through = True
             item.needs_review = True

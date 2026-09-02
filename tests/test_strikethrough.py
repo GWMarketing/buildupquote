@@ -11,13 +11,14 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from scope_parser.models import LineItem
-from scope_parser.strikethrough import mark_struck_items, struck_lines_from_pdf
+from scope_parser.strikethrough import mark_struck_items, struck_lines_from_pdf, struck_lines_on_page
 from scope_parser.pipeline import parse_pdf
 import workspace
 
 
-def _item(number, description):
-    return LineItem(number=number, description=description, quantity=1.0, unit='EA')
+def _item(number, description, quantity=1.0, unit='EA', unit_price=None):
+    return LineItem(number=number, description=description, quantity=quantity,
+                    unit=unit, unit_price=unit_price)
 
 
 class MarkStruckItemsTests(unittest.TestCase):
@@ -82,3 +83,48 @@ class ParsePdfStrikeTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PartialStrikeTests(unittest.TestCase):
+    def test_figures_only_strike_matches_by_quantity_unit_price(self):
+        items = [_item('17', 'Minimum Charge, Glass/Glazing', quantity=1.0, unit='LS', unit_price=324.36)]
+        marked = mark_struck_items(items, ['1 324.36 LS 0.00 293.05'])
+        self.assertEqual(marked, 1)
+        self.assertTrue(items[0].struck_through)
+
+    def test_figures_only_strike_does_not_match_wrong_price(self):
+        items = [_item('17', 'Minimum Charge, Glass/Glazing', quantity=1.0, unit='LS', unit_price=324.36)]
+        marked = mark_struck_items(items, ['1 999.99 LS 0.00 293.05'])
+        self.assertEqual(marked, 0)
+        self.assertFalse(items[0].struck_through)
+
+
+class GeometryRobustnessTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.pdf = os.path.join(tempfile.gettempdir(), 'strike_robust_test.pdf')
+        from reportlab.pdfgen import canvas
+        c = canvas.Canvas(cls.pdf)
+        c.setFont('Helvetica', 10)
+        # Row A: struck with a THICK BAR through the middle -- a real strike.
+        c.drawString(50, 720, '1 Replace roof shingles 10.00 SQ 2.00 20.00')
+        c.rect(50, 721, 300, 3.5, stroke=0, fill=1)
+        # Row B: a full-row highlight box -- must NOT count as a strike.
+        c.drawString(50, 690, '2 Clean gutters 5.00 LF 1.00 5.00')
+        c.rect(50, 684, 300, 13, stroke=0, fill=1)
+        # Row C: an underline -- must NOT count as a strike.
+        c.drawString(50, 660, '3 Paint trim 20.00 LF 1.50 30.00')
+        c.line(50, 655, 300, 655)
+        # Row D: a table border at the top edge of the row -- must NOT.
+        c.drawString(50, 630, '4 Haul debris 2.00 EA 50.00 100.00')
+        c.line(50, 639, 300, 639)
+        c.save()
+
+    def test_only_the_thick_bar_row_is_struck(self):
+        import pdfplumber
+        with pdfplumber.open(self.pdf) as pdf:
+            struck = set(struck_lines_on_page(pdf.pages[0]))
+        self.assertTrue(any('shingles' in s for s in struck))
+        self.assertFalse(any('gutters' in s for s in struck))
+        self.assertFalse(any('trim' in s for s in struck))
+        self.assertFalse(any('debris' in s for s in struck))
